@@ -19,6 +19,7 @@ from . import tab, util
 from ._contradict import ContraDict
 from .config import Config, PathLike, is_posix
 from .connection import Connection
+from .cloudflare.defeat_cloudflare import defeat_cloudflare, InvalidElementError
 
 logger = logging.getLogger(__name__)
 
@@ -223,27 +224,36 @@ class Browser:
             self.targets.remove(current_tab)
 
     async def get(
-        self, url="chrome://welcome", new_tab: bool = False, new_window: bool = False
+        self, 
+        url="chrome://welcome", 
+        new_tab: bool = False, 
+        new_window: bool = False,
+        defeat_cloudflare: bool = False
     ) -> tab.Tab:
-        """top level get. utilizes the first tab to retrieve given url.
+        """
+        Top-level get. Utilizes the first tab to retrieve the given URL.
 
-        convenience function known from selenium.
-        this function handles waits/sleeps and detects when DOM events fired, so it's the safest
-        way of navigating.
+        If `defeat_cloudflare` is True, attempts to bypass Cloudflare challenges.
 
-        :param url: the url to navigate to
-        :param new_tab: open new tab
-        :param new_window:  open new window
-        :return: Page
+        Args:
+        ----
+        url (str): The URL to navigate to.
+        new_tab (bool): Open in a new tab.
+        new_window (bool): Open in a new window.
+        defeat_cloudflare (bool): Whether to activate Cloudflare defeat mechanism.
+
+        Returns:
+        -------
+        tab.Tab: The page tab.
         """
         if new_tab or new_window:
-            # creat new target using the browser session
+            # Create new target using the browser session
             target_id = await self.connection.send(
                 cdp.target.create_target(
                     url, new_window=new_window, enable_begin_frame_control=True
                 )
             )
-            # get the connection matching the new target_id from our inventory
+            # Get the connection matching the new target_id from our inventory
             connection: tab.Tab = next(
                 filter(
                     lambda item: item.type_ == "page" and item.target_id == target_id,
@@ -251,19 +261,29 @@ class Browser:
                 )
             )
             connection.browser = self
-
         else:
-            # first tab from browser.tabs
+            # First tab from browser.tabs
             connection: tab.Tab = next(
                 filter(lambda item: item.type_ == "page", self.targets)
             )
-            # use the tab to navigate to new url
+            # Use the tab to navigate to new URL
             frame_id, loader_id, *_ = await connection.send(cdp.page.navigate(url))
-            # update the frame_id on the tab
+            # Update the frame_id on the tab
             connection.frame_id = frame_id
             connection.browser = self
 
         await connection.sleep(0.25)
+
+        if defeat_cloudflare:
+            try:
+                success = await defeat_cloudflare(connection, headless=self.config.headless)
+                if success:
+                    # Optionally, re-fetch the page or perform additional actions
+                    pass
+            except InvalidElementError:
+                # Handle the case where the Cloudflare element was not found
+                pass
+
         return connection
 
     async def start(self=None) -> Browser:
