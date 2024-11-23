@@ -276,6 +276,11 @@ class Browser:
         await connection.sleep(0.25)
         return connection
 
+    async def communicate(self) -> tuple[bytes, bytes]:
+        if self._process is None:
+            raise ValueError("Browser process not running")
+        return await self._process.communicate()
+
     async def start(self) -> Browser:
         """launches the actual browser"""
         if not self:
@@ -358,6 +363,12 @@ class Browser:
                 break
 
         if not self.info:
+            stderr = None
+            try :
+                 _, stderr_bytes = await self._process.communicate()
+                 stderr = stderr_bytes.decode()[:1000]
+            except Exception :
+                pass
             raise Exception(
                 (
                     """
@@ -366,7 +377,8 @@ class Browser:
                 ---------------------
                 One of the causes could be when you are running as root.
                 In that case you need to pass no_sandbox=True
-                """
+                """ +
+                ("Browser error output:" + stderr if stderr else '')
                 )
             )
 
@@ -701,8 +713,6 @@ class CookieJar:
         # if not connection:
         #     return
         # if not connection.websocket:
-        #     return
-        # if connection.websocket.closed:
         #     return
         cookies = await self.get_all(requests_cookie_format=False)
         included_cookies = []

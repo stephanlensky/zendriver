@@ -1424,6 +1424,9 @@ class CookiePartitionKey:
 
     @classmethod
     def from_json(cls, json: T_JSON_DICT) -> CookiePartitionKey:
+        if isinstance(json, str):
+            # Some chrome versions return partitionKey as string
+            return cls(json, False)
         return cls(
             top_level_site=str(json["topLevelSite"]),
             has_cross_site_ancestor=bool(json["hasCrossSiteAncestor"]),

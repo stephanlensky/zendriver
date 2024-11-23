@@ -201,7 +201,7 @@ class Connection(metaclass=CantTouchThis):
     ):
         super().__init__()
         self._target = target
-        self.__count__ = itertools.count(0)
+        self._cdp_id_generator = itertools.count(0)
         self._owner = _owner
         self.websocket_url: str = websocket_url
         self.websocket = None
@@ -230,7 +230,7 @@ class Connection(metaclass=CantTouchThis):
     def closed(self):
         if not self.websocket:
             return True
-        return self.websocket.closed
+        return (not self.websocket)
 
     def add_handler(
         self,
@@ -282,7 +282,7 @@ class Connection(metaclass=CantTouchThis):
         :return:
         """
 
-        if not self.websocket or self.websocket.closed:
+        if not self.websocket:
             try:
                 self.websocket = await websockets.connect(
                     self.websocket_url,
@@ -308,11 +308,12 @@ class Connection(metaclass=CantTouchThis):
         """
         closes the websocket connection. should not be called manually by users.
         """
-        if self.websocket and not self.websocket.closed:
+        if self.websocket:
             if self.listener and self.listener.running:
                 self.listener.cancel()
                 self.enabled_domains.clear()
             await self.websocket.close()
+            self.websocket = None
             logger.debug("\n❌ closed websocket connection to %s", self.websocket_url)
 
     async def sleep(self, t: Union[int, float] = 0.25):
@@ -411,7 +412,7 @@ class Connection(metaclass=CantTouchThis):
         :return:
         """
         await self.aopen()
-        if not self.websocket or self.closed:
+        if not self.websocket:
             return
         if self._owner:
             browser = self._owner
@@ -425,9 +426,7 @@ class Connection(metaclass=CantTouchThis):
         try:
             tx = Transaction(cdp_obj)
             tx.connection = self
-            if not self.mapper:
-                self.__count__ = itertools.count(0)
-            tx.id = next(self.__count__)
+            tx.id = next(self._cdp_id_generator)
             self.mapper.update({tx.id: tx})
             if not _is_update:
                 await self._register_handlers()
@@ -603,13 +602,15 @@ class Listener:
                 # breathe
                 # await asyncio.sleep(self.time_before_considered_idle / 10)
                 continue
-            except (Exception,) as e:
-                # break on any other exception
-                # which is mostly socket is closed or does not exist
-                # or is not allowed
-
+            except (websockets.exceptions.ConnectionClosedError,) as e:
                 logger.debug(
                     "connection listener exception while reading websocket:\n%s", e
+                )
+                break
+            except (Exception,) as e:
+                # we don't expect here other exceptions, need to debug if it will appear.
+                logger.exception(
+                    "connection listener exception while reading websocket"
                 )
                 break
 
@@ -646,9 +647,7 @@ class Listener:
                 try:
                     event = cdp.util.parse_json_event(message)
                     event_tx = EventTransaction(event)
-                    if not self.connection.mapper:
-                        self.connection.__count__ = itertools.count(0)
-                    event_tx.id = next(self.connection.__count__)
+                    event_tx.id = next(self.connection._cdp_id_generator)
                     self.connection.mapper[event_tx.id] = event_tx
                 except Exception as e:
                     logger.info(

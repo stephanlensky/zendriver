@@ -18,10 +18,11 @@ classifiers = [
 ]
 requires-python = ">=3.10"
 dependencies = [
+    "requests",
     "asyncio-atexit>=1.0.1",
     "deprecated>=1.2.14",
     "mss>=9.0.2",
-    "websockets>=13.1,<14",
+    "websockets>=13.1",
 ]
 
 [build-system]
