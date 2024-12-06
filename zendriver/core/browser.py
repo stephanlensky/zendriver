@@ -587,7 +587,7 @@ class Browser:
         self._process_pid = None
 
     async def _cleanup_temporary_profile(self) -> None:
-        if not self.config or self.config.uses_custom_data_dir:
+        if not self.config or not self.config.uses_custom_data_dir:
             return
 
         for attempt in range(5):
