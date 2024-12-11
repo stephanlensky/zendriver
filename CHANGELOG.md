@@ -13,6 +13,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Handle browser process shutdown on 'Failed to connect to browser' @desoul99
+- Added configurable browser connection timeout and tries @desoul99
+
 ### Changed
 
 ### Removed
