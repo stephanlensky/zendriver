@@ -349,16 +349,15 @@ class Browser:
 
         self._http = HTTPApi((self.config.host, self.config.port))
         util.get_registered_instances().add(self)
-        await asyncio.sleep(0.25)
-        for _ in range(5):
+        await asyncio.sleep(self.config.browser_connection_timeout)
+        for attempt in range(self.config.browser_connection_max_tries):
             try:
                 self.info = ContraDict(await self._http.get("version"), silent=True)
-            except (Exception,):
-                if _ == 4:
-                    logger.debug("could not start", exc_info=True)
-                await self.sleep(0.5)
-            else:
-                break
+                break  # Exit loop if successful
+            except Exception:
+                if attempt == self.config.browser_connection_max_tries - 1:
+                    logger.debug("Could not start", exc_info=True)
+                await asyncio.sleep(self.config.browser_connection_timeout)
 
         if not self.info:
             await self.stop()

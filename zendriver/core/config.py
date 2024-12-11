@@ -105,6 +105,9 @@ class Config:
         self.autodiscover_targets = True
         self.lang = lang
 
+        self.browser_connection_timeout = 0.25
+        self.browser_connection_max_tries = 10
+
         # other keyword args will be accessible by attribute
         self.__dict__.update(kwargs)
         super().__init__()
