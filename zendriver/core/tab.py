@@ -162,6 +162,47 @@ class Tab(Connection):
         import webbrowser
 
         webbrowser.open(self.inspector_url)
+    
+    async def locate(
+        self,
+        tagname: str,
+        attribute: str,
+        value: str,
+        timeout: Union[int, float] = 10,
+    ) -> Element:
+        """
+        locate a single element by tagname, attribute, and value
+        can also be used to wait for such element to appear.
+
+        :param tagname: tagname of the element to search for
+        :type tagname: str
+        :param attribute: the attribute we will be filtering the element by
+        :type attribute: str
+        :param value: the value we will be checking the attribute to narrow our list of elements as much as possible
+        :type value: str
+
+        :param timeout: raise timeout exception when after this many seconds nothing is found.
+        :type timeout: float,int
+        """
+        loop = asyncio.get_running_loop()
+        start_time = loop.time()
+
+        tagname, attribute, value = tagname.strip().upper(), attribute.strip(), value.strip()
+
+        item = await self.locate_element_by_tagname_attribute_value(
+            tagname, attribute, value
+        )
+        while not item:
+            await self.wait()
+            item = await self.locate_element_by_tagname_attribute_value(
+                tagname, attribute, value
+            )
+            if loop.time() - start_time > timeout:
+                raise asyncio.TimeoutError(
+                    f"time ran out while waiting for element: {tagname}[{attribute}=\"{value}\"]"
+                )
+            await self.sleep(0.5)
+        return item
 
     async def find(
         self,
@@ -221,69 +262,6 @@ class Tab(Connection):
                 )
             await self.sleep(0.5)
         return item
-    
-    async def locate(
-        self,
-        tagname: str,
-        attribute: str,
-        value: str,
-        timeout: Union[int, float] = 10,
-    ):
-        """
-        locate a single element by tagname, attribute, and value; this way it is guaranteed to get your targeted element every single time.
-        can also be used to wait for such element to appear.
-
-        :param tagname: tagname of the element to search for
-        :type tagname: str
-        :param attribute: the attribute we will be filtering the element by
-        :type attribute: str
-        :param value: the value we will be checking the attribute to narrow our list of elements as much as possible
-        :type value: str
-        :param best_match:  :param best_match:  when True (default), it will return the element which has the most
-                                               comparable string length. this could help tremendously, when for example
-                                               you search for "login", you'd probably want the login button element,
-                                               and not thousands of scripts,meta,headings containing a string of "login".
-                                               When False, it will return naively just the first match (but is way faster).
-        :type best_match: bool
-        :param return_enclosing_element:
-                since we deal with nodes instead of elements, the find function most often returns
-                so called text nodes, which is actually a element of plain text, which is
-                the somehow imaginary "child" of a "span", "p", "script" or any other elements which have text between their opening
-                and closing tags.
-                most often when we search by text, we actually aim for the element containing the text instead of
-                a lousy plain text node, so by default the containing element is returned.
-
-                however, there are (why not) exceptions, for example elements that use the "placeholder=" property.
-                this text is rendered, but is not a pure text node. in that case you can set this flag to False.
-                since in this case we are probably interested in just that element, and not it's parent.
-
-
-                # todo, automatically determine node type
-                # ignore the return_enclosing_element flag if the found node is NOT a text node but a
-                # regular element (one having a tag) in which case that is exactly what we need.
-        :type return_enclosing_element: bool
-        :param timeout: raise timeout exception when after this many seconds nothing is found.
-        :type timeout: float,int
-        """
-        loop = asyncio.get_running_loop()
-        start_time = loop.time()
-
-        tagname, attribute, value = tagname.strip().upper(), attribute.strip(), value.strip()
-
-        item = await self.locate_element_by_tagname_attribute_value(
-            tagname, attribute, value
-        )
-        while not item:
-            await self.wait()
-            item = await self.locate_element_by_tagname_attribute_value(
-                tagname, attribute, value
-            )
-            if loop.time() - start_time > timeout:
-                raise asyncio.TimeoutError(
-                    f"time ran out while waiting for element: {tagname}[{attribute}={value}]"
-                )
-            await self.sleep(0.5)
-        return item
 
     async def select(
         self,
@@ -317,6 +295,52 @@ class Tab(Connection):
             await self.sleep(0.5)
         return item
 
+    async def locate_all(
+        self,
+        tagname: str,
+        attribute: str,
+        value: str,
+        timeout: Union[int, float] = 10,
+    ) -> List[Element]:
+        """
+        locate multiple elements by tagname, attribute, and value
+        can also be used to wait for such element to appear.
+
+        :param tagname: tagname of the element to search for
+        :type tagname: str
+        :param attribute: the attribute we will be filtering the element by
+        :type attribute: str
+        :param value: the value we will be checking the attribute to narrow our list of elements as much as possible
+        :type value: str
+
+        :param timeout: raise timeout exception when after this many seconds nothing is found.
+        :type timeout: float,int
+        """
+        loop = asyncio.get_running_loop()
+        now = loop.time()
+
+        tagname, attribute, value = tagname.strip().upper(), attribute.strip(), value.strip()
+
+        items = await self.locate_elements_by_tagname_attribute_value(
+            tagname = tagname,
+            attribute = attribute,
+            value = value
+        )
+
+        while not items:
+            await self.wait()
+            items = await self.locate_elements_by_tagname_attribute_value(
+                tagname = tagname,
+                attribute = attribute,
+                value = value
+            )
+            if loop.time() - now > timeout:
+                raise asyncio.TimeoutError(
+                    f"time ran out while waiting for elements: {tagname}[{attribute}=\"{value}\"]"
+                )
+            await self.sleep(0.5)
+        return items
+
     async def find_all(
         self,
         text: str,
@@ -344,39 +368,6 @@ class Tab(Connection):
             if loop.time() - now > timeout:
                 raise asyncio.TimeoutError(
                     "time ran out while waiting for text: %s" % text
-                )
-            await self.sleep(0.5)
-        return items
-    
-    async def locate_all(
-        self,
-        tagname: str,
-        attribute: str,
-        value: str,
-        timeout: Union[int, float] = 10,
-    ) -> List[Element]:
-        """
-        find multiple elements by text
-        can also be used to wait for such element to appear.
-
-        :param text: text to search for. note: script contents are also considered text
-        :type text: str
-
-        :param timeout: raise timeout exception when after this many seconds nothing is found.
-        :type timeout: float,int
-        """
-        loop = asyncio.get_running_loop()
-        now = loop.time()
-
-        text = text.strip()
-        items = await self.find_elements_by_text(text)
-
-        while not items:
-            await self.wait()
-            items = await self.find_elements_by_text(text)
-            if loop.time() - now > timeout:
-                raise asyncio.TimeoutError(
-                    f"time ran out while waiting for elements: {tagname}[{attribute}={value}]"
                 )
             await self.sleep(0.5)
         return items
@@ -558,6 +549,160 @@ class Tab(Connection):
             return
         return element.create(node, self, doc)
 
+    async def locate_element_by_tagname_attribute_value(
+        self,
+        tagname: str,
+        attribute: str,
+        value: str,
+    ) -> Element | None:
+        """
+        locates and returns the first element containing <text>, or best match
+
+        :param tagname: The name of the HTML tag to search for (e.g., 'button', 'input'..).
+        :type tagname: str
+        :param attribute: The attribute to match (e.g., 'id', 'name'..).
+        :type attribute: str
+        :param value: The value of the attribute to match.
+        :type value: str
+
+        :return: A single element
+        :rtype: Element
+        """
+        async def traverse(node, parent_tree):
+            """
+                Recursive traversal of the DOM and shadow DOM to find out targeted element.
+            """
+            if not node:
+                return None
+
+            # check if the node matches the tag and attribute criteria
+            if (
+                node.node_type == 1  # element node
+                and node.node_name.lower() == tagname.lower()
+                and node.attributes
+                and attribute in node.attributes
+                and any(
+                    node.attributes[i] == attribute and node.attributes[i + 1] == value
+                    for i in range(0, len(node.attributes), 2)
+                )
+            ):
+                return element.create(node, self, parent_tree)
+
+            tasks = list()
+
+            # traverse shadow roots if they exist
+            if node.shadow_roots:
+                tasks.extend(traverse(shadow_root, parent_tree) for shadow_root in node.shadow_roots)
+
+            # traverse child nodes
+            if node.children:
+                tasks.extend(traverse(child, parent_tree) for child in node.children)
+            
+            for task in asyncio.as_completed(tasks):
+                result = await task
+                if result:
+                    return result
+
+            return None
+
+        # fetch the document root
+        doc = await self.send(cdp.dom.get_document(depth=-1, pierce=True))
+
+        # start traversing the DOM tree
+        result = await traverse(doc, doc)
+        if result:
+            return result
+
+        # search within iframes concurrently
+        iframes = util.filter_recurse_all(doc, lambda node: node.node_name == "IFRAME")
+        iframe_tasks = [
+            traverse(iframe.content_document, iframe.content_document)
+            for iframe in iframes
+            if iframe.content_document
+        ]
+
+        for iframe_task in asyncio.as_completed(iframe_tasks):
+            result = await iframe_task
+            if result:
+                return result
+
+        return None
+    
+    async def locate_elements_by_tagname_attribute_value(
+            self,
+            tagname: str,
+            attribute: str,
+            value: str,
+        ) -> list[Element]:
+        """
+        locates and returns all elements with the specified tagname, attribute, and value.
+
+        :param tagname: The name of the HTML tag to search for (e.g., 'button', 'input'..).
+        :type tagname: str
+        :param attribute: The attribute to match (e.g., 'id', 'name'..).
+        :type attribute: str
+        :param value: The value of the attribute to match.
+        :type value: str
+
+        :return: List of matching elements.
+        :rtype: list[Element]
+        """
+        results = []
+
+        async def traverse(node, parent_tree):
+            """
+            Recursive traversal of the DOM, including shadow DOM and iframes, to collect all matching elements.
+            """
+            if not node:
+                return
+
+            # Check if the node matches the tag and attribute criteria
+            if (
+                node.node_type == 1  # element node
+                and node.node_name.lower() == tagname.lower()
+                and node.attributes
+                and attribute in node.attributes
+                and any(
+                    node.attributes[i] == attribute and value in node.attributes[i + 1].split() # searches inside the attributes of the node and checks whether our targeted attribute contains our targeted value, this would also work if we have a Div element with the attribute Class equaling "Class1 Class2" and we're only targeting the value Class1
+                    for i in range(0, len(node.attributes), 2)
+                )
+            ):
+                results.append(element.create(node, self, parent_tree))
+
+            # Use asyncio.gather to explore shadow roots and children concurrently
+            tasks = []
+
+            # Traverse shadow roots if present
+            if node.shadow_roots:
+                tasks.extend(traverse(shadow_root, parent_tree) for shadow_root in node.shadow_roots)
+
+            # Traverse child nodes
+            if node.children:
+                tasks.extend(traverse(child, parent_tree) for child in node.children)
+
+            # Process all tasks concurrently
+            if tasks:
+                await asyncio.gather(*tasks)
+
+        # Fetch the document root
+        doc = await self.send(cdp.dom.get_document(depth=-1, pierce=True))
+
+        # Start traversing the main document
+        await traverse(doc, doc)
+
+        # Search within iframes concurrently
+        iframes = util.filter_recurse_all(doc, lambda node: node.node_name == "IFRAME")
+        iframe_tasks = [
+            traverse(iframe.content_document, iframe.content_document)
+            for iframe in iframes
+            if iframe.content_document
+        ]
+
+        if iframe_tasks:
+            await asyncio.gather(*iframe_tasks)
+
+        return results
+
     async def find_elements_by_text(
         self,
         text: str,
@@ -738,82 +883,6 @@ class Tab(Connection):
                         return elem
         finally:
             await self.send(cdp.dom.disable())
-
-        return None
-    
-    async def locate_element_by_tagname_attribute_value(
-        self,
-        tagname: str,
-        attribute: str,
-        value: str,
-    ) -> Element | None:
-        """
-        finds and returns the first element containing <text>, or best match
-
-        :param tagname:
-        :type tagname: str
-        :param attribute:
-        :type attribute: str
-        :param value:
-        :type value: str
-        
-        :param return_enclosing_element:
-        :type return_enclosing_element:
-        :return:
-        :rtype: Element
-        """
-        async def traverse(node, parent_tree):
-            """
-                Recursive traversal of the DOM and shadow DOM to find out targeted element.
-            """
-            if not node:
-                return None
-
-            # check if the node matches the tag and attribute criteria
-            if (
-                node.node_type == 1  # element node
-                and node.node_name.lower() == tagname.lower()
-                and node.attributes
-                and attribute in node.attributes
-                and node.attributes[attribute] == value
-            ):
-                return element.create(node, self, parent_tree)
-
-            # traverse shadow roots if they exist
-            if node.shadow_roots:
-                for shadow_root in node.shadow_roots:
-                    result = await traverse(shadow_root, parent_tree)
-                    if result:
-                        return result
-
-            # traverse child nodes
-            if node.children:
-                for child in node.children:
-                    result = await traverse(child, parent_tree)
-                    if result:
-                        return result
-
-            return None
-
-        # fetch the document root
-        doc = await self.send(cdp.dom.get_document(depth=-1, pierce=True))
-
-        # start traversing the DOM tree
-        result = await traverse(doc, doc)
-        if result:
-            return result
-
-        # search within iframes
-        iframes = util.filter_recurse_all(doc, lambda node: node.node_name == "IFRAME")
-        for iframe in iframes:
-            iframe_elem = element.create(iframe, self, iframe.content_document)
-            if not iframe_elem:
-                continue
-
-            iframe_doc = iframe.content_document
-            result = await traverse(iframe_doc, iframe_doc)
-            if result:
-                return result
 
         return None
 
