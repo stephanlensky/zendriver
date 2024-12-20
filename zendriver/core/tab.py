@@ -570,7 +570,7 @@ class Tab(Connection):
         """
         async def traverse(node, parent_tree):
             """
-                Recursive traversal of the DOM and shadow DOM to find out targeted element.
+                recursive traversal of the DOM and shadow DOM to find out targeted element.
             """
             if not node:
                 return None
@@ -651,7 +651,7 @@ class Tab(Connection):
 
         async def traverse(node, parent_tree):
             """
-            Recursive traversal of the DOM, including shadow DOM and iframes, to collect all matching elements.
+            recursive traversal of the DOM, including shadow DOM and iframes, to collect all matching elements.
             """
             if not node:
                 return
@@ -666,31 +666,30 @@ class Tab(Connection):
                     node.attributes[i] == attribute and value in node.attributes[i + 1].split() # searches inside the attributes of the node and checks whether our targeted attribute contains our targeted value, this would also work if we have a Div element with the attribute Class equaling "Class1 Class2" and we're only targeting the value Class1
                     for i in range(0, len(node.attributes), 2)
                 )
-            ):
+            ): # if we find a match element, we append it to our list of results
                 results.append(element.create(node, self, parent_tree))
 
-            # Use asyncio.gather to explore shadow roots and children concurrently
-            tasks = []
+            tasks = list()
 
-            # Traverse shadow roots if present
+            # traverse shadow roots if present
             if node.shadow_roots:
                 tasks.extend(traverse(shadow_root, parent_tree) for shadow_root in node.shadow_roots)
 
-            # Traverse child nodes
+            # traverse child nodes
             if node.children:
                 tasks.extend(traverse(child, parent_tree) for child in node.children)
 
-            # Process all tasks concurrently
+            # process all tasks concurrently
             if tasks:
                 await asyncio.gather(*tasks)
 
-        # Fetch the document root
+        # fetch the document root
         doc = await self.send(cdp.dom.get_document(depth=-1, pierce=True))
 
-        # Start traversing the main document
+        # start traversing the main document
         await traverse(doc, doc)
 
-        # Search within iframes concurrently
+        # search within iframes concurrently
         iframes = util.filter_recurse_all(doc, lambda node: node.node_name == "IFRAME")
         iframe_tasks = [
             traverse(iframe.content_document, iframe.content_document)
