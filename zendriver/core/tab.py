@@ -1282,6 +1282,8 @@ class Tab(Connection):
 
     async def wait_for(
         self,
+        tagname: Optional[str] = None,
+        attrs: Optional[dict[str, str]] = None,
         selector: str | None = None,
         text: str | None = None,
         timeout: int | float = 10,
@@ -1294,6 +1296,10 @@ class Tab(Connection):
         it will block for a maximum of <timeout> seconds, after which
         an TimeoutError will be raised
 
+        :param tagname: element tagname
+        :type tagname: str
+        :param attrs: dictionary of attributes
+        :type attrs: dictionary
         :param selector: css selector
         :type selector:
         :param text: text
@@ -1306,6 +1312,24 @@ class Tab(Connection):
         """
         loop = asyncio.get_running_loop()
         start_time = loop.time()
+        if tagname or attrs: # waiting for an element using either their tagname, attributes, or both
+            if(not tagname): # in case attrs were provided but not tagname
+                tagname = None
+            if(not attrs): # in case tagname was provided but not attrs
+                attrs = None
+            item = await self.find(
+                tagname = tagname,
+                attrs = attrs
+            )
+            while not item and loop.time() - start_time < timeout:
+                item = await self.find(
+                    tagname = tagname,
+                    attrs = attrs
+                )
+                await self.sleep(0.5)
+
+            if item:
+                return item
         if selector:
             item = await self.query_selector(selector)
             while not item and loop.time() - start_time < timeout:
