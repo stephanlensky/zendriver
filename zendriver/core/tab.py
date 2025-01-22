@@ -399,22 +399,25 @@ class Tab(Connection):
                 await self.sleep(0.5)
             return items
         elif(tagname or attrs):
-            
-        loop = asyncio.get_running_loop()
-        now = loop.time()
+            loop = asyncio.get_running_loop()
+            start_time = loop.time()
 
-        text = text.strip()
-        items = await self.find_elements_by_text(text)
+            tagname = tagname.strip().upper()
+            attrs = {k.strip(): v.strip() for k, v in attrs.items()}
 
-        while not items:
-            await self.wait()
-            items = await self.find_elements_by_text(text)
-            if loop.time() - now > timeout:
-                raise asyncio.TimeoutError(
-                    "time ran out while waiting for text: %s" % text
-                )
-            await self.sleep(0.5)
-        return items
+            items = await self.find_elements_by_tagname_attrs(tagname, attrs)
+            while not item:
+                await self.wait()
+                item = await self.find_elements_by_tagname_attrs(tagname, attrs)
+                if loop.time() - start_time > timeout:
+                    raise asyncio.TimeoutError(
+                        f"Time ran out while waiting for element: {tagname}, with attributes: {attrs}"
+                    )
+                await self.sleep(0.5)
+            return items
+        elif(not text and not tagname and not attrs):
+            # raising an error in case neither text nor tagname values were provided
+            raise ValueError("You must provide either tagname, attrs, or text to locate the elements.")
 
     async def select_all(
         self, selector: str, timeout: Union[int, float] = 10, include_frames=False
