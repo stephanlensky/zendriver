@@ -206,7 +206,9 @@ class Tab(Connection):
 
     async def find(
         self,
-        text: str,
+        text: Optional[str] = None,
+        tagname: Optional[str] = None,
+        attrs: Optional[dict[str, str]] = None,
         best_match: bool = True,
         return_enclosing_element=True,
         timeout: Union[int, float] = 10,
@@ -242,26 +244,67 @@ class Tab(Connection):
          :type return_enclosing_element: bool
         :param timeout: raise timeout exception when after this many seconds nothing is found.
         :type timeout: float,int
-        """
-        loop = asyncio.get_running_loop()
-        start_time = loop.time()
+        """    
 
-        text = text.strip()
+        if(text and not tagname):
+            loop = asyncio.get_running_loop()
+            start_time = loop.time()
 
-        item = await self.find_element_by_text(
-            text, best_match, return_enclosing_element
-        )
-        while not item:
-            await self.wait()
+            text = text.strip()
+
             item = await self.find_element_by_text(
                 text, best_match, return_enclosing_element
             )
-            if loop.time() - start_time > timeout:
-                raise asyncio.TimeoutError(
-                    "time ran out while waiting for text: %s" % text
+            while not item:
+                await self.wait()
+                item = await self.find_element_by_text(
+                    text, best_match, return_enclosing_element
                 )
-            await self.sleep(0.5)
-        return item
+                if loop.time() - start_time > timeout:
+                    raise asyncio.TimeoutError(
+                        "Time ran out while waiting for text: %s" % text
+                    )
+                await self.sleep(0.5)
+            return item
+        elif(tagname):
+            # loop = asyncio.get_running_loop()
+            # start_time = loop.time()
+
+            # tagname, attribute, value = tagname.strip().upper(), attribute.strip(), value.strip()
+
+            # item = await self.locate_element_by_tagname_attribute_value(
+            #     tagname, attribute, value
+            # )
+            # while not item:
+            #     await self.wait()
+            #     item = await self.locate_element_by_tagname_attribute_value(
+            #         tagname, attribute, value
+            #     )
+            #     if loop.time() - start_time > timeout:
+            #         raise asyncio.TimeoutError(
+            #             f"time ran out while waiting for element: {tagname}[{attribute}=\"{value}\"]"
+            #         )
+            #     await self.sleep(0.5)
+            # return item
+            loop = asyncio.get_running_loop()
+            start_time = loop.time()
+
+            tagname = tagname.strip().upper()
+            attrs = {k.strip(): v.strip() for k, v in attrs.items()}
+
+            item = await self.locate_element_by_tagname_attribute_value(tagname, attrs)
+            while not item:
+                await self.wait()
+                item = await self.locate_element_by_tagname_attribute_value(tagname, attrs)
+                if loop.time() - start_time > timeout:
+                    raise asyncio.TimeoutError(
+                        f"Time ran out while waiting for element: {tagname}, with attributes: {attrs}"
+                    )
+                await self.sleep(0.5)
+            return item
+        elif(not text and not tagname):
+            # raising an error in case neither text nor tagname values were provided
+            raise ValueError("You must provide either tagname or text to locate an element.")
 
     async def select(
         self,
@@ -552,8 +595,7 @@ class Tab(Connection):
     async def locate_element_by_tagname_attribute_value(
         self,
         tagname: str,
-        attribute: str,
-        value: str,
+        attrs: dict[str, str],
     ) -> Element | None:
         """
         locates and returns the first element containing <text>, or best match
@@ -580,10 +622,12 @@ class Tab(Connection):
                 node.node_type == 1  # element node
                 and node.node_name.lower() == tagname.lower()
                 and node.attributes
-                and attribute in node.attributes
-                and any(
-                    node.attributes[i] == attribute and node.attributes[i + 1] == value
-                    for i in range(0, len(node.attributes), 2)
+                and all(
+                    any(
+                        node.attributes[i] == attr and value in node.attributes[i + 1].split()
+                        for i in range(0, len(node.attributes), 2)
+                    )
+                    for attr, value in attrs.items()
                 )
             ):
                 return element.create(node, self, parent_tree)
@@ -628,46 +672,45 @@ class Tab(Connection):
 
         return None
     
-    async def locate_elements_by_tagname_attribute_value(
+    async def locate_elements_by_tagname_attributes(
             self,
             tagname: str,
-            attribute: str,
-            value: str,
+            attrs: dict[str, str],
         ) -> list[Element]:
         """
-        locates and returns all elements with the specified tagname, attribute, and value.
+        Locates and returns all elements with the specified tagname and matching attributes.
 
-        :param tagname: The name of the HTML tag to search for (e.g., 'button', 'input'..).
+        :param tagname: The name of the HTML tag to search for (e.g., 'button', 'input').
         :type tagname: str
-        :param attribute: The attribute to match (e.g., 'id', 'name'..).
-        :type attribute: str
-        :param value: The value of the attribute to match.
-        :type value: str
+        :param attrs: A dictionary of attributes and their corresponding values to match.
+        :type attrs: dict[str, str]
 
         :return: List of matching elements.
         :rtype: list[Element]
         """
-        results = []
+        elements = list()
 
         async def traverse(node, parent_tree):
             """
-            recursive traversal of the DOM, including shadow DOM and iframes, to collect all matching elements.
+            Recursive traversal of the DOM, including shadow DOM and iframes, to collect all matching elements.
             """
             if not node:
                 return
 
-            # Check if the node matches the tag and attribute criteria
+            # Check if the node matches the tag and all attribute-value pairs in attrs
             if (
-                node.node_type == 1  # element node
+                node.node_type == 1  # Element node
                 and node.node_name.lower() == tagname.lower()
                 and node.attributes
-                and attribute in node.attributes
-                and any(
-                    node.attributes[i] == attribute and value in node.attributes[i + 1].split() # searches inside the attributes of the node and checks whether our targeted attribute contains our targeted value, this would also work if we have a Div element with the attribute Class equaling "Class1 Class2" and we're only targeting the value Class1
-                    for i in range(0, len(node.attributes), 2)
+                and all(
+                    any(
+                        node.attributes[i] == attr and value in node.attributes[i + 1].split()
+                        for i in range(0, len(node.attributes), 2)
+                    )
+                    for attr, value in attrs.items()
                 )
-            ): # if we find a match element, we append it to our list of results
-                results.append(element.create(node, self, parent_tree))
+            ):  # if we find a matching element, append it to our list of results
+                elements.append(element.create(node, self, parent_tree))
 
             tasks = list()
 
@@ -700,7 +743,7 @@ class Tab(Connection):
         if iframe_tasks:
             await asyncio.gather(*iframe_tasks)
 
-        return results
+        return elements
 
     async def find_elements_by_text(
         self,
