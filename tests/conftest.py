@@ -1,6 +1,7 @@
 import logging
 import os
 import signal
+from enum import Enum
 from threading import Event
 from typing import AsyncGenerator
 
@@ -10,11 +11,29 @@ import zendriver as zd
 
 logger = logging.getLogger(__name__)
 
+
+class BrowserMode(Enum):
+    HEADLESS = "headless"
+    HEADFUL = "headful"
+    ALL = "all"
+
+    @property
+    def fixture_params(self):
+        if self == BrowserMode.HEADLESS:
+            return [{"headless": True}]
+        elif self == BrowserMode.HEADFUL:
+            return [{"headless": False}]
+        elif self == BrowserMode.ALL:
+            return [{"headless": True}, {"headless": False}]
+
+
+BROWSER_MODE = BrowserMode(os.getenv("ZENDRIVER_TEST_BROWSERS", "all"))
+
 PAUSE_AFTER_TEST = os.getenv("ZENDRIVER_PAUSE_AFTER_TEST", "false") == "true"
 NEXT_TEST_EVENT = Event()
 
 
-@pytest.fixture(params=[{"headless": True}, {"headless": False}])
+@pytest.fixture(params=BROWSER_MODE.fixture_params)
 async def browser(request: pytest.FixtureRequest) -> AsyncGenerator[zd.Browser, None]:
     NEXT_TEST_EVENT.clear()
     browser = await zd.start(
