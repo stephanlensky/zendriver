@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import asyncio
 import datetime
+import fnmatch
 import logging
 import pathlib
 import typing
 import urllib.parse
 import warnings
 import webbrowser
+from contextlib import asynccontextmanager
 from typing import TYPE_CHECKING, Any, List, Optional, Tuple, Union
 
 from .. import cdp
@@ -125,11 +127,11 @@ class Tab(Connection):
     _download_behavior: List[str] | None = None
 
     def __init__(
-        self,
-        websocket_url: str,
-        target: cdp.target.TargetInfo,
-        browser: Browser | None = None,
-        **kwargs,
+            self,
+            websocket_url: str,
+            target: cdp.target.TargetInfo,
+            browser: Browser | None = None,
+            **kwargs,
     ):
         super().__init__(websocket_url, target, browser, **kwargs)
         self.browser = browser
@@ -164,11 +166,11 @@ class Tab(Connection):
         webbrowser.open(self.inspector_url)
 
     async def find(
-        self,
-        text: str,
-        best_match: bool = True,
-        return_enclosing_element=True,
-        timeout: Union[int, float] = 10,
+            self,
+            text: str,
+            best_match: bool = True,
+            return_enclosing_element=True,
+            timeout: Union[int, float] = 10,
     ):
         """
         find single element by text
@@ -223,9 +225,9 @@ class Tab(Connection):
         return item
 
     async def select(
-        self,
-        selector: str,
-        timeout: Union[int, float] = 10,
+            self,
+            selector: str,
+            timeout: Union[int, float] = 10,
     ) -> Element:
         """
         find single element by css selector.
@@ -255,9 +257,9 @@ class Tab(Connection):
         return item
 
     async def find_all(
-        self,
-        text: str,
-        timeout: Union[int, float] = 10,
+            self,
+            text: str,
+            timeout: Union[int, float] = 10,
     ) -> List[Element]:
         """
         find multiple elements by text
@@ -286,7 +288,7 @@ class Tab(Connection):
         return items
 
     async def select_all(
-        self, selector: str, timeout: Union[int, float] = 10, include_frames=False
+            self, selector: str, timeout: Union[int, float] = 10, include_frames=False
     ) -> List[Element]:
         """
         find multiple elements by css selector.
@@ -323,7 +325,7 @@ class Tab(Connection):
         return items
 
     async def get(
-        self, url="chrome://welcome", new_tab: bool = False, new_window: bool = False
+            self, url="chrome://welcome", new_tab: bool = False, new_window: bool = False
     ):
         """top level get. utilizes the first tab to retrieve given url.
 
@@ -351,9 +353,9 @@ class Tab(Connection):
             return self
 
     async def query_selector_all(
-        self,
-        selector: str,
-        _node: cdp.dom.Node | Element | None = None,
+            self,
+            selector: str,
+            _node: cdp.dom.Node | Element | None = None,
     ):
         """
         equivalent of javascripts document.querySelectorAll.
@@ -413,9 +415,9 @@ class Tab(Connection):
         return items
 
     async def query_selector(
-        self,
-        selector: str,
-        _node: Optional[Union[cdp.dom.Node, Element]] = None,
+            self,
+            selector: str,
+            _node: Optional[Union[cdp.dom.Node, Element]] = None,
     ):
         """
         find single element based on css selector string
@@ -463,9 +465,9 @@ class Tab(Connection):
         return element.create(node, self, doc)
 
     async def find_elements_by_text(
-        self,
-        text: str,
-        tag_hint: Optional[str] = None,
+            self,
+            text: str,
+            tag_hint: Optional[str] = None,
     ) -> list[Element]:
         """
         returns element which match the given text.
@@ -534,7 +536,7 @@ class Tab(Connection):
                     iframe_text_nodes = util.filter_recurse_all(
                         iframe_elem,
                         lambda node: node.node_type == 3  # noqa
-                        and text.lower() in node.node_value.lower(),
+                                     and text.lower() in node.node_value.lower(),
                     )
                     if iframe_text_nodes:
                         iframe_text_elems = [
@@ -548,10 +550,10 @@ class Tab(Connection):
         return items or []
 
     async def find_element_by_text(
-        self,
-        text: str,
-        best_match: Optional[bool] = False,
-        return_enclosing_element: Optional[bool] = True,
+            self,
+            text: str,
+            best_match: Optional[bool] = False,
+            return_enclosing_element: Optional[bool] = True,
     ) -> Element | None:
         """
         finds and returns the first element containing <text>, or best match
@@ -617,7 +619,7 @@ class Tab(Connection):
                 iframe_text_nodes = util.filter_recurse_all(
                     iframe_elem,
                     lambda node: node.node_type == 3  # noqa
-                    and text.lower() in node.node_value.lower(),
+                                 and text.lower() in node.node_value.lower(),
                 )
                 if iframe_text_nodes:
                     iframe_text_elems = [
@@ -658,9 +660,9 @@ class Tab(Connection):
         await self.send(cdp.runtime.evaluate("window.history.forward()"))
 
     async def reload(
-        self,
-        ignore_cache: Optional[bool] = True,
-        script_to_evaluate_on_load: Optional[str] = None,
+            self,
+            ignore_cache: Optional[bool] = True,
+            script_to_evaluate_on_load: Optional[str] = None,
     ):
         """
         Reloads the page
@@ -680,7 +682,7 @@ class Tab(Connection):
         )
 
     async def evaluate(
-        self, expression: str, await_promise=False, return_by_value=True
+            self, expression: str, await_promise=False, return_by_value=True
     ):
         remote_object, errors = await self.send(
             cdp.runtime.evaluate(
@@ -703,10 +705,10 @@ class Tab(Connection):
                 return remote_object, errors
 
     async def js_dumps(
-        self, obj_name: str, return_by_value: Optional[bool] = True
+            self, obj_name: str, return_by_value: Optional[bool] = True
     ) -> (
-        dict
-        | typing.Tuple[cdp.runtime.RemoteObject, cdp.runtime.ExceptionDetails | None]
+            dict
+            | typing.Tuple[cdp.runtime.RemoteObject, cdp.runtime.ExceptionDetails | None]
     ):
         """
         dump given js object with its properties and values as a dict
@@ -745,7 +747,7 @@ class Tab(Connection):
             '
         """
         js_code_a = (
-            """
+                """
                            function ___dump(obj, _d = 0) {
                                let _typesA = ['object', 'function'];
                                let _typesB = ['number', 'string', 'boolean'];
@@ -818,10 +820,10 @@ class Tab(Connection):
                            }
                            ___dumpY( %s )
                    """
-            % obj_name
+                % obj_name
         )
         js_code_b = (
-            """
+                """
             ((obj, visited = new WeakSet()) => {
                  if (visited.has(obj)) {
                      return {}
@@ -847,7 +849,7 @@ class Tab(Connection):
                 return result;
             })(%s)
         """
-            % obj_name
+                % obj_name
         )
 
         # we're purposely not calling self.evaluate here to prevent infinite loop on certain expressions
@@ -962,7 +964,7 @@ class Tab(Connection):
         await self.activate()
 
     async def set_window_state(
-        self, left=0, top=0, width=1280, height=720, state="normal"
+            self, left=0, top=0, width=1280, height=720, state="normal"
     ):
         """
         sets the window size or state.
@@ -1076,10 +1078,10 @@ class Tab(Connection):
         )
 
     async def wait_for(
-        self,
-        selector: str | None = None,
-        text: str | None = None,
-        timeout: int | float = 10,
+            self,
+            selector: str | None = None,
+            text: str | None = None,
+            timeout: int | float = 10,
     ) -> element.Element:
         """
         variant on query_selector_all and find_elements_by_text
@@ -1119,6 +1121,48 @@ class Tab(Connection):
                 return item
 
         raise asyncio.TimeoutError("time ran out while waiting")
+
+    async def wait_for_load_page(self,
+                                 until: str = "interactive",
+                                 timeout=30):
+        # ["loading", "interactive", "complete"]
+        loop = asyncio.get_event_loop()
+        start_time = loop.time()
+
+        # ready_state = None
+        # while ready_state != until and loop.time() - start_time < timeout:
+        #     ready_state = await self.evaluate('document.readyState')
+        #     await asyncio.sleep(0.1)
+
+        while True:
+            ready_state = await self.evaluate('document.readyState')
+            if ready_state == until:
+                return True
+
+            if loop.time() - start_time > timeout:
+                raise asyncio.TimeoutError(
+                    "time ran out while waiting for load page until %s" % until
+                )
+
+            await asyncio.sleep(0.1)
+
+    @asynccontextmanager
+    async def expect_request(self, url_pattern)-> typing.AsyncContextManager["RequestExpectation"]:
+        expectation = RequestExpectation(self, url_pattern)
+        try:
+            async with expectation as ex:
+                yield ex
+        finally:
+            pass  # Cleanup handled internally
+
+    @asynccontextmanager
+    async def expect_response(self, url_pattern) -> typing.AsyncContextManager["ResponseExpectation"]:
+        expectation = ResponseExpectation(self, url_pattern)
+        try:
+            async with expectation as ex:
+                yield ex
+        finally:
+            pass  # Cleanup handled internally
 
     async def download_file(self, url: str, filename: Optional[PathLike] = None):
         """
@@ -1180,10 +1224,10 @@ class Tab(Connection):
         )
 
     async def save_screenshot(
-        self,
-        filename: Optional[PathLike] = "auto",
-        format: str = "jpeg",
-        full_page: bool = False,
+            self,
+            filename: Optional[PathLike] = "auto",
+            format: str = "jpeg",
+            full_page: bool = False,
     ) -> str:
         """
         Saves a screenshot of the page.
@@ -1367,10 +1411,10 @@ class Tab(Connection):
         )
 
     async def set_user_agent(
-        self,
-        user_agent: str | None = None,
-        accept_language: str | None = None,
-        platform: str | None = None,
+            self,
+            user_agent: str | None = None,
+            accept_language: str | None = None,
+            platform: str | None = None,
     ) -> None:
         """
         Set the user agent, accept language, and platform.
@@ -1405,10 +1449,10 @@ class Tab(Connection):
         )
 
     def __call__(
-        self,
-        text: str | None = None,
-        selector: str | None = None,
-        timeout: int | float = 10,
+            self,
+            text: str | None = None,
+            selector: str | None = None,
+            timeout: int | float = 10,
     ):
         """
         alias to query_selector_all or find_elements_by_text, depending
@@ -1441,3 +1485,52 @@ class Tab(Connection):
             extra = f"[url: {self.target.url}]"
         s = f"<{type(self).__name__} [{self.target_id}] [{self.type_}] {extra}>"
         return s
+
+
+class RequestExpectation:
+    def __init__(self, tab, url_pattern):
+        self.tab = tab
+        self.url_pattern = url_pattern
+        self.future = asyncio.Future()
+        self.handler = None
+
+    async def _handler(self, event: cdp.network.RequestWillBeSent):
+        if fnmatch.fnmatch(event.request.url, self.url_pattern):
+            self.tab.remove_handler(cdp.network.RequestWillBeSent)
+            self.future.set_result(event)
+
+    async def __aenter__(self):
+        self.handler = self.tab.add_handler(cdp.network.RequestWillBeSent, self._handler)
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        if not self.future.done():
+            self.tab.remove_handler(cdp.network.RequestWillBeSent)
+
+    async def value(self) -> cdp.network.RequestWillBeSent:
+        return await self.future
+
+
+class ResponseExpectation:
+    def __init__(self, tab, url_pattern):
+        self.tab = tab
+        self.url_pattern = url_pattern
+        self.future = asyncio.Future()
+        self.handler = None
+        self.request_id = None
+
+    async def __aenter__(self):
+        self.handler = self.tab.add_handler(cdp.network.ResponseReceived, self._handler)
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        if not self.future.done():
+            self.tab.remove_handler(cdp.network.ResponseReceived)
+
+    async def _handler(self, event: cdp.network.ResponseReceived, tab):
+        self.request_id = event.request_id
+        self.tab.remove_handler(cdp.network.ResponseReceived)
+        self.future.set_result(event)
+
+    async def value(self) -> cdp.network.ResponseReceived:
+        return await self.future

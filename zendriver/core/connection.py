@@ -271,6 +271,45 @@ class Connection(metaclass=CantTouchThis):
             return
         self.handlers[event_type_or_domain].append(handler)
 
+    def remove_handler(
+            self,
+            event_type_or_domain: Union[type, types.ModuleType],
+    ):
+        """
+        remove a handler for given event
+
+        if event_type_or_domain is a module instead of a type, it will find all available events and remove
+        the handler.
+
+        .. code-block::
+
+            page.remove_handler(cdp.network.RequestWillBeSent)
+
+        :param event_type_or_domain:
+        :type event_type_or_domain:
+
+
+        :return:
+        :rtype:
+        """
+        if isinstance(event_type_or_domain, types.ModuleType):
+            for name, obj in inspect.getmembers_static(event_type_or_domain):
+                if name.isupper():
+                    continue
+                if not name[0].isupper():
+                    continue
+                if type(obj) is type:
+                    continue
+                if inspect.isbuiltin(obj):
+                    continue
+                if obj in self.handlers:
+                    self.handlers.pop(obj)
+            return
+
+        if event_type_or_domain in self.handlers:
+            self.handlers.pop(event_type_or_domain)
+
+
     async def aopen(self, **kw):
         """
         opens the websocket connection. should not be called manually by users
