@@ -355,7 +355,7 @@ class Connection(metaclass=CantTouchThis):
                     await asyncio.sleep(0.1)
             else:
                 await self.listener.idle.wait()
-        except asyncio.TimeoutError:
+        except TimeoutError:
             if isinstance(t, (int, float)):
                 # explicit time is given, which is now passed
                 # so bail out early
@@ -606,7 +606,7 @@ class Listener:
                 msg = await asyncio.wait_for(
                     self.connection.websocket.recv(), self.time_before_considered_idle
                 )
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 self.idle.set()
                 # breathe
                 # await asyncio.sleep(self.time_before_considered_idle / 10)
