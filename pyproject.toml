@@ -1,6 +1,6 @@
 [project]
 name = "zendriver"
-version = "0.3.0"
+version = "0.3.1"
 description = "A blazing fast, async-first, undetectable webscraping/web automation framework"
 readme = "README.md"
 authors = [{ name = "Stephan Lensky", email = "oss@slensky.com" }]
@@ -48,8 +48,20 @@ asyncio_default_fixture_loop_scope = "function"
 [tool.ruff]
 exclude = ["zendriver/cdp"]
 
+[tool.ruff.lint]
+exclude = [
+    "examples/demo.py",
+    "examples/fetch_domain.py",
+    "examples/imgur_upload_image.py",
+    "examples/mouse_drag_boxes.py",
+]
+
 [tool.mypy]
-exclude = "zendriver/cdp"
+exclude = [
+    "zendriver/cdp",
+    "examples/demo.py",
+    "examples/imgur_upload_image.py",
+]
 check_untyped_defs = true
 
 [[tool.mypy.overrides]]
