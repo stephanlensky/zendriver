@@ -216,9 +216,7 @@ class Tab(Connection):
                 text, best_match, return_enclosing_element
             )
             if loop.time() - start_time > timeout:
-                raise TimeoutError(
-                    "time ran out while waiting for text: %s" % text
-                )
+                raise TimeoutError("time ran out while waiting for text: %s" % text)
             await self.sleep(0.5)
         return item
 
@@ -248,9 +246,7 @@ class Tab(Connection):
             await self.wait()
             item = await self.query_selector(selector)
             if loop.time() - start_time > timeout:
-                raise TimeoutError(
-                    "time ran out while waiting for %s" % selector
-                )
+                raise TimeoutError("time ran out while waiting for %s" % selector)
             await self.sleep(0.5)
         return item
 
@@ -279,9 +275,7 @@ class Tab(Connection):
             await self.wait()
             items = await self.find_elements_by_text(text)
             if loop.time() - now > timeout:
-                raise TimeoutError(
-                    "time ran out while waiting for text: %s" % text
-                )
+                raise TimeoutError("time ran out while waiting for text: %s" % text)
             await self.sleep(0.5)
         return items
 
@@ -316,9 +310,7 @@ class Tab(Connection):
             await self.wait()
             items = await self.query_selector_all(selector)
             if loop.time() - now > timeout:
-                raise TimeoutError(
-                    "time ran out while waiting for %s" % selector
-                )
+                raise TimeoutError("time ran out while waiting for %s" % selector)
             await self.sleep(0.5)
         return items
 

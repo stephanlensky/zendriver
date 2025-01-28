@@ -28,7 +28,6 @@ NUM_WINS = SCREEN_WIDTH // 325  # as to not fill up the screen to much
 
 
 class Timing:
-
     def __init__(self):
         self.start = None
         self.stop = None
@@ -45,7 +44,6 @@ class Timing:
 
 
 async def main():
-
     driver = await uc.start()
 
     URL1 = "https://www.bet365.com"
@@ -157,7 +155,6 @@ async def mouse_move(tab):
 
 
 async def move_circle(tab, x=0):
-
     window_id, bounds = await tab.get_window()
 
     old_left, old_top = bounds.left, bounds.top
