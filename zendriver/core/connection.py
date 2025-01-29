@@ -274,6 +274,7 @@ class Connection(metaclass=CantTouchThis):
     def remove_handler(
             self,
             event_type_or_domain: Union[type, types.ModuleType],
+            handler: Union[Callable, Awaitable],
     ):
         """
         remove a handler for given event
@@ -292,6 +293,7 @@ class Connection(metaclass=CantTouchThis):
         :return:
         :rtype:
         """
+
         if isinstance(event_type_or_domain, types.ModuleType):
             for name, obj in inspect.getmembers_static(event_type_or_domain):
                 if name.isupper():
@@ -302,13 +304,13 @@ class Connection(metaclass=CantTouchThis):
                     continue
                 if inspect.isbuiltin(obj):
                     continue
-                if obj in self.handlers:
-                    self.handlers.pop(obj)
+
+                if self.handlers.get(obj) and handler in self.handlers[obj]:
+                    self.handlers[obj].remove(handler)
             return
 
-        if event_type_or_domain in self.handlers:
-            self.handlers.pop(event_type_or_domain)
-
+        if self.handlers.get(event_type_or_domain) and handler in self.handlers[event_type_or_domain]:
+            self.handlers[event_type_or_domain].remove(handler)
 
     async def aopen(self, **kw):
         """

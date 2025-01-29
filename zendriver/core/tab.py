@@ -10,7 +10,7 @@ import urllib.parse
 import warnings
 import webbrowser
 from contextlib import asynccontextmanager
-from typing import TYPE_CHECKING, Any, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, List, Optional, Tuple, Union, Literal, AsyncContextManager
 
 from .. import cdp
 from . import element, util
@@ -1128,7 +1128,7 @@ class Tab(Connection):
         raise asyncio.TimeoutError("time ran out while waiting")
 
     async def wait_for_load_page(self,
-                                 until: str = "interactive",
+                                 until: Literal["loading", "interactive", "complete"] = "interactive",
                                  timeout=30):
         # ["loading", "interactive", "complete"]
         loop = asyncio.get_event_loop()
@@ -1151,23 +1151,12 @@ class Tab(Connection):
 
             await asyncio.sleep(0.1)
 
-    @asynccontextmanager
-    async def expect_request(self, url_pattern)-> typing.AsyncContextManager["RequestExpectation"]:
-        expectation = RequestExpectation(self, url_pattern)
-        try:
-            async with expectation as ex:
-                yield ex
-        finally:
-            pass  # Cleanup handled internally
+    def expect_request(self, url_pattern: str) -> "RequestExpectation":
+        return RequestExpectation(self, url_pattern)
 
-    @asynccontextmanager
-    async def expect_response(self, url_pattern) -> typing.AsyncContextManager["ResponseExpectation"]:
-        expectation = ResponseExpectation(self, url_pattern)
-        try:
-            async with expectation as ex:
-                yield ex
-        finally:
-            pass  # Cleanup handled internally
+    def expect_response(self, url_pattern: str) -> "ResponseExpectation":
+        return ResponseExpectation(self, url_pattern)
+
 
     async def download_file(self, url: str, filename: Optional[PathLike] = None):
         """
@@ -1493,49 +1482,63 @@ class Tab(Connection):
 
 
 class RequestExpectation:
-    def __init__(self, tab, url_pattern):
+    def __init__(self, tab: "Tab", url_pattern: str):
         self.tab = tab
         self.url_pattern = url_pattern
-        self.future = asyncio.Future()
-        self.handler = None
-
-    async def _handler(self, event: cdp.network.RequestWillBeSent):
-        if fnmatch.fnmatch(event.request.url, self.url_pattern):
-            self.tab.remove_handler(cdp.network.RequestWillBeSent)
-            self.future.set_result(event)
-
-    async def __aenter__(self):
-        self.handler = self.tab.add_handler(cdp.network.RequestWillBeSent, self._handler)
-        return self
-
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
-        if not self.future.done():
-            self.tab.remove_handler(cdp.network.RequestWillBeSent)
-
-    async def value(self) -> cdp.network.RequestWillBeSent:
-        return await self.future
-
-
-class ResponseExpectation:
-    def __init__(self, tab, url_pattern):
-        self.tab = tab
-        self.url_pattern = url_pattern
-        self.future = asyncio.Future()
-        self.handler = None
+        self.request_future: asyncio.Future[cdp.network.RequestWillBeSent] = asyncio.Future()
+        self.response_future: asyncio.Future[cdp.network.ResponseReceived] = asyncio.Future()
         self.request_id = None
 
+    async def _request_handler(self, event: cdp.network.RequestWillBeSent):
+        if fnmatch.fnmatch(event.request.url, self.url_pattern):
+            self._remove_request_handler()
+            self.request_id = event.request_id
+            self.request_future.set_result(event)
+
+    async def _response_handler(self, event: cdp.network.ResponseReceived):
+        if event.request_id == self.request_id:
+            self._remove_response_handler()
+            self.response_future.set_result(event)
+
+    def _remove_request_handler(self):
+        # if self._request_handler in self.tab.handlers[cdp.network.RequestWillBeSent]:
+        #     self.tab.handlers[cdp.network.RequestWillBeSent].remove( self._request_handler)
+        self.tab.remove_handler(cdp.network.RequestWillBeSent, self._request_handler)
+
+    def _remove_response_handler(self):
+        # if self._response_handler in self.tab.handlers[cdp.network.ResponseReceived]:
+        #     self.tab.handlers[cdp.network.ResponseReceived].remove( self._response_handler)
+        self.tab.remove_handler(cdp.network.ResponseReceived, self._response_handler)
+
     async def __aenter__(self):
-        self.handler = self.tab.add_handler(cdp.network.ResponseReceived, self._handler)
+        self.tab.add_handler(cdp.network.RequestWillBeSent, self._request_handler)
+        self.tab.add_handler(cdp.network.ResponseReceived, self._response_handler)
         return self
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
-        if not self.future.done():
-            self.tab.remove_handler(cdp.network.ResponseReceived)
+    async def __aexit__(self, *args):
+        self._remove_request_handler()
+        self._remove_response_handler()
 
-    async def _handler(self, event: cdp.network.ResponseReceived, tab):
-        self.request_id = event.request_id
-        self.tab.remove_handler(cdp.network.ResponseReceived)
-        self.future.set_result(event)
+    @property
+    async def request(self):
+        return (await self.request_future).request
 
+    @property
+    async def response(self):
+        return (await self.response_future).response
+
+    @property
+    async def response_body(self):
+        request_id = (await self.request_future).request_id
+        body = await self.tab.send(cdp.network.get_response_body(request_id=request_id))
+        return body
+
+    @property
+    async def value(self) -> cdp.network.RequestWillBeSent:
+        return await self.request_future
+
+
+class ResponseExpectation(RequestExpectation):
+    @property
     async def value(self) -> cdp.network.ResponseReceived:
-        return await self.future
+        return await self.response_future
