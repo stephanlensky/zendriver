@@ -225,18 +225,19 @@ class Tab(Connection):
                     )
                 await self.sleep(0.5)
             return item
+        
         elif(tagname or attrs):
             loop = asyncio.get_running_loop()
             start_time = loop.time()
 
-            if(tagname):
-                tagname = tagname.strip().upper()
-            else:
-                tagname = None
-            if(attrs):
-                attrs = {k.strip(): v.strip() for k, v in attrs.items()}
-            else:
-                attrs = None
+            tagname = tagname.strip().upper() if tagname else None
+            
+            attrs = {k.strip(): v.strip() for k, v in attrs.items()} if attrs else None
+            
+            if(text):
+                if(not attrs):
+                    attrs = dict
+                attrs['innerText'] = text.strip()
 
             item = await self.find_element_by_tagname_attrs(tagname, attrs)
             while not item:
@@ -317,18 +318,19 @@ class Tab(Connection):
                     )
                 await self.sleep(0.5)
             return items
+        
         elif(tagname or attrs):
             loop = asyncio.get_running_loop()
             start_time = loop.time()
 
-            if(tagname):
-                tagname = tagname.strip().upper()
-            else:
-                tagname = None
-            if(attrs):
-                attrs = {k.strip(): v.strip() for k, v in attrs.items()}
-            else:
-                attrs = None
+            tagname = tagname.strip().upper() if tagname else None
+
+            attrs = {k.strip(): v.strip() for k, v in attrs.items()} if attrs else None
+
+            if(text):
+                if(not attrs):
+                    attrs = dict
+                attrs['innerText'] = text.strip()
 
             items = await self.find_elements_by_tagname_attrs(tagname, attrs)
             while not items:
@@ -692,6 +694,11 @@ class Tab(Connection):
         :return:
         :rtype:
         """
+        return self.find_element_by_tagname_attrs(
+            attrs = {
+                "innerText":text.strip()
+            }
+        )
         doc = await self.send(cdp.dom.get_document(-1, True))
         text = text.strip()
         search_id, nresult = await self.send(cdp.dom.perform_search(text, True))
@@ -785,6 +792,11 @@ class Tab(Connection):
         :return:
         :rtype:
         """
+        return self.find_elements_by_tagname_attrs(
+            attrs = {
+                "innerText":text.strip()
+            }
+        )
         text = text.strip()
         doc = await self.send(cdp.dom.get_document(-1, True))
         search_id, nresult = await self.send(cdp.dom.perform_search(text, True))
