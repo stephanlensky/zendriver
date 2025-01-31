@@ -53,7 +53,7 @@ async def test_find_times_out_if_element_not_found(browser: zd.Browser):
 async def test_select(browser: zd.Browser):
     tab = await browser.get(sample_file("groceries.html"))
 
-    result = await tab.select("li[aria-label='Apples (42)']")
+    result = await tab.select("li[aria-label^='Apples']")
 
     assert result is not None
     assert result.tag == "li"
