@@ -272,16 +272,12 @@ class Connection(metaclass=CantTouchThis):
         self.handlers[event_type_or_domain].append(handler)
 
     def remove_handler(
-            self,
-            event_type_or_domain: Union[type, types.ModuleType],
-            handler: Union[Callable, Awaitable],
+        self,
+        event_type_or_domain: type,
+        handler: Union[Callable, Awaitable],
     ):
         """
         remove a handler for given event
-
-        if event_type_or_domain is a module instead of a type, it will find all available events and remove
-        the handler.
-
         .. code-block::
 
             page.remove_handler(cdp.network.RequestWillBeSent)
@@ -289,27 +285,16 @@ class Connection(metaclass=CantTouchThis):
         :param event_type_or_domain:
         :type event_type_or_domain:
 
+        :param handler:
+        :type handler:
 
         :return:
         :rtype:
         """
-
-        if isinstance(event_type_or_domain, types.ModuleType):
-            for name, obj in inspect.getmembers_static(event_type_or_domain):
-                if name.isupper():
-                    continue
-                if not name[0].isupper():
-                    continue
-                if type(obj) is type:
-                    continue
-                if inspect.isbuiltin(obj):
-                    continue
-
-                if self.handlers.get(obj) and handler in self.handlers[obj]:
-                    self.handlers[obj].remove(handler)
-            return
-
-        if self.handlers.get(event_type_or_domain) and handler in self.handlers[event_type_or_domain]:
+        if (
+            self.handlers.get(event_type_or_domain)
+            and handler in self.handlers[event_type_or_domain]
+        ):
             self.handlers[event_type_or_domain].remove(handler)
 
     async def aopen(self, **kw):
