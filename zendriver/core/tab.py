@@ -311,13 +311,13 @@ class Tab(Connection):
             attrs = dict()
             attrs['innerText'] = text.strip() # even if only text is provided, we're gonna 
 
-            items = await self.find_elements_by_tagname_attrs(
+            items = await self.find_elements_by_tagname_attrs_text(
                 attrs = attrs
             )
 
             while not items:
                 await self.wait()
-                items = await self.find_elements_by_tagname_attrs(
+                items = await self.find_elements_by_tagname_attrs_text(
                     attrs = attrs
                 )
                 if loop.time() - now > timeout:
@@ -340,11 +340,11 @@ class Tab(Connection):
                     attrs = dict
                 attrs['innerText'] = text.strip()
 
-            items = await self.find_elements_by_tagname_attrs(tagname, attrs)
+            items = await self.find_elements_by_tagname_attrs_text(tagname, attrs)
 
             while not items:
                 await self.wait()
-                items = await self.find_elements_by_tagname_attrs(tagname, attrs)
+                items = await self.find_elements_by_tagname_attrs_text(tagname, attrs)
                 if loop.time() - start_time > timeout:
                     raise asyncio.TimeoutError(
                         f"Time ran out while waiting for element: {tagname}, with attributes: {attrs}"
@@ -624,49 +624,58 @@ class Tab(Connection):
 
         return None
 
-    async def find_elements_by_tagname_attrs(
-            self,
-            tagname: Optional[str] = None,
-            attrs: Optional[dict[str, str]] = None,
-        ) -> list[Element]:
+    async def find_elements_by_tagname_attrs_text_text(
+        self,
+        tagname: Optional[str] = None,
+        attrs: Optional[dict[str, str]] = None,
+        text: Optional[str] = None
+    ) -> list[Element]:
         """
-        Finds and returns all elements with the specified tagname and matching attributes.
+        Finds and returns all elements matching the tagname, attributes, and optional innerText.
 
         :param tagname: The name of the HTML tag to search for (e.g., 'button', 'input').
-        :type tagname: str
         :param attrs: A dictionary of attributes and their corresponding values to match.
-        :type attrs: dict[str, str]
-
+        :param text: The expected innerText of the element.
         :return: List of matching elements.
         :rtype: list[Element]
         """
-        elements = list()
+
+        elements = []
 
         async def traverse(node, parent_tree):
-            """
-            Recursive traversal of the DOM, including shadow DOM and iframes, to collect all matching elements.
-            """
+            """Recursive traversal of the DOM and shadow DOM to collect all matching elements."""
             if not node:
-                return None
+                return
 
-            # check if the node matches the tagname and attribute-value pairs
-            if (
-                node.node_type == 1  # Element node
-                and (not tagname or node.node_name.lower() == tagname.lower())
-                and node.attributes
-                and (not attrs or all(
+            # create an element to check for the conditions we're looking for
+            elem = element.create(node, self, parent_tree)
+
+            # check for conditions
+            matches_tagname = (
+                not tagname or (elem.tag_name and tagname.strip().lower() == elem.tag_name.strip().lower())
+            ) # this condition evaluates to True if tagname was not provided; no filtering by tagname. Or if tagname equals our targeted element's tagname
+
+            matches_attrs = (
+                not attrs or (elem.attributes and all(
                     any(
-                        node.attributes[i] == attr and value in node.attributes[i + 1].split()
-                        for i in range(0, len(node.attributes), 2)
+                        elem.attributes[i] == attr and value in elem.attributes[i + 1].split()
+                        for i in range(0, len(elem.attributes), 2)
                     )
                     for attr, value in attrs.items()
                 ))
-            ):
-                elements.append(element.create(node, self, parent_tree))
+            ) # this condition evaluates to True if attrs was not provided; no filtering by attrs. Or if the provided attrs are in our targeted element's attributes
+
+            matches_text = (
+                not text or (elem.text and text.strip().lower() in elem.text.strip().lower())
+            ) # this condition evaluates to True if text was not provided; no filtering by text. Or if text is in our targeted element's text
+
+            # if all conditions match, add the element to the list of elements to return
+            if matches_tagname and matches_attrs and matches_text:
+                elements.append(elem)
 
             tasks = list()
 
-            # traverse shadow roots
+            # traverse shadow roots nodes
             if node.shadow_roots:
                 tasks.extend(traverse(shadow_root, parent_tree) for shadow_root in node.shadow_roots)
 
@@ -674,16 +683,15 @@ class Tab(Connection):
             if node.children:
                 tasks.extend(traverse(child, parent_tree) for child in node.children)
 
-            if tasks:
-                await asyncio.gather(*tasks)
+            await asyncio.gather(*tasks)
 
         # fetch the document root
         doc = await self.send(cdp.dom.get_document(depth=-1, pierce=True))
 
-        # traverse the DOM tree
+        # start traversing the DOM tree
         await traverse(doc, doc)
 
-        # handle iframes
+        # search within iframes concurrently
         iframes = util.filter_recurse_all(doc, lambda node: node.node_name == "IFRAME")
         iframe_tasks = [
             traverse(iframe.content_document, iframe.content_document)
