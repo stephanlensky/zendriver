@@ -165,11 +165,9 @@ class Tab(Connection):
 
     async def find(
         self,
-        text: Optional[str] = None,
         tagname: Optional[str] = None,
         attrs: Optional[dict[str, str]] = None,
-        best_match: Optional[bool] = True,
-        return_enclosing_element = True,
+        text: Optional[str] = None,
         timeout: Union[int, float] = 10,
     ):
         """
@@ -203,56 +201,38 @@ class Tab(Connection):
          :type return_enclosing_element: bool
         :param timeout: raise timeout exception when after this many seconds nothing is found.
         :type timeout: float,int
-        """    
+        """
 
-        if(text and not tagname and not attrs): # searches by text only if tagname and attrs weren't provided because it is more efficient to search by tagname and attrs.
-            loop = asyncio.get_running_loop()
-            start_time = loop.time()
+        loop = asyncio.get_running_loop()
+        start_time = loop.time()
 
-            attrs = dict()
-            attrs['innerText'] = text.strip()
+        tagname = tagname.strip().lower() if tagname else None
+        attrs = {k.strip(): v.strip() for k, v in attrs.items()} if attrs else None
+        text = text.strip().lower() if text else None
 
-            item = await self.find_element_by_tagname_attrs_text(
-                attrs = attrs
-            )
-            while not item:
-                await self.wait()
-                item = await self.find_element_by_tagname_attrs_text(
-                    attrs = attrs
-                )
-                if loop.time() - start_time > timeout:
-                    raise asyncio.TimeoutError(
-                        "Time ran out while waiting for text: %s" % text
-                    )
-                await self.sleep(0.5)
-            return item
-        
-        elif(tagname or attrs):
-            loop = asyncio.get_running_loop()
-            start_time = loop.time()
-
-            tagname = tagname.strip().upper() if tagname else None
-            
-            attrs = {k.strip(): v.strip() for k, v in attrs.items()} if attrs else None
-            
-            if(text):
-                if(not attrs):
-                    attrs = dict
-                attrs['innerText'] = text.strip()
-
-            item = await self.find_element_by_tagname_attrs_text(tagname, attrs)
-            while not item:
-                await self.wait()
-                item = await self.find_element_by_tagname_attrs_text(tagname, attrs)
-                if loop.time() - start_time > timeout:
-                    raise asyncio.TimeoutError(
-                        f"Time ran out while waiting for element: {tagname}, with attributes: {attrs}"
-                    )
-                await self.sleep(0.5)
-            return item
-        elif(not text and not tagname and not attrs):
+        if(not text and not tagname and not attrs):
             # raising an error in case neither text nor tagname values were provided
             raise ValueError("You must provide either tagname, attrs, or text to find an element.")
+
+        item = await self.find_element_by_tagname_attrs_text(
+            tagname = tagname,
+            attrs = attrs,
+            text = text
+        )
+        while(not item):
+            await self.wait()
+            item = await self.find_element_by_tagname_attrs_text(
+                tagname = tagname,
+                attrs = attrs,
+                text = text
+            )
+            if(loop.time() - start_time > timeout):
+                raise asyncio.TimeoutError(
+                    f'Time ran out while waiting for element with tagname: {tagname}, attributess: {attrs}, text:{text}'
+                )
+            await self.sleep(0.5)
+
+        return item
 
     async def select(
         self,
@@ -288,9 +268,9 @@ class Tab(Connection):
 
     async def find_all(
         self,
-        text: Optional[str] = None,
         tagname: Optional[str] = None,
         attrs: Optional[dict[str, str]] = None,
+        text: Optional[str] = None,
         timeout: Union[int, float] = 10,
     ) -> List[Element]:
         """
@@ -303,58 +283,37 @@ class Tab(Connection):
         :param timeout: raise timeout exception when after this many seconds nothing is found.
         :type timeout: float,int
         """
-        if(text and not tagname and not attrs): # searches by text only if tagname and attrs weren't provided because it is more efficient to search by tagname and attrs.
-            
-            loop = asyncio.get_running_loop()
-            now = loop.time()
 
-            attrs = dict()
-            attrs['innerText'] = text.strip() # even if only text is provided, we're gonna 
+        loop = asyncio.get_running_loop()
+        start_time = loop.time()
 
-            items = await self.find_elements_by_tagname_attrs_text(
-                attrs = attrs
-            )
+        tagname = tagname.strip().lower() if tagname else None
+        attrs = {k.strip(): v.strip() for k, v in attrs.items()} if attrs else None
+        text = text.strip().lower() if text else None
 
-            while not items:
-                await self.wait()
-                items = await self.find_elements_by_tagname_attrs_text(
-                    attrs = attrs
-                )
-                if loop.time() - now > timeout:
-                    raise asyncio.TimeoutError(
-                        "time ran out while waiting for text: %s" % text
-                    )
-                await self.sleep(0.5)
-            return items
-    
-        elif(tagname or attrs):
-
-            loop = asyncio.get_running_loop()
-            start_time = loop.time()
-
-            tagname = tagname.strip().upper() if tagname else None
-            attrs = {k.strip(): v.strip() for k, v in attrs.items()} if attrs else None
-
-            if(text):
-                if(not attrs):
-                    attrs = dict
-                attrs['innerText'] = text.strip()
-
-            items = await self.find_elements_by_tagname_attrs_text(tagname, attrs)
-
-            while not items:
-                await self.wait()
-                items = await self.find_elements_by_tagname_attrs_text(tagname, attrs)
-                if loop.time() - start_time > timeout:
-                    raise asyncio.TimeoutError(
-                        f"Time ran out while waiting for element: {tagname}, with attributes: {attrs}"
-                    )
-                await self.sleep(0.5)
-            return items
-
-        elif(not text and not tagname and not attrs):
+        if(not text and not tagname and not attrs):
             # raising an error in case neither text nor tagname values were provided
             raise ValueError("You must provide either tagname, attrs, or text to find elements.")
+        
+        items = await self.find_elements_by_tagname_attrs_text(
+            tagname = tagname,
+            attrs = attrs,
+            text = text
+        )
+        while not items:
+            await self.wait()
+            items = await self.find_elements_by_tagname_attrs_text(
+                tagname = tagname,
+                attrs = attrs,
+                text = text
+            )
+            if loop.time() - start_time > timeout:
+                raise asyncio.TimeoutError(
+                    f'Time ran out while waiting for elements with tagname: {tagname}, attributess: {attrs}, text:{text}'
+                )
+            await self.sleep(0.5)
+
+        return items
 
     async def select_all(
         self, selector: str, timeout: Union[int, float] = 10, include_frames=False
