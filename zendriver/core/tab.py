@@ -174,15 +174,12 @@ class Tab(Connection):
         find single element by text
         can also be used to wait for such element to appear.
 
+        :param tagname: tagname to search for. ex: div, span, input, button..
+        :type tagname: str
+        :param attrs: attributes to search for. ex: {'class':'class1', 'name':'name1', 'id':'123'}
+        :type attrs: dict
         :param text: text to search for. note: script contents are also considered text
         :type text: str
-        :param best_match:  :param best_match:  when True (default), it will return the element which has the most
-                                               comparable string length. this could help tremendously, when for example
-                                               you search for "login", you'd probably want the login button element,
-                                               and not thousands of scripts,meta,headings containing a string of "login".
-                                               When False, it will return naively just the first match (but is way faster).
-         :type best_match: bool
-         :param return_enclosing_element:
                  since we deal with nodes instead of elements, the find function most often returns
                  so called text nodes, which is actually a element of plain text, which is
                  the somehow imaginary "child" of a "span", "p", "script" or any other elements which have text between their opening
@@ -277,6 +274,10 @@ class Tab(Connection):
         find multiple elements by text
         can also be used to wait for such element to appear.
 
+        :param tagname: tagname to search for. ex: div, span, input, button..
+        :type tagname: str
+        :param attrs: attributes to search for. ex: {'class':'class1', 'name':'name1', 'id':'123'}
+        :type attrs: dict
         :param text: text to search for. note: script contents are also considered text
         :type text: str
 
