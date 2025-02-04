@@ -492,7 +492,7 @@ class Tab(Connection):
             return
         return element.create(node, self, doc)
 
-    async def find_element_by_tagname_attrs_text_text(
+    async def find_element_by_tagname_attrs_text(
             self,
             tagname: str | None = None,
             attrs: dict[str, str] | None = None,
@@ -583,7 +583,7 @@ class Tab(Connection):
 
         return None
 
-    async def find_elements_by_tagname_attrs_text_text(
+    async def find_elements_by_tagname_attrs_text(
         self,
         tagname: Optional[str] = None,
         attrs: Optional[dict[str, str]] = None,
@@ -666,110 +666,105 @@ class Tab(Connection):
     async def find_element_by_text(
         self,
         text: str,
-        best_match: Optional[bool] = False,
-        return_enclosing_element: Optional[bool] = True,
     ) -> Element | None:
         """
         finds and returns the first element containing <text>, or best match
 
         :param text:
         :type text:
-        :param best_match:  when True, which is MUCH more expensive (thus much slower),
-                            will find the closest match based on length.
-                            this could help tremendously, when for example you search for "login", you'd probably want the login button element,
-                            and not thousands of scripts,meta,headings containing a string of "login".
-
-        :type best_match: bool
-        :param return_enclosing_element:
-        :type return_enclosing_element:
         :return:
         :rtype:
         """
-        doc = await self.send(cdp.dom.get_document(-1, True))
-        text = text.strip()
-        search_id, nresult = await self.send(cdp.dom.perform_search(text, True))
-
-        if nresult:
-            node_ids = await self.send(
-                cdp.dom.get_search_results(search_id, 0, nresult)
-            )
+        if(not text):
+            raise ValueError('You must provide a text value to find an element with.')
         else:
-            node_ids = []
-        await self.send(cdp.dom.discard_search_results(search_id))
+            return await self.find(
+                text = text
+            )
+        # doc = await self.send(cdp.dom.get_document(-1, True))
+        # text = text.strip()
+        # search_id, nresult = await self.send(cdp.dom.perform_search(text, True))
 
-        if not node_ids:
-            node_ids = []
-        items = []
-        for nid in node_ids:
-            node = util.filter_recurse(doc, lambda n: n.node_id == nid)
-            if node is None:
-                continue
+        # if nresult:
+        #     node_ids = await self.send(
+        #         cdp.dom.get_search_results(search_id, 0, nresult)
+        #     )
+        # else:
+        #     node_ids = []
+        # await self.send(cdp.dom.discard_search_results(search_id))
 
-            try:
-                elem = element.create(node, self, doc)
-            except:  # noqa
-                continue
-            if elem.node_type == 3:
-                # if found element is a text node (which is plain text, and useless for our purpose),
-                # we return the parent element of the node (which is often a tag which can have text between their
-                # opening and closing tags (that is most tags, except for example "img" and "video", "br")
+        # if not node_ids:
+        #     node_ids = []
+        # items = []
+        # for nid in node_ids:
+        #     node = util.filter_recurse(doc, lambda n: n.node_id == nid)
+        #     if node is None:
+        #         continue
 
-                if not elem.parent:
-                    # check if parent actually has a parent and update it to be absolutely sure
-                    await elem.update()
+        #     try:
+        #         elem = element.create(node, self, doc)
+        #     except:  # noqa
+        #         continue
+        #     if elem.node_type == 3:
+        #         # if found element is a text node (which is plain text, and useless for our purpose),
+        #         # we return the parent element of the node (which is often a tag which can have text between their
+        #         # opening and closing tags (that is most tags, except for example "img" and "video", "br")
 
-                items.append(
-                    elem.parent or elem
-                )  # when it really has no parent, use the text node itself
-                continue
-            else:
-                # just add the element itself
-                items.append(elem)
+        #         if not elem.parent:
+        #             # check if parent actually has a parent and update it to be absolutely sure
+        #             await elem.update()
 
-        # since we already fetched the entire doc, including shadow and frames
-        # let's also search through the iframes
-        iframes = util.filter_recurse_all(doc, lambda node: node.node_name == "IFRAME")
-        if iframes:
-            iframes_elems = [
-                element.create(iframe, self, iframe.content_document)
-                for iframe in iframes
-            ]
-            for iframe_elem in iframes_elems:
-                iframe_text_nodes = util.filter_recurse_all(
-                    iframe_elem,
-                    lambda node: node.node_type == 3  # noqa
-                    and text.lower() in node.node_value.lower(),
-                )
-                if iframe_text_nodes:
-                    iframe_text_elems = [
-                        element.create(text_node, self, iframe_elem.tree)
-                        for text_node in iframe_text_nodes
-                    ]
-                    items.extend(text_node.parent for text_node in iframe_text_elems)
-        try:
-            if not items:
-                return None
-            if best_match:
-                closest_by_length = min(
-                    items, key=lambda el: abs(len(text) - len(el.text_all))
-                )
-                elem = closest_by_length or items[0]
+        #         items.append(
+        #             elem.parent or elem
+        #         )  # when it really has no parent, use the text node itself
+        #         continue
+        #     else:
+        #         # just add the element itself
+        #         items.append(elem)
 
-                return elem
-            else:
-                # naively just return the first result
-                for elem in items:
-                    if elem:
-                        return elem
-        finally:
-            await self.send(cdp.dom.disable())
+        # # since we already fetched the entire doc, including shadow and frames
+        # # let's also search through the iframes
+        # iframes = util.filter_recurse_all(doc, lambda node: node.node_name == "IFRAME")
+        # if iframes:
+        #     iframes_elems = [
+        #         element.create(iframe, self, iframe.content_document)
+        #         for iframe in iframes
+        #     ]
+        #     for iframe_elem in iframes_elems:
+        #         iframe_text_nodes = util.filter_recurse_all(
+        #             iframe_elem,
+        #             lambda node: node.node_type == 3  # noqa
+        #             and text.lower() in node.node_value.lower(),
+        #         )
+        #         if iframe_text_nodes:
+        #             iframe_text_elems = [
+        #                 element.create(text_node, self, iframe_elem.tree)
+        #                 for text_node in iframe_text_nodes
+        #             ]
+        #             items.extend(text_node.parent for text_node in iframe_text_elems)
+        # try:
+        #     if not items:
+        #         return None
+        #     if best_match:
+        #         closest_by_length = min(
+        #             items, key=lambda el: abs(len(text) - len(el.text_all))
+        #         )
+        #         elem = closest_by_length or items[0]
 
-        return None
+        #         return elem
+        #     else:
+        #         # naively just return the first result
+        #         for elem in items:
+        #             if elem:
+        #                 return elem
+        # finally:
+        #     await self.send(cdp.dom.disable())
+
+        # return None
 
     async def find_elements_by_text(
         self,
         text: str,
-        tag_hint: Optional[str] = None,
     ) -> list[Element]:
         """
         returns element which match the given text.
@@ -778,78 +773,82 @@ class Tab(Connection):
 
         :param text:
         :type text:
-        :param tag_hint: when provided, narrows down search to only elements which match given tag eg: a, div, script, span
-        :type tag_hint: str
         :return:
         :rtype:
         """
-        text = text.strip()
-        doc = await self.send(cdp.dom.get_document(-1, True))
-        search_id, nresult = await self.send(cdp.dom.perform_search(text, True))
-        if nresult:
-            node_ids = await self.send(
-                cdp.dom.get_search_results(search_id, 0, nresult)
-            )
+        if(not text):
+            raise ValueError('You must provide a text value to find elements with.')
         else:
-            node_ids = []
+            return await self.find_all(
+                text = text
+            )
+        # text = text.strip()
+        # doc = await self.send(cdp.dom.get_document(-1, True))
+        # search_id, nresult = await self.send(cdp.dom.perform_search(text, True))
+        # if nresult:
+        #     node_ids = await self.send(
+        #         cdp.dom.get_search_results(search_id, 0, nresult)
+        #     )
+        # else:
+        #     node_ids = []
 
-        await self.send(cdp.dom.discard_search_results(search_id))
+        # await self.send(cdp.dom.discard_search_results(search_id))
 
-        items = []
-        for nid in node_ids:
-            node = util.filter_recurse(doc, lambda n: n.node_id == nid)
-            if not node:
-                node = await self.send(cdp.dom.resolve_node(node_id=nid))
-                if not node:
-                    continue
-                # remote_object = await self.send(cdp.dom.resolve_node(backend_node_id=node.backend_node_id))
-                # node_id = await self.send(cdp.dom.request_node(object_id=remote_object.object_id))
-            try:
-                elem = element.create(node, self, doc)
-            except:  # noqa
-                continue
-            if elem.node_type == 3:
-                # if found element is a text node (which is plain text, and useless for our purpose),
-                # we return the parent element of the node (which is often a tag which can have text between their
-                # opening and closing tags (that is most tags, except for example "img" and "video", "br")
+        # items = []
+        # for nid in node_ids:
+        #     node = util.filter_recurse(doc, lambda n: n.node_id == nid)
+        #     if not node:
+        #         node = await self.send(cdp.dom.resolve_node(node_id=nid))
+        #         if not node:
+        #             continue
+        #         # remote_object = await self.send(cdp.dom.resolve_node(backend_node_id=node.backend_node_id))
+        #         # node_id = await self.send(cdp.dom.request_node(object_id=remote_object.object_id))
+        #     try:
+        #         elem = element.create(node, self, doc)
+        #     except:  # noqa
+        #         continue
+        #     if elem.node_type == 3:
+        #         # if found element is a text node (which is plain text, and useless for our purpose),
+        #         # we return the parent element of the node (which is often a tag which can have text between their
+        #         # opening and closing tags (that is most tags, except for example "img" and "video", "br")
 
-                if not elem.parent:
-                    # check if parent actually has a parent and update it to be absolutely sure
-                    await elem.update()
+        #         if not elem.parent:
+        #             # check if parent actually has a parent and update it to be absolutely sure
+        #             await elem.update()
 
-                items.append(
-                    elem.parent or elem
-                )  # when it really has no parent, use the text node itself
-                continue
-            else:
-                # just add the element itself
-                items.append(elem)
+        #         items.append(
+        #             elem.parent or elem
+        #         )  # when it really has no parent, use the text node itself
+        #         continue
+        #     else:
+        #         # just add the element itself
+        #         items.append(elem)
 
-        # since we already fetched the entire doc, including shadow and frames
-        # let's also search through the iframes
-        iframes = util.filter_recurse_all(doc, lambda node: node.node_name == "IFRAME")
-        if iframes:
-            iframes_elems = [
-                element.create(iframe, self, iframe.content_document)
-                for iframe in iframes
-            ]
-            for iframe_elem in iframes_elems:
-                if iframe_elem.content_document:
-                    iframe_text_nodes = util.filter_recurse_all(
-                        iframe_elem,
-                        lambda node: node.node_type == 3  # noqa
-                        and text.lower() in node.node_value.lower(),
-                    )
-                    if iframe_text_nodes:
-                        iframe_text_elems = [
-                            element.create(text_node, self, iframe_elem.tree)
-                            for text_node in iframe_text_nodes
-                        ]
-                        items.extend(
-                            text_node.parent for text_node in iframe_text_elems
-                        )
-        await self.send(cdp.dom.disable())
-        return items or []
+        # # since we already fetched the entire doc, including shadow and frames
+        # # let's also search through the iframes
+        # iframes = util.filter_recurse_all(doc, lambda node: node.node_name == "IFRAME")
+        # if iframes:
+        #     iframes_elems = [
+        #         element.create(iframe, self, iframe.content_document)
+        #         for iframe in iframes
+        #     ]
+        #     for iframe_elem in iframes_elems:
+        #         if iframe_elem.content_document:
+        #             iframe_text_nodes = util.filter_recurse_all(
+        #                 iframe_elem,
+        #                 lambda node: node.node_type == 3  # noqa
+        #                 and text.lower() in node.node_value.lower(),
+        #             )
+        #             if iframe_text_nodes:
+        #                 iframe_text_elems = [
+        #                     element.create(text_node, self, iframe_elem.tree)
+        #                     for text_node in iframe_text_nodes
+        #                 ]
+        #                 items.extend(
+        #                     text_node.parent for text_node in iframe_text_elems
+        #                 )
+        # await self.send(cdp.dom.disable())
+        # return items or []
 
     async def back(self):
         """
@@ -1311,20 +1310,22 @@ class Tab(Connection):
         loop = asyncio.get_running_loop()
         start_time = loop.time()
 
-        if tagname or attrs: # waiting for an element using either their tagname, attributes, or both
+        if tagname or attrs or text: # waiting for an element using either their tagname, attributes, text, or all.
 
-            if(not tagname): tagname = None # in case attrs were provided but not tagname
-
-            if(not attrs): attrs = None # in case tagname was provided but not attrs
+            if not tagname: tagname = None
+            if not attrs: attrs = None
+            if not text: text = None
 
             item = await self.find(
                 tagname = tagname,
-                attrs = attrs
+                attrs = attrs,
+                text = text
             )
-            while not item and loop.time() - start_time < timeout:
+            while(not item and loop.time() - start_time < timeout):
                 item = await self.find(
                     tagname = tagname,
-                    attrs = attrs
+                    attrs = attrs,
+                    text = text
                 )
                 await self.sleep(0.5)
 
@@ -1341,23 +1342,7 @@ class Tab(Connection):
             if item:
                 return item
 
-        if text:
-
-            attrs = dict()
-            attrs['innerText'] = text.strip()
-            item = await self.find_element_by_tagname_attrs_text(
-                attrs = attrs
-            )
-            while not item and loop.time() - start_time < timeout:
-                item = await self.find_element_by_tagname_attrs_text(
-                    attrs = attrs
-                )
-                await self.sleep(0.5)
-
-            if item:
-                return item
-
-        raise asyncio.TimeoutError("time ran out while waiting")
+        raise asyncio.TimeoutError('Time ran out while waiting.')
 
     async def download_file(self, url: str, filename: Optional[PathLike] = None):
         """
