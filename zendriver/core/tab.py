@@ -207,25 +207,23 @@ class Tab(Connection):
         attrs = {k.strip(): v.strip() for k, v in attrs.items()} if attrs else None
         text = text.strip().lower() if text else None
 
-        if(not text and not tagname and not attrs):
+        if not text and not tagname and not attrs:
             # raising an error in case neither text nor tagname values were provided
-            raise ValueError("You must provide either tagname, attrs, or text to find an element.")
+            raise ValueError(
+                "You must provide either tagname, attrs, or text to find an element."
+            )
 
         item = await self.find_element_by_tagname_attrs_text(
-            tagname = tagname,
-            attrs = attrs,
-            text = text
+            tagname=tagname, attrs=attrs, text=text
         )
-        while(not item):
+        while not item:
             await self.wait()
             item = await self.find_element_by_tagname_attrs_text(
-                tagname = tagname,
-                attrs = attrs,
-                text = text
+                tagname=tagname, attrs=attrs, text=text
             )
-            if(loop.time() - start_time > timeout):
+            if loop.time() - start_time > timeout:
                 raise asyncio.TimeoutError(
-                    f'Time ran out while waiting for element with tagname: {tagname}, attributess: {attrs}, text:{text}'
+                    f"Time ran out while waiting for element with tagname: {tagname}, attributess: {attrs}, text:{text}"
                 )
             await self.sleep(0.5)
 
@@ -292,25 +290,23 @@ class Tab(Connection):
         attrs = {k.strip(): v.strip() for k, v in attrs.items()} if attrs else None
         text = text.strip().lower() if text else None
 
-        if(not text and not tagname and not attrs):
+        if not text and not tagname and not attrs:
             # raising an error in case neither text nor tagname values were provided
-            raise ValueError("You must provide either tagname, attrs, or text to find elements.")
-        
+            raise ValueError(
+                "You must provide either tagname, attrs, or text to find elements."
+            )
+
         items = await self.find_elements_by_tagname_attrs_text(
-            tagname = tagname,
-            attrs = attrs,
-            text = text
+            tagname=tagname, attrs=attrs, text=text
         )
         while not items:
             await self.wait()
             items = await self.find_elements_by_tagname_attrs_text(
-                tagname = tagname,
-                attrs = attrs,
-                text = text
+                tagname=tagname, attrs=attrs, text=text
             )
             if loop.time() - start_time > timeout:
                 raise asyncio.TimeoutError(
-                    f'Time ran out while waiting for elements with tagname: {tagname}, attributess: {attrs}, text:{text}'
+                    f"Time ran out while waiting for elements with tagname: {tagname}, attributess: {attrs}, text:{text}"
                 )
             await self.sleep(0.5)
 
@@ -494,11 +490,11 @@ class Tab(Connection):
         return element.create(node, self, doc)
 
     async def find_element_by_tagname_attrs_text(
-            self,
-            tagname: str | None = None,
-            attrs: dict[str, str] | None = None,
-            text: str | None = None
-        ) -> Element | None:
+        self,
+        tagname: str | None = None,
+        attrs: dict[str, str] | None = None,
+        text: str | None = None,
+    ) -> Element | None:
         """
         Finds and returns the first element matching the tagname and attributes.
 
@@ -523,33 +519,46 @@ class Tab(Connection):
 
             # check for conditions
             matches_tagname = (
-                not tagname or (elem.tag_name and tagname.strip().lower() == elem.tag_name.strip().lower())
-            ) # this condition evaluates to True if tagname was not provided; no filtering by tagname. Or if tagname equals our targeted element's tagname
+                not tagname
+                or (
+                    elem.tag_name
+                    and tagname.strip().lower() == elem.tag_name.strip().lower()
+                )
+            )  # this condition evaluates to True if tagname was not provided; no filtering by tagname. Or if tagname equals our targeted element's tagname
 
             matches_attrs = (
-                not attrs or (elem.attributes and all(
-                    any(
-                        elem.attributes[i] == attr and value in elem.attributes[i + 1].split()
-                        for i in range(0, len(elem.attributes), 2)
+                not attrs
+                or (
+                    elem.attributes
+                    and all(
+                        any(
+                            elem.attributes[i] == attr
+                            and value in elem.attributes[i + 1].split()
+                            for i in range(0, len(elem.attributes), 2)
+                        )
+                        for attr, value in attrs.items()
                     )
-                    for attr, value in attrs.items()
-                ))
-            ) # this condition evaluates to True if attrs was not provided; no filtering by attrs. Or if the provided attrs are in our targeted element's attributes
+                )
+            )  # this condition evaluates to True if attrs was not provided; no filtering by attrs. Or if the provided attrs are in our targeted element's attributes
 
             matches_text = (
-                not text or (elem.text and text.strip().lower() in elem.text.strip().lower())
-            ) # this condition evaluates to True if text was not provided; no filtering by text. Or if text is in our targeted element's text
+                not text
+                or (elem.text and text.strip().lower() in elem.text.strip().lower())
+            )  # this condition evaluates to True if text was not provided; no filtering by text. Or if text is in our targeted element's text
 
             # if all conditions match, we return the target element
             if matches_tagname and matches_attrs and matches_text:
                 return elem
 
-            tasks = list()
+            tasks = []
 
             # traverse shadow roots nodes
             if node.shadow_roots:
-                tasks.extend(traverse(shadow_root, parent_tree) for shadow_root in node.shadow_roots)
-            
+                tasks.extend(
+                    traverse(shadow_root, parent_tree)
+                    for shadow_root in node.shadow_roots
+                )
+
             # traverse child nodes
             if node.children:
                 tasks.extend(traverse(child, parent_tree) for child in node.children)
@@ -588,7 +597,7 @@ class Tab(Connection):
         self,
         tagname: Optional[str] = None,
         attrs: Optional[dict[str, str]] = None,
-        text: Optional[str] = None
+        text: Optional[str] = None,
     ) -> list[Element]:
         """
         Finds and returns all elements matching the tagname, attributes, and optional innerText.
@@ -612,32 +621,45 @@ class Tab(Connection):
 
             # check for conditions
             matches_tagname = (
-                not tagname or (elem.tag_name and tagname.strip().lower() == elem.tag_name.strip().lower())
-            ) # this condition evaluates to True if tagname was not provided; no filtering by tagname. Or if tagname equals our targeted element's tagname
+                not tagname
+                or (
+                    elem.tag_name
+                    and tagname.strip().lower() == elem.tag_name.strip().lower()
+                )
+            )  # this condition evaluates to True if tagname was not provided; no filtering by tagname. Or if tagname equals our targeted element's tagname
 
             matches_attrs = (
-                not attrs or (elem.attributes and all(
-                    any(
-                        elem.attributes[i] == attr and value in elem.attributes[i + 1].split()
-                        for i in range(0, len(elem.attributes), 2)
+                not attrs
+                or (
+                    elem.attributes
+                    and all(
+                        any(
+                            elem.attributes[i] == attr
+                            and value in elem.attributes[i + 1].split()
+                            for i in range(0, len(elem.attributes), 2)
+                        )
+                        for attr, value in attrs.items()
                     )
-                    for attr, value in attrs.items()
-                ))
-            ) # this condition evaluates to True if attrs was not provided; no filtering by attrs. Or if the provided attrs are in our targeted element's attributes
+                )
+            )  # this condition evaluates to True if attrs was not provided; no filtering by attrs. Or if the provided attrs are in our targeted element's attributes
 
             matches_text = (
-                not text or (elem.text and text.strip().lower() in elem.text.strip().lower())
-            ) # this condition evaluates to True if text was not provided; no filtering by text. Or if text is in our targeted element's text
+                not text
+                or (elem.text and text.strip().lower() in elem.text.strip().lower())
+            )  # this condition evaluates to True if text was not provided; no filtering by text. Or if text is in our targeted element's text
 
             # if all conditions match, add the element to the list of elements to return
             if matches_tagname and matches_attrs and matches_text:
                 elements.append(elem)
 
-            tasks = list()
+            tasks = []
 
             # traverse shadow roots nodes
             if node.shadow_roots:
-                tasks.extend(traverse(shadow_root, parent_tree) for shadow_root in node.shadow_roots)
+                tasks.extend(
+                    traverse(shadow_root, parent_tree)
+                    for shadow_root in node.shadow_roots
+                )
 
             # traverse child nodes
             if node.children:
@@ -676,12 +698,10 @@ class Tab(Connection):
         :return:
         :rtype:
         """
-        if(not text):
-            raise ValueError('You must provide a text value to find an element with.')
+        if not text:
+            raise ValueError("You must provide a text value to find an element with.")
         else:
-            return await self.find(
-                text = text
-            )
+            return await self.find(text=text)
 
     async def find_elements_by_text(
         self,
@@ -697,12 +717,10 @@ class Tab(Connection):
         :return:
         :rtype:
         """
-        if(not text):
-            raise ValueError('You must provide a text value to find elements with.')
+        if not text:
+            raise ValueError("You must provide a text value to find elements with.")
         else:
-            return await self.find_all(
-                text = text
-            )
+            return await self.find_all(text=text)
 
     async def back(self):
         """
@@ -1135,8 +1153,8 @@ class Tab(Connection):
         self,
         tagname: Optional[str] = None,
         attrs: Optional[dict[str, str]] = None,
-        selector: str | None = None,
-        text: str | None = None,
+        selector: Optional[str] = None,
+        text: Optional[str] = None,
         timeout: int | float = 10,
     ) -> element.Element:
         """
@@ -1164,30 +1182,25 @@ class Tab(Connection):
         loop = asyncio.get_running_loop()
         start_time = loop.time()
 
-        if tagname or attrs or text: # waiting for an element using either their tagname, attributes, text, or all.
+        if (
+            tagname or attrs or text
+        ):  # waiting for an element using either their tagname, attributes, text, or all.
+            if not tagname:
+                tagname = None
+            if not attrs:
+                attrs = None
+            if not text:
+                text = None
 
-            if not tagname: tagname = None
-            if not attrs: attrs = None
-            if not text: text = None
-
-            item = await self.find(
-                tagname = tagname,
-                attrs = attrs,
-                text = text
-            )
-            while(not item and loop.time() - start_time < timeout):
-                item = await self.find(
-                    tagname = tagname,
-                    attrs = attrs,
-                    text = text
-                )
+            item = await self.find(tagname=tagname, attrs=attrs, text=text)
+            while not item and loop.time() - start_time < timeout:
+                item = await self.find(tagname=tagname, attrs=attrs, text=text)
                 await self.sleep(0.5)
 
             if item:
                 return item
 
         if selector:
-
             item = await self.query_selector(selector)
             while not item and loop.time() - start_time < timeout:
                 item = await self.query_selector(selector)
@@ -1196,7 +1209,7 @@ class Tab(Connection):
             if item:
                 return item
 
-        raise asyncio.TimeoutError('Time ran out while waiting.')
+        raise asyncio.TimeoutError("Time ran out while waiting.")
 
     async def download_file(self, url: str, filename: Optional[PathLike] = None):
         """
@@ -1446,6 +1459,8 @@ class Tab(Connection):
 
     def __call__(
         self,
+        tagname: str | None = None,
+        attrs: dict[str, str] | None = None,
         text: str | None = None,
         selector: str | None = None,
         timeout: int | float = 10,
@@ -1459,7 +1474,9 @@ class Tab(Connection):
         :return:
         :rtype:
         """
-        return self.wait_for(text, selector, timeout)
+        return self.wait_for(
+            tagname=tagname, attrs=attrs, text=text, selector=selector, timeout=timeout
+        )
 
     def __eq__(self, other: Any) -> bool:
         if not isinstance(other, Tab):
