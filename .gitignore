@@ -84,7 +84,6 @@ env.bak/
 venv.bak/
 /docs/_build/doctrees/
 
-
 # VisualStudioCode
 .vscode
 .history
