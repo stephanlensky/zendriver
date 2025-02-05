@@ -273,31 +273,39 @@ class Connection(metaclass=CantTouchThis):
         else:
             self.handlers[event_type_or_domain].append(handler)
 
-    def remove_handler(
+    def remove_handlers(
         self,
-        event_type: type,
+        event_type: Optional[type] = None,
         handler: Optional[Union[Callable, Awaitable]] = None,
     ):
         """
-        remove a handler for given event
+        remove handlers for given event
 
+        if no event is provided, all handlers will be removed.
         if no handler is provided, all handlers for the event will be removed.
 
         .. code-block::
 
-                page.remove_handler(cdp.network.RequestWillBeSent)
-                page.remove_handler(cdp.network.RequestWillBeSent, handler)
+                # remove all handlers for all events
+                page.remove_handlers()
+
+                # remove all handlers for a specific event
+                page.remove_handlers(cdp.network.RequestWillBeSent)
+
+                # remove a specific handler for a specific event
+                page.remove_handlers(cdp.network.RequestWillBeSent, handler)
         """
 
-        if handler is None:
-            self.handlers.pop(event_type)
+        if not event_type:
+            self.handlers.clear()
+            return
 
-        else:
-            try:
-                self.handlers[event_type].remove(handler)
+        if not handler:
+            del self.handlers[event_type]
+            return
 
-            except ValueError:
-                pass
+        if handler in self.handlers[event_type]:
+            self.handlers[event_type].remove(handler)
 
     async def aopen(self, **kw):
         """

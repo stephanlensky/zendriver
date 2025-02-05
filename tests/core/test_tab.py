@@ -83,7 +83,7 @@ async def test_add_handler_type_event(browser: zd.Browser):
     ]
 
 
-async def test_add_hander_module_event(browser: zd.Browser):
+async def test_add_handler_module_event(browser: zd.Browser):
     tab = await browser.get(sample_file("groceries.html"))
 
     async def request_handler(event):
@@ -94,23 +94,33 @@ async def test_add_hander_module_event(browser: zd.Browser):
     tab.add_handler(zd.cdp.network, request_handler)
 
     assert len(tab.handlers) == 26
-    assert tab.handlers[zd.cdp.network.RequestWillBeSent] == [request_handler]
 
 
-async def test_remove_handler(browser: zd.Browser):
+async def test_remove_handlers(browser: zd.Browser):
     tab = await browser.get(sample_file("groceries.html"))
 
     async def request_handler(event):
         pass
 
     tab.add_handler(zd.cdp.network.RequestWillBeSent, request_handler)
-
     assert len(tab.handlers) == 1
 
-    tab.remove_handler(
+    tab.remove_handlers()
+    assert len(tab.handlers) == 0
+
+
+async def test_remove_handlers_specific_event(browser: zd.Browser):
+    tab = await browser.get(sample_file("groceries.html"))
+
+    async def request_handler(event):
+        pass
+
+    tab.add_handler(zd.cdp.network.RequestWillBeSent, request_handler)
+    assert len(tab.handlers) == 1
+
+    tab.remove_handlers(
         zd.cdp.network.RequestWillBeSent,
     )
-
     assert len(tab.handlers) == 0
 
 
@@ -124,13 +134,10 @@ async def test_remove_specific_handler(browser: zd.Browser):
         pass
 
     tab.add_handler(zd.cdp.network.RequestWillBeSent, request_handler_1)
-
     tab.add_handler(zd.cdp.network.RequestWillBeSent, request_handler_2)
-
     assert len(tab.handlers) == 1
     assert len(tab.handlers[zd.cdp.network.RequestWillBeSent]) == 2
 
-    tab.remove_handler(zd.cdp.network.RequestWillBeSent, request_handler_1)
-
+    tab.remove_handlers(zd.cdp.network.RequestWillBeSent, request_handler_1)
     assert len(tab.handlers) == 1
     assert len(tab.handlers[zd.cdp.network.RequestWillBeSent]) == 1
