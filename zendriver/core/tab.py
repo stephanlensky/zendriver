@@ -502,96 +502,19 @@ class Tab(Connection):
         :type tagname: str | None
         :param attrs: A dictionary of attribute-value pairs to match. Optional.
         :type attrs: dict[str, str] | None
+        :param text: The expected text value of the element. Optional.
+        :type attrs: str | None
 
         :return: A single element or None if no match is found.
         :rtype: Element | None
         """
 
-        async def traverse(node, parent_tree):
-            """
-            Recursive traversal of the DOM and shadow DOM to find the targeted element.
-            """
-            if not node:
-                return None
-
-            # create an element to check for the conditions we're looking for
-            elem = element.create(node, self, parent_tree)
-
-            # check for conditions
-            matches_tagname = (
-                not tagname
-                or (
-                    elem.tag_name
-                    and tagname.strip().lower() == elem.tag_name.strip().lower()
-                )
-            )  # this condition evaluates to True if tagname was not provided; no filtering by tagname. Or if tagname equals our targeted element's tagname
-
-            matches_attrs = (
-                not attrs
-                or (
-                    elem.attributes
-                    and all(
-                        any(
-                            elem.attributes[i] == attr
-                            and value in elem.attributes[i + 1].split()
-                            for i in range(0, len(elem.attributes), 2)
-                        )
-                        for attr, value in attrs.items()
-                    )
-                )
-            )  # this condition evaluates to True if attrs was not provided; no filtering by attrs. Or if the provided attrs are in our targeted element's attributes
-
-            matches_text = (
-                not text
-                or (elem.text and text.strip().lower() in elem.text.strip().lower())
-            )  # this condition evaluates to True if text was not provided; no filtering by text. Or if text is in our targeted element's text
-
-            # if all conditions match, we return the target element
-            if matches_tagname and matches_attrs and matches_text:
-                return elem
-
-            tasks = []
-
-            # traverse shadow roots nodes
-            if node.shadow_roots:
-                tasks.extend(
-                    traverse(shadow_root, parent_tree)
-                    for shadow_root in node.shadow_roots
-                )
-
-            # traverse child nodes
-            if node.children:
-                tasks.extend(traverse(child, parent_tree) for child in node.children)
-
-            for task in asyncio.as_completed(tasks):
-                result = await task
-                if result:
-                    return result
-
-            return None
-
-        # fetch the document root
-        doc = await self.send(cdp.dom.get_document(depth=-1, pierce=True))
-
-        # start traversing the DOM tree
-        result = await traverse(doc, doc)
-        if result:
-            return result
-
-        # search within iframes concurrently
-        iframes = util.filter_recurse_all(doc, lambda node: node.node_name == "IFRAME")
-        iframe_tasks = [
-            traverse(iframe.content_document, iframe.content_document)
-            for iframe in iframes
-            if iframe.content_document
-        ]
-
-        for iframe_task in asyncio.as_completed(iframe_tasks):
-            result = await iframe_task
-            if result:
-                return result
-
-        return None
+        return await self._find_elements_by_tagname_attrs_text(
+            tagname = tagname,
+            attrs = attrs,
+            text = text,
+            return_after_first_match = True
+        )[0]
 
     async def find_elements_by_tagname_attrs_text(
         self,
@@ -602,9 +525,39 @@ class Tab(Connection):
         """
         Finds and returns all elements matching the tagname, attributes, and optional innerText.
 
-        :param tagname: The name of the HTML tag to search for (e.g., 'button', 'input').
-        :param attrs: A dictionary of attributes and their corresponding values to match.
-        :param text: The expected innerText of the element.
+        :param tagname: The name of the HTML tag to search for (e.g., 'button', 'input'). Optional.
+        :type tagname: str | None
+        :param attrs: A dictionary of attributes and their corresponding values to match. Optional.
+        :type attrs: dict[str, str] | None
+        :param text: The expected text value of the element. Optional.
+        :type attrs: str | None
+        :return: List of matching elements.
+        :rtype: list[Element]
+        """
+
+        return await self._find_elements_by_tagname_attrs_text(
+            tagname = tagname,
+            attrs = attrs,
+            text = text,
+            return_after_first_match = False
+        )
+    
+    async def _find_elements_by_tagname_attrs_text(
+        self,
+        tagname: Optional[str] = None,
+        attrs: Optional[dict[str, str]] = None,
+        text: Optional[str] = None,
+        return_after_first_match: bool = False
+    ) -> list[Element]:
+        """
+        Finds and returns all elements matching the tagname, attributes, and optional innerText.
+
+        :param tagname: The name of the HTML tag to search for (e.g., 'button', 'input'). Optional.
+        :type tagname: str | None
+        :param attrs: A dictionary of attributes and their corresponding values to match. Optional.
+        :type attrs: dict[str, str] | None
+        :param text: The expected text value of the element. Optional.
+        :type attrs: str | None
         :return: List of matching elements.
         :rtype: list[Element]
         """
@@ -651,6 +604,8 @@ class Tab(Connection):
             # if all conditions match, add the element to the list of elements to return
             if matches_tagname and matches_attrs and matches_text:
                 elements.append(elem)
+                if return_after_first_match:
+                    return elements
 
             tasks = []
 
@@ -684,7 +639,7 @@ class Tab(Connection):
         if iframe_tasks:
             await asyncio.gather(*iframe_tasks)
 
-        return elements
+        return elements if not return_after_first_match else [None]
 
     async def find_element_by_text(
         self,
