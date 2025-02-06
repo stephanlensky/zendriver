@@ -20,6 +20,7 @@ nav:
     - audits: reference/cdp/audits.md
     - autofill: reference/cdp/autofill.md
     - background_service: reference/cdp/background_service.md
+    - bluetooth_emulation: reference/cdp/bluetooth_emulation.md
     - browser: reference/cdp/browser.md
     - cache_storage: reference/cdp/cache_storage.md
     - cast: reference/cdp/cast.md
@@ -38,6 +39,7 @@ nav:
     - extensions: reference/cdp/extensions.md
     - fed_cm: reference/cdp/fed_cm.md
     - fetch: reference/cdp/fetch.md
+    - file_system: reference/cdp/file_system.md
     - headless_experimental: reference/cdp/headless_experimental.md
     - heap_profiler: reference/cdp/heap_profiler.md
     - indexed_db: reference/cdp/indexed_db.md

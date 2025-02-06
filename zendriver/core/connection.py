@@ -296,6 +296,11 @@ class Connection(metaclass=CantTouchThis):
                 page.remove_handlers(cdp.network.RequestWillBeSent, handler)
         """
 
+        if handler and not event_type:
+            raise TypeError(
+                "if handler is provided, event_type should be provided as well"
+            )
+
         if not event_type:
             self.handlers.clear()
             return
