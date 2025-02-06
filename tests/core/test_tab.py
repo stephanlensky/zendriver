@@ -155,3 +155,12 @@ async def test_remove_handlers_without_event(browser: zd.Browser):
     with pytest.raises(ValueError) as e:
         tab.remove_handlers(handler=request_handler)
         assert str(e) == "if handler is provided, event_type should be provided as well"
+
+
+async def test_wait_for_ready_state(browser: zd.Browser):
+    tab = await browser.get(sample_file("groceries.html"))
+
+    await tab.wait_for_ready_state("complete")
+
+    ready_state = await tab.evaluate("document.readyState")
+    assert ready_state == "complete"
