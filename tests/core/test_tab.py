@@ -141,3 +141,17 @@ async def test_remove_specific_handler(browser: zd.Browser):
     tab.remove_handlers(zd.cdp.network.RequestWillBeSent, request_handler_1)
     assert len(tab.handlers) == 1
     assert len(tab.handlers[zd.cdp.network.RequestWillBeSent]) == 1
+
+
+async def test_remove_handlers_without_event(browser: zd.Browser):
+    tab = await browser.get(sample_file("groceries.html"))
+
+    async def request_handler(event):
+        pass
+
+    tab.add_handler(zd.cdp.network.RequestWillBeSent, request_handler)
+    assert len(tab.handlers) == 1
+
+    with pytest.raises(ValueError) as e:
+        tab.remove_handlers(handler=request_handler)
+        assert str(e) == "if handler is provided, event_type should be provided as well"
