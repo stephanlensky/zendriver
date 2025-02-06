@@ -296,15 +296,20 @@ class Connection(metaclass=CantTouchThis):
                 page.remove_handlers(cdp.network.RequestWillBeSent, handler)
         """
 
+        if handler and not event_type:
+            raise TypeError(
+                "if handler is provided, event_type should be provided as well"
+            )
+
         if not event_type:
             self.handlers.clear()
             return
 
-        if not handler and event_type in self.handlers:
+        if not handler:
             del self.handlers[event_type]
             return
 
-        if event_type in self.handlers and handler in self.handlers[event_type]:
+        if handler in self.handlers[event_type]:
             self.handlers[event_type].remove(handler)
 
     async def aopen(self, **kw):
