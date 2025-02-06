@@ -509,12 +509,9 @@ class Tab(Connection):
         :rtype: Element | None
         """
 
-        return await self._find_elements_by_tagname_attrs_text(
-            tagname = tagname,
-            attrs = attrs,
-            text = text,
-            return_after_first_match = True
-        )[0]
+        return (await self._find_elements_by_tagname_attrs_text(
+            tagname=tagname, attrs=attrs, text=text, return_after_first_match=True
+        ))[0]
 
     async def find_elements_by_tagname_attrs_text(
         self,
@@ -536,18 +533,15 @@ class Tab(Connection):
         """
 
         return await self._find_elements_by_tagname_attrs_text(
-            tagname = tagname,
-            attrs = attrs,
-            text = text,
-            return_after_first_match = False
+            tagname=tagname, attrs=attrs, text=text, return_after_first_match=False
         )
-    
+
     async def _find_elements_by_tagname_attrs_text(
         self,
         tagname: Optional[str] = None,
         attrs: Optional[dict[str, str]] = None,
         text: Optional[str] = None,
-        return_after_first_match: bool = False
+        return_after_first_match: bool = False,
     ) -> list[Element]:
         """
         Finds and returns all elements matching the tagname, attributes, and optional innerText.
@@ -604,7 +598,7 @@ class Tab(Connection):
             # if all conditions match, add the element to the list of elements to return
             if matches_tagname and matches_attrs and matches_text:
                 elements.append(elem)
-                if return_after_first_match: # if we're aiming to find a single element, we skip the rest of the code and return elements[elem] containing our target element
+                if return_after_first_match:  # if we're aiming to find a single element, we skip the rest of the code and return elements[elem] containing our target element
                     return elements
 
             tasks = []
@@ -639,7 +633,9 @@ class Tab(Connection):
         if iframe_tasks:
             await asyncio.gather(*iframe_tasks)
 
-        return elements if not return_after_first_match else [None] # either we return a list of elements if we're trying to find multiple elements, or a list that contains None because find_element_by_tagname_attrs_text needs a return value if no element was found.
+        return (
+            elements if not return_after_first_match else [None]
+        )  # either we return a list of elements if we're trying to find multiple elements, or a list that contains None because find_element_by_tagname_attrs_text needs a return value if no element was found.
 
     async def find_element_by_text(
         self,
