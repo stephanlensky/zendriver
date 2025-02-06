@@ -1479,7 +1479,7 @@ class Tab(Connection):
         return s
 
 
-class RequestExpectation:
+class BaseRequestExpectation:
     def __init__(self, tab: Tab, url_pattern: Union[str, re.Pattern[str]]):
         self.tab = tab
         self.url_pattern = url_pattern
@@ -1531,12 +1531,14 @@ class RequestExpectation:
         body = await self.tab.send(cdp.network.get_response_body(request_id=request_id))
         return body
 
+
+class RequestExpectation(BaseRequestExpectation):
     @property
     async def value(self) -> cdp.network.RequestWillBeSent:
         return await self.request_future
 
 
-class ResponseExpectation(RequestExpectation):
+class ResponseExpectation(BaseRequestExpectation):
     @property
     async def value(self) -> cdp.network.ResponseReceived:
         return await self.response_future
