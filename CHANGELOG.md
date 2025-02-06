@@ -11,8 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Add `tab.expect_request` and `tab.expect_response` method for wait request and response @3mora2
-- Add `tab.wait_for_ready_state` method for wait page to load @3mora2
+- Add `tab.expect_request` and `tab.expect_response` methods to wait for a specific request or response @3mora2
+- Add `tab.wait_for_ready_state` method for to wait for page to load @3mora2
 - Add `tab.remove_handlers` method for removing handlers @khamaileon
 - Clean up temporary profiles when `Browser.stop()` is called @barrycarey
 
