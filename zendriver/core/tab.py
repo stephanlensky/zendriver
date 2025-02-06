@@ -213,13 +213,13 @@ class Tab(Connection):
                 "You must provide either tagname, attrs, or text to find an element."
             )
 
-        item = await self.find_element_by_tagname_attrs_text(
-            tagname=tagname, attrs=attrs, text=text
+        items = await self._find_elements_by_tagname_attrs_text( # items is a list that might contain either a single element if found, or None
+            tagname=tagname, attrs=attrs, text=text, return_after_first_match=True
         )
-        while not item:
+        while not items:
             await self.wait()
-            item = await self.find_element_by_tagname_attrs_text(
-                tagname=tagname, attrs=attrs, text=text
+            items = await self._find_elements_by_tagname_attrs_text(
+                tagname=tagname, attrs=attrs, text=text, return_after_first_match=True
             )
             if loop.time() - start_time > timeout:
                 raise asyncio.TimeoutError(
@@ -227,7 +227,7 @@ class Tab(Connection):
                 )
             await self.sleep(0.5)
 
-        return item
+        return items[0] # returning the first and only element of the list items
 
     async def select(
         self,
@@ -296,17 +296,17 @@ class Tab(Connection):
                 "You must provide either tagname, attrs, or text to find elements."
             )
 
-        items = await self.find_elements_by_tagname_attrs_text(
-            tagname=tagname, attrs=attrs, text=text
+        items = await self._find_elements_by_tagname_attrs_text(
+            tagname=tagname, attrs=attrs, text=text, return_after_first_match=False
         )
         while not items:
             await self.wait()
-            items = await self.find_elements_by_tagname_attrs_text(
-                tagname=tagname, attrs=attrs, text=text
+            items = await self._find_elements_by_tagname_attrs_text(
+                tagname=tagname, attrs=attrs, text=text, return_after_first_match=False
             )
             if loop.time() - start_time > timeout:
                 raise asyncio.TimeoutError(
-                    f"Time ran out while waiting for elements with tagname: {tagname}, attributess: {attrs}, text:{text}"
+                    f"Time ran out while waiting for elements with tagname: {tagname}, attributess: {attrs}, text: {text}"
                 )
             await self.sleep(0.5)
 
@@ -489,53 +489,6 @@ class Tab(Connection):
             return
         return element.create(node, self, doc)
 
-    async def find_element_by_tagname_attrs_text(
-        self,
-        tagname: str | None = None,
-        attrs: dict[str, str] | None = None,
-        text: str | None = None,
-    ) -> Element | None:
-        """
-        Finds and returns the first element matching the tagname and attributes.
-
-        :param tagname: The name of the HTML tag to search for (e.g., 'button', 'input'). Optional.
-        :type tagname: str | None
-        :param attrs: A dictionary of attribute-value pairs to match. Optional.
-        :type attrs: dict[str, str] | None
-        :param text: The expected text value of the element. Optional.
-        :type attrs: str | None
-
-        :return: A single element or None if no match is found.
-        :rtype: Element | None
-        """
-
-        return (await self._find_elements_by_tagname_attrs_text(
-            tagname=tagname, attrs=attrs, text=text, return_after_first_match=True
-        ))[0]
-
-    async def find_elements_by_tagname_attrs_text(
-        self,
-        tagname: Optional[str] = None,
-        attrs: Optional[dict[str, str]] = None,
-        text: Optional[str] = None,
-    ) -> list[Element]:
-        """
-        Finds and returns all elements matching the tagname, attributes, and optional innerText.
-
-        :param tagname: The name of the HTML tag to search for (e.g., 'button', 'input'). Optional.
-        :type tagname: str | None
-        :param attrs: A dictionary of attributes and their corresponding values to match. Optional.
-        :type attrs: dict[str, str] | None
-        :param text: The expected text value of the element. Optional.
-        :type attrs: str | None
-        :return: List of matching elements.
-        :rtype: list[Element]
-        """
-
-        return await self._find_elements_by_tagname_attrs_text(
-            tagname=tagname, attrs=attrs, text=text, return_after_first_match=False
-        )
-
     async def _find_elements_by_tagname_attrs_text(
         self,
         tagname: Optional[str] = None,
@@ -551,16 +504,22 @@ class Tab(Connection):
         :param attrs: A dictionary of attributes and their corresponding values to match. Optional.
         :type attrs: dict[str, str] | None
         :param text: The expected text value of the element. Optional.
-        :type attrs: str | None
-        :return: List of matching elements.
+        :type text: str | None
+        :param return_after_first_match: If True, stops traversal and returns a list containing only the first matching element.
+        :type return_after_first_match: bool
+        :return: List of matching elements. If return_after_first_match is True, the list contains at most one element.
         :rtype: list[Element]
         """
 
         elements = []
+        stop_searching = False  # flag to indicate whether to stop searching
 
         async def traverse(node, parent_tree):
             """Recursive traversal of the DOM and shadow DOM to collect all matching elements."""
-            if not node:
+
+            nonlocal stop_searching
+
+            if not node or stop_searching:
                 return
 
             # create an element to check for the conditions we're looking for
@@ -573,7 +532,7 @@ class Tab(Connection):
                     elem.tag_name
                     and tagname.strip().lower() == elem.tag_name.strip().lower()
                 )
-            )  # this condition evaluates to True if tagname was not provided; no filtering by tagname. Or if tagname equals our targeted element's tagname
+            ) # this condition evaluates to True if tagname was not provided; no filtering by tagname. Or if tagname equals our targeted element's tagname
 
             matches_attrs = (
                 not attrs
@@ -588,18 +547,23 @@ class Tab(Connection):
                         for attr, value in attrs.items()
                     )
                 )
-            )  # this condition evaluates to True if attrs was not provided; no filtering by attrs. Or if the provided attrs are in our targeted element's attributes
+            ) # this condition evaluates to True if attrs was not provided; no filtering by attrs. Or if the provided attrs are in our targeted element's attributes
 
             matches_text = (
                 not text
                 or (elem.text and text.strip().lower() in elem.text.strip().lower())
-            )  # this condition evaluates to True if text was not provided; no filtering by text. Or if text is in our targeted element's text
+            ) # this condition evaluates to True if text was not provided; no filtering by text. Or if text is in our targeted element's text
 
             # if all conditions match, add the element to the list of elements to return
             if matches_tagname and matches_attrs and matches_text:
                 elements.append(elem)
-                if return_after_first_match:  # if we're aiming to find a single element, we skip the rest of the code and return elements[elem] containing our target element
-                    return elements
+                if return_after_first_match: # if return_after_first_match is True then we stop searching for other elements after finding one target element
+                    stop_searching = True # set the flag to True to stop further traversal
+                    return
+
+            # if stop_searching is True, skip further traversal
+            if stop_searching:
+                return
 
             tasks = []
 
@@ -623,19 +587,22 @@ class Tab(Connection):
         await traverse(doc, doc)
 
         # search within iframes concurrently
-        iframes = util.filter_recurse_all(doc, lambda node: node.node_name == "IFRAME")
-        iframe_tasks = [
-            traverse(iframe.content_document, iframe.content_document)
-            for iframe in iframes
-            if iframe.content_document
-        ]
+        if not stop_searching: # only search iframes if we haven't found a match yet
+            iframes = util.filter_recurse_all(doc, lambda node: node.node_name == "IFRAME")
+            iframe_tasks = [
+                traverse(iframe.content_document, iframe.content_document)
+                for iframe in iframes
+                if iframe.content_document
+            ]
 
-        if iframe_tasks:
-            await asyncio.gather(*iframe_tasks)
+            if iframe_tasks:
+                await asyncio.gather(*iframe_tasks)
 
-        return (
-            elements if not return_after_first_match else [None]
-        )  # either we return a list of elements if we're trying to find multiple elements, or a list that contains None because find_element_by_tagname_attrs_text needs a return value if no element was found.
+        # return the appropriate result
+        if return_after_first_match:
+            return elements[:1] # return a list containing only the first element (or empty list if no match)
+        else:
+            return elements # return all matching elements
 
     async def find_element_by_text(
         self,
