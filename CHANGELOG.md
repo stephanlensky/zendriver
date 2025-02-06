@@ -12,7 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Add `tab.remove_handlers` method for removing handlers @khamaileon
-- Cleanup temp profiles when `Browser.stop()` is called @barrycarey
+- Clean up temporary profiles when `Browser.stop()` is called @barrycarey
 
 ### Changed
 
