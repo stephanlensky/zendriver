@@ -1519,6 +1519,7 @@ class BaseRequestExpectation:
     :param url_pattern: The URL pattern to match requests and responses.
     :type url_pattern: Union[str, re.Pattern[str]]
     """
+
     def __init__(self, tab: Tab, url_pattern: Union[str, re.Pattern[str]]):
         self.tab = tab
         self.url_pattern = url_pattern
@@ -1624,6 +1625,7 @@ class RequestExpectation(BaseRequestExpectation):
     :param url_pattern: The URL pattern to match requests.
     :type url_pattern: Union[str, re.Pattern[str]]
     """
+
     @property
     async def value(self) -> cdp.network.RequestWillBeSent:
         """
@@ -1646,6 +1648,7 @@ class ResponseExpectation(BaseRequestExpectation):
     :param url_pattern: The URL pattern to match responses.
     :type url_pattern: Union[str, re.Pattern[str]]
     """
+
     @property
     async def value(self) -> cdp.network.ResponseReceived:
         """
