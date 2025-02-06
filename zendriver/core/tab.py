@@ -213,7 +213,7 @@ class Tab(Connection):
                 "You must provide either tagname, attrs, or text to find an element."
             )
 
-        items = await self._find_elements_by_tagname_attrs_text( # items is a list that might contain either a single element if found, or None
+        items = await self._find_elements_by_tagname_attrs_text(  # items is a list that might contain either a single element if found, or None
             tagname=tagname, attrs=attrs, text=text, return_after_first_match=True
         )
         while not items:
@@ -227,7 +227,7 @@ class Tab(Connection):
                 )
             await self.sleep(0.5)
 
-        return items[0] # returning the first and only element of the list items
+        return items[0]  # returning the first and only element of the list items
 
     async def select(
         self,
@@ -532,7 +532,7 @@ class Tab(Connection):
                     elem.tag_name
                     and tagname.strip().lower() == elem.tag_name.strip().lower()
                 )
-            ) # this condition evaluates to True if tagname was not provided; no filtering by tagname. Or if tagname equals our targeted element's tagname
+            )  # this condition evaluates to True if tagname was not provided; no filtering by tagname. Or if tagname equals our targeted element's tagname
 
             matches_attrs = (
                 not attrs
@@ -547,18 +547,20 @@ class Tab(Connection):
                         for attr, value in attrs.items()
                     )
                 )
-            ) # this condition evaluates to True if attrs was not provided; no filtering by attrs. Or if the provided attrs are in our targeted element's attributes
+            )  # this condition evaluates to True if attrs was not provided; no filtering by attrs. Or if the provided attrs are in our targeted element's attributes
 
             matches_text = (
                 not text
                 or (elem.text and text.strip().lower() in elem.text.strip().lower())
-            ) # this condition evaluates to True if text was not provided; no filtering by text. Or if text is in our targeted element's text
+            )  # this condition evaluates to True if text was not provided; no filtering by text. Or if text is in our targeted element's text
 
             # if all conditions match, add the element to the list of elements to return
             if matches_tagname and matches_attrs and matches_text:
                 elements.append(elem)
-                if return_after_first_match: # if return_after_first_match is True then we stop searching for other elements after finding one target element
-                    stop_searching = True # set the flag to True to stop further traversal
+                if return_after_first_match:  # if return_after_first_match is True then we stop searching for other elements after finding one target element
+                    stop_searching = (
+                        True  # set the flag to True to stop further traversal
+                    )
                     return
 
             # if stop_searching is True, skip further traversal
@@ -587,8 +589,10 @@ class Tab(Connection):
         await traverse(doc, doc)
 
         # search within iframes concurrently
-        if not stop_searching: # only search iframes if we haven't found a match yet
-            iframes = util.filter_recurse_all(doc, lambda node: node.node_name == "IFRAME")
+        if not stop_searching:  # only search iframes if we haven't found a match yet
+            iframes = util.filter_recurse_all(
+                doc, lambda node: node.node_name == "IFRAME"
+            )
             iframe_tasks = [
                 traverse(iframe.content_document, iframe.content_document)
                 for iframe in iframes
@@ -600,9 +604,11 @@ class Tab(Connection):
 
         # return the appropriate result
         if return_after_first_match:
-            return elements[:1] # return a list containing only the first element (or empty list if no match)
+            return elements[
+                :1
+            ]  # return a list containing only the first element (or empty list if no match)
         else:
-            return elements # return all matching elements
+            return elements  # return all matching elements
 
     async def find_element_by_text(
         self,
