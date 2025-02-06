@@ -587,6 +587,7 @@ class Browser:
             await self._process.wait()
             self._process = None
             self._process_pid = None
+        await self._cleanup_temporary_profile()
 
     async def _cleanup_temporary_profile(self) -> None:
         if not self.config or self.config.uses_custom_data_dir:
