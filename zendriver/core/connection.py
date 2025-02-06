@@ -297,7 +297,7 @@ class Connection(metaclass=CantTouchThis):
         """
 
         if handler and not event_type:
-            raise TypeError(
+            raise ValueError(
                 "if handler is provided, event_type should be provided as well"
             )
 
