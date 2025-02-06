@@ -604,7 +604,7 @@ class Tab(Connection):
             # if all conditions match, add the element to the list of elements to return
             if matches_tagname and matches_attrs and matches_text:
                 elements.append(elem)
-                if return_after_first_match:
+                if return_after_first_match: # if we're aiming to find a single element, we skip the rest of the code and return elements[elem] containing our target element
                     return elements
 
             tasks = []
@@ -639,7 +639,7 @@ class Tab(Connection):
         if iframe_tasks:
             await asyncio.gather(*iframe_tasks)
 
-        return elements if not return_after_first_match else [None]
+        return elements if not return_after_first_match else [None] # either we return a list of elements if we're trying to find multiple elements, or a list that contains None because find_element_by_tagname_attrs_text needs a return value if no element was found.
 
     async def find_element_by_text(
         self,
