@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import asyncio
 import datetime
-import fnmatch
 import logging
 import pathlib
+import re
 import typing
 import urllib.parse
 import warnings
@@ -1146,10 +1146,14 @@ class Tab(Connection):
 
             await asyncio.sleep(0.1)
 
-    def expect_request(self, url_pattern: str) -> "RequestExpectation":
+    def expect_request(
+        self, url_pattern: Union[str, re.Pattern[str]]
+    ) -> "RequestExpectation":
         return RequestExpectation(self, url_pattern)
 
-    def expect_response(self, url_pattern: str) -> "ResponseExpectation":
+    def expect_response(
+        self, url_pattern: Union[str, re.Pattern[str]]
+    ) -> "ResponseExpectation":
         return ResponseExpectation(self, url_pattern)
 
     async def download_file(self, url: str, filename: Optional[PathLike] = None):
@@ -1476,7 +1480,7 @@ class Tab(Connection):
 
 
 class RequestExpectation:
-    def __init__(self, tab: Tab, url_pattern: str):
+    def __init__(self, tab: Tab, url_pattern: Union[str, re.Pattern[str]]):
         self.tab = tab
         self.url_pattern = url_pattern
         self.request_future: asyncio.Future[cdp.network.RequestWillBeSent] = (
@@ -1488,7 +1492,7 @@ class RequestExpectation:
         self.request_id: Union[cdp.network.RequestId, None] = None
 
     async def _request_handler(self, event: cdp.network.RequestWillBeSent):
-        if fnmatch.fnmatch(event.request.url, self.url_pattern):
+        if re.fullmatch(self.url_pattern, event.request.url):
             self._remove_request_handler()
             self.request_id = event.request_id
             self.request_future.set_result(event)
@@ -1499,10 +1503,10 @@ class RequestExpectation:
             self.response_future.set_result(event)
 
     def _remove_request_handler(self):
-        self.tab.remove_handler(cdp.network.RequestWillBeSent, self._request_handler)
+        self.tab.remove_handlers(cdp.network.RequestWillBeSent, self._request_handler)
 
     def _remove_response_handler(self):
-        self.tab.remove_handler(cdp.network.ResponseReceived, self._response_handler)
+        self.tab.remove_handlers(cdp.network.ResponseReceived, self._response_handler)
 
     async def __aenter__(self):
         self.tab.add_handler(cdp.network.RequestWillBeSent, self._request_handler)

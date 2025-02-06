@@ -7,7 +7,7 @@ async def main():
         tab = browser.main_tab
         async with tab.expect_request("https://github.com/") as request_info:
             async with tab.expect_response(
-                "https://github.githubassets.com/assets/**"
+                "https://github.githubassets.com/assets/.*"
             ) as response_info:
                 await tab.get("https://github.com/")
                 await tab.wait_for_ready_state(until="complete")
