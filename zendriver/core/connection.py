@@ -16,6 +16,7 @@ from typing import (
     Awaitable,
     Callable,
     Generator,
+    Optional,
     TypeVar,
     Union,
 )
@@ -268,8 +269,43 @@ class Connection(metaclass=CantTouchThis):
                 if inspect.isbuiltin(obj):
                     continue
                 self.handlers[obj].append(handler)
+
+        else:
+            self.handlers[event_type_or_domain].append(handler)
+
+    def remove_handlers(
+        self,
+        event_type: Optional[type] = None,
+        handler: Optional[Union[Callable, Awaitable]] = None,
+    ):
+        """
+        remove handlers for given event
+
+        if no event is provided, all handlers will be removed.
+        if no handler is provided, all handlers for the event will be removed.
+
+        .. code-block::
+
+                # remove all handlers for all events
+                page.remove_handlers()
+
+                # remove all handlers for a specific event
+                page.remove_handlers(cdp.network.RequestWillBeSent)
+
+                # remove a specific handler for a specific event
+                page.remove_handlers(cdp.network.RequestWillBeSent, handler)
+        """
+
+        if not event_type:
+            self.handlers.clear()
             return
-        self.handlers[event_type_or_domain].append(handler)
+
+        if not handler:
+            del self.handlers[event_type]
+            return
+
+        if handler in self.handlers[event_type]:
+            self.handlers[event_type].remove(handler)
 
     async def aopen(self, **kw):
         """
