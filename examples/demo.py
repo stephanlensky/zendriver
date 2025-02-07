@@ -5,6 +5,8 @@ import asyncio
 import logging
 import logging.handlers
 import random
+import time
+
 import mss
 
 logger = logging.getLogger("demo")
@@ -14,13 +16,11 @@ logging.basicConfig(level=10)
 try:
     import zendriver as uc
 except (ModuleNotFoundError, ImportError):
-    import sys, os
+    import os
+    import sys
 
     sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
     import zendriver as uc
-
-
-import time
 
 _monitor = mss.mss().monitors[0]
 SCREEN_WIDTH = _monitor["width"]
@@ -28,7 +28,6 @@ NUM_WINS = SCREEN_WIDTH // 325  # as to not fill up the screen to much
 
 
 class Timing:
-
     def __init__(self):
         self.start = None
         self.stop = None
@@ -45,7 +44,6 @@ class Timing:
 
 
 async def main():
-
     driver = await uc.start()
 
     URL1 = "https://www.bet365.com"
@@ -157,7 +155,6 @@ async def mouse_move(tab):
 
 
 async def move_circle(tab, x=0):
-
     window_id, bounds = await tab.get_window()
 
     old_left, old_top = bounds.left, bounds.top

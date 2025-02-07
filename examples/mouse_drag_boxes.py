@@ -1,7 +1,9 @@
 try:
     from zendriver import *
 except (ModuleNotFoundError, ImportError):
-    import sys, os
+    import sys
+    import os
+
     sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
     from zendriver import *
 
@@ -25,7 +27,6 @@ async def demo_drag_to_target(browser):
 
 
 async def demo_drag_to_target_in_steps(browser):
-
     tab = await browser.get("https://nowsecure.nl/mouse.html")
     boxes = await tab.select_all(".box")
     area = await tab.select(".area-a")
