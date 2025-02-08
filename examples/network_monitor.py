@@ -17,13 +17,13 @@ async def main():
 
     tab = await browser.get("https://www.google.com/?hl=en")
 
-    reject_btn = await tab.find("reject all", best_match=True)
+    reject_btn = await tab.find(text="reject all")
     await reject_btn.click()
 
     search_inp = await tab.select("textarea")
     await search_inp.send_keys("undetected zendriver")
 
-    search_btn = await tab.find("google search", True)
+    search_btn = await tab.find(text="google search")
     await search_btn.click()
 
     for _ in range(10):

@@ -489,7 +489,7 @@ class Tab(Connection):
         if not node:
             return
         return element.create(node, self, doc)
-    
+
     async def _find_elements_by_tagname_attrs_text(
         self,
         tagname: Optional[str] = None,
