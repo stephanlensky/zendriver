@@ -60,7 +60,7 @@ class Element:
         self._node = node
         self._tree = tree
         self._parent = None
-        self._remote_object: typing.Any | None = None
+        self._remote_object: cdp.runtime.RemoteObject | None = None
         self._attrs = ContraDict(silent=True)
         self._make_attrs()
 
@@ -396,6 +396,9 @@ class Element:
         self._remote_object = await self._tab.send(
             cdp.dom.resolve_node(backend_node_id=self.backend_node_id)
         )
+        if self._remote_object.object_id is None:
+            raise ValueError("could not resolve object id for %s" % self)
+
         arguments = [cdp.runtime.CallArgument(object_id=self._remote_object.object_id)]
         await self.flash(0.25)
         await self._tab.send(
@@ -698,10 +701,8 @@ class Element:
         :return: None
         """
         await self.apply("(elem) => elem.focus()")
-        [
+        for char in list(text):
             await self._tab.send(cdp.input_.dispatch_key_event("char", text=char))
-            for char in list(text)
-        ]
 
     async def send_file(self, *file_paths: PathLike):
         """
@@ -894,6 +895,8 @@ class Element:
                 )
             except ProtocolException:
                 return
+        if not self._remote_object or not self._remote_object.object_id:
+            raise ValueError("could not resolve object id for %s" % self)
         pos = await self.get_position()
         if pos is None:
             logger.warning("flash() : could not determine position")

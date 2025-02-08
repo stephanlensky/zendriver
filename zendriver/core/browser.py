@@ -587,6 +587,7 @@ class Browser:
             await self._process.wait()
             self._process = None
             self._process_pid = None
+        await self._cleanup_temporary_profile()
 
     async def _cleanup_temporary_profile(self) -> None:
         if not self.config or self.config.uses_custom_data_dir:
@@ -621,7 +622,7 @@ class CookieJar:
 
     async def get_all(
         self, requests_cookie_format: bool = False
-    ) -> List[Union[cdp.network.Cookie, http.cookiejar.Cookie]]:
+    ) -> list[cdp.network.Cookie] | list[http.cookiejar.Cookie]:
         """
         get all cookies
 
@@ -712,7 +713,9 @@ class CookieJar:
         if not connection:
             raise RuntimeError("Browser not yet started. use await browser.start()")
 
-        cookies = await connection.send(cdp.storage.get_cookies())
+        cookies: (
+            list[cdp.network.Cookie] | list[http.cookiejar.Cookie]
+        ) = await connection.send(cdp.storage.get_cookies())
         # if not connection:
         #     return
         # if not connection.websocket:

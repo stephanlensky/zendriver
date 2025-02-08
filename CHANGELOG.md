@@ -15,6 +15,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
+## [0.4.0] - 2025-02-06
+
+### Added
+
+- Add `tab.expect_request` and `tab.expect_response` methods to wait for a specific request or response @3mora2
+- Add `tab.wait_for_ready_state` method for to wait for page to load @3mora2
+- Add `tab.remove_handlers` method for removing handlers @khamaileon
+- Clean up temporary profiles when `Browser.stop()` is called @barrycarey
+
+## [0.3.1] - 2025-01-28
+
+### Fixed
+
+- Fixed bug in `find`/`find_element_by_text` which caused `ProtocolException` when no results were found @stephanlensky
+
+## [0.3.0] - 2025-01-25
+
+### Fixed
+
+- Added `Tab.set_user_agent()` function for programmatically configuring the user-agent, language, and platform @stephanlensky
+- Improved a few type annotations (`Connection.send()` function now returns correctly typed values based on the provided `cdp_obj`) @stephanlensky
+
 ## [0.2.3] - 2024-12-14
 
 ### Fixed
