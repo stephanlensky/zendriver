@@ -4,11 +4,12 @@ import asyncio
 import datetime
 import logging
 import pathlib
+import re
 import typing
 import urllib.parse
 import warnings
 import webbrowser
-from typing import TYPE_CHECKING, Any, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, List, Optional, Tuple, Union, Literal
 
 from .. import cdp
 from . import element, util
@@ -488,7 +489,7 @@ class Tab(Connection):
         if not node:
             return
         return element.create(node, self, doc)
-
+    
     async def _find_elements_by_tagname_attrs_text(
         self,
         tagname: Optional[str] = None,
@@ -705,7 +706,10 @@ class Tab(Connection):
 
     async def js_dumps(
         self, obj_name: str, return_by_value: Optional[bool] = True
-    ) -> dict | typing.Tuple[cdp.runtime.RemoteObject, cdp.runtime.ExceptionDetails]:
+    ) -> (
+        dict
+        | typing.Tuple[cdp.runtime.RemoteObject, cdp.runtime.ExceptionDetails | None]
+    ):
         """
         dump given js object with its properties and values as a dict
 
@@ -1135,6 +1139,63 @@ class Tab(Connection):
 
         raise asyncio.TimeoutError("Time ran out while waiting.")
 
+    async def wait_for_ready_state(
+        self,
+        until: Literal["loading", "interactive", "complete"] = "interactive",
+        timeout: int = 10,
+    ):
+        """
+        Waits for the page to reach a certain ready state.
+
+        :param until: The ready state to wait for. Can be one of "loading", "interactive", or "complete".
+        :type until: str
+        :param timeout: The maximum number of seconds to wait.
+        :type timeout: int
+        :raises asyncio.TimeoutError: If the timeout is reached before the ready state is reached.
+        :return: True if the ready state is reached.
+        :rtype: bool
+        """
+        loop = asyncio.get_event_loop()
+        start_time = loop.time()
+
+        while True:
+            ready_state = await self.evaluate("document.readyState")
+            if ready_state == until:
+                return True
+
+            if loop.time() - start_time > timeout:
+                raise asyncio.TimeoutError(
+                    "time ran out while waiting for load page until %s" % until
+                )
+
+            await asyncio.sleep(0.1)
+
+    def expect_request(
+        self, url_pattern: Union[str, re.Pattern[str]]
+    ) -> "RequestExpectation":
+        """
+        Creates a request expectation for a specific URL pattern.
+
+        :param url_pattern: The URL pattern to match requests.
+        :type url_pattern: Union[str, re.Pattern[str]]
+        :return: A RequestExpectation instance.
+        :rtype: RequestExpectation
+        """
+        return RequestExpectation(self, url_pattern)
+
+    def expect_response(
+        self, url_pattern: Union[str, re.Pattern[str]]
+    ) -> "ResponseExpectation":
+        """
+        Creates a response expectation for a specific URL pattern.
+
+        :param url_pattern: The URL pattern to match responses.
+        :type url_pattern: Union[str, re.Pattern[str]]
+        :return: A ResponseExpectation instance.
+        :rtype: ResponseExpectation
+        """
+        return ResponseExpectation(self, url_pattern)
+
     async def download_file(self, url: str, filename: Optional[PathLike] = None):
         """
         downloads file by given url.
@@ -1381,6 +1442,44 @@ class Tab(Connection):
             ]
         )
 
+    async def set_user_agent(
+        self,
+        user_agent: str | None = None,
+        accept_language: str | None = None,
+        platform: str | None = None,
+    ) -> None:
+        """
+        Set the user agent, accept language, and platform.
+
+        These correspond to:
+            - navigator.userAgent
+            - navigator.language
+            - navigator.platform
+
+        :param user_agent: user agent string
+        :type user_agent: str
+        :param accept_language: accept language string
+        :type accept_language: str
+        :param platform: platform string
+        :type platform: str
+        :return:
+        :rtype:
+        """
+        if not user_agent:
+            user_agent = await self.evaluate("navigator.userAgent")
+            if not user_agent:
+                raise ValueError(
+                    "Could not read existing user agent from navigator object"
+                )
+
+        await self.send(
+            cdp.network.set_user_agent_override(
+                user_agent=user_agent,
+                accept_language=accept_language,
+                platform=platform,
+            )
+        )
+
     def __call__(
         self,
         tagname: str | None = None,
@@ -1422,3 +1521,157 @@ class Tab(Connection):
             extra = f"[url: {self.target.url}]"
         s = f"<{type(self).__name__} [{self.target_id}] [{self.type_}] {extra}>"
         return s
+
+
+class BaseRequestExpectation:
+    """
+    Base class for handling request and response expectations.
+
+    This class provides a context manager to wait for specific network requests and responses
+    based on a URL pattern. It sets up handlers for request and response events and provides
+    properties to access the request, response, and response body.
+
+    :param tab: The Tab instance to monitor.
+    :type tab: Tab
+    :param url_pattern: The URL pattern to match requests and responses.
+    :type url_pattern: Union[str, re.Pattern[str]]
+    """
+
+    def __init__(self, tab: Tab, url_pattern: Union[str, re.Pattern[str]]):
+        self.tab = tab
+        self.url_pattern = url_pattern
+        self.request_future: asyncio.Future[cdp.network.RequestWillBeSent] = (
+            asyncio.Future()
+        )
+        self.response_future: asyncio.Future[cdp.network.ResponseReceived] = (
+            asyncio.Future()
+        )
+        self.request_id: Union[cdp.network.RequestId, None] = None
+
+    async def _request_handler(self, event: cdp.network.RequestWillBeSent):
+        """
+        Internal handler for request events.
+
+        :param event: The request event.
+        :type event: cdp.network.RequestWillBeSent
+        """
+        if re.fullmatch(self.url_pattern, event.request.url):
+            self._remove_request_handler()
+            self.request_id = event.request_id
+            self.request_future.set_result(event)
+
+    async def _response_handler(self, event: cdp.network.ResponseReceived):
+        """
+        Internal handler for response events.
+
+        :param event: The response event.
+        :type event: cdp.network.ResponseReceived
+        """
+        if event.request_id == self.request_id:
+            self._remove_response_handler()
+            self.response_future.set_result(event)
+
+    def _remove_request_handler(self):
+        """
+        Remove the request event handler.
+        """
+        self.tab.remove_handlers(cdp.network.RequestWillBeSent, self._request_handler)
+
+    def _remove_response_handler(self):
+        """
+        Remove the response event handler.
+        """
+        self.tab.remove_handlers(cdp.network.ResponseReceived, self._response_handler)
+
+    async def __aenter__(self):
+        """
+        Enter the context manager, adding request and response handlers.
+        """
+        self.tab.add_handler(cdp.network.RequestWillBeSent, self._request_handler)
+        self.tab.add_handler(cdp.network.ResponseReceived, self._response_handler)
+        return self
+
+    async def __aexit__(self, *args):
+        """
+        Exit the context manager, removing request and response handlers.
+        """
+        self._remove_request_handler()
+        self._remove_response_handler()
+
+    @property
+    async def request(self):
+        """
+        Get the matched request.
+
+        :return: The matched request.
+        :rtype: cdp.network.Request
+        """
+        return (await self.request_future).request
+
+    @property
+    async def response(self):
+        """
+        Get the matched response.
+
+        :return: The matched response.
+        :rtype: cdp.network.Response
+        """
+        return (await self.response_future).response
+
+    @property
+    async def response_body(self):
+        """
+        Get the body of the matched response.
+
+        :return: The response body.
+        :rtype: str
+        """
+        request_id = (await self.request_future).request_id
+        body = await self.tab.send(cdp.network.get_response_body(request_id=request_id))
+        return body
+
+
+class RequestExpectation(BaseRequestExpectation):
+    """
+    Class for handling request expectations.
+
+    This class extends `BaseRequestExpectation` and provides a property to access the matched request.
+
+    :param tab: The Tab instance to monitor.
+    :type tab: Tab
+    :param url_pattern: The URL pattern to match requests.
+    :type url_pattern: Union[str, re.Pattern[str]]
+    """
+
+    @property
+    async def value(self) -> cdp.network.RequestWillBeSent:
+        """
+        Get the matched request event.
+
+        :return: The matched request event.
+        :rtype: cdp.network.RequestWillBeSent
+        """
+        return await self.request_future
+
+
+class ResponseExpectation(BaseRequestExpectation):
+    """
+    Class for handling response expectations.
+
+    This class extends `BaseRequestExpectation` and provides a property to access the matched response.
+
+    :param tab: The Tab instance to monitor.
+    :type tab: Tab
+    :param url_pattern: The URL pattern to match responses.
+    :type url_pattern: Union[str, re.Pattern[str]]
+    """
+
+    @property
+    async def value(self) -> cdp.network.ResponseReceived:
+        """
+        Get the matched response event.
+
+        :return: The matched response event.
+        :rtype: cdp.network.ResponseReceived
+        """
+        return await self.response_future
