@@ -36,7 +36,7 @@ async def test_set_user_agent_defaults_existing_user_agent(browser: zd.Browser):
 async def test_find_finds_element_by_text(browser: zd.Browser):
     tab = await browser.get(sample_file("groceries.html"))
 
-    result = await tab.find("Apples")
+    result = await tab.find(text="Apples")
 
     assert result is not None
     assert result.tag == "li"
@@ -47,7 +47,7 @@ async def test_find_times_out_if_element_not_found(browser: zd.Browser):
     tab = await browser.get(sample_file("groceries.html"))
 
     with pytest.raises(asyncio.TimeoutError):
-        await tab.find("Clothes", timeout=1)
+        await tab.find(text="Clothes", timeout=1)
 
 
 async def test_select(browser: zd.Browser):
