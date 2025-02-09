@@ -164,3 +164,34 @@ async def test_wait_for_ready_state(browser: zd.Browser):
 
     ready_state = await tab.evaluate("document.readyState")
     assert ready_state == "complete"
+
+
+async def test_expect_request(browser: zd.Browser):
+    tab = browser.main_tab
+
+    async with tab.expect_request(sample_file("groceries.html")) as request_info:
+        await tab.get(sample_file("groceries.html"))
+        req = await request_info.value
+        assert type(req) is zd.cdp.network.RequestWillBeSent
+        assert type(req.request) is zd.cdp.network.Request
+        assert req.request.url == sample_file("groceries.html")
+        assert req.request_id is not None
+
+        response_body = await request_info.response_body
+        assert response_body is not None
+        assert type(response_body) is tuple
+
+
+async def test_expect_response(browser: zd.Browser):
+    tab = browser.main_tab
+
+    async with tab.expect_response(sample_file("groceries.html")) as response_info:
+        await tab.get(sample_file("groceries.html"))
+        resp = await response_info.value
+        assert type(resp) is zd.cdp.network.ResponseReceived
+        assert type(resp.response) is zd.cdp.network.Response
+        assert resp.request_id is not None
+
+        response_body = await response_info.response_body
+        assert response_body is not None
+        assert type(response_body) is tuple
