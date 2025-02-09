@@ -12,7 +12,7 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
   # macOS
   chrome_cmd=("/Applications/Google Chrome.app/Contents/MacOS/Google Chrome")
 fi
-chrome_cmd+="--version"
+chrome_cmd+=("--version")
 
 chrome_version="${chrome_cmd[@]}"
 echo "Chrome version: $chrome_version"
