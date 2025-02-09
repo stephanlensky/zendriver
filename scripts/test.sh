@@ -14,7 +14,7 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
 fi
 chrome_cmd+=("--version")
 
-chrome_version="${chrome_cmd[@]}"
+chrome_version=$("${chrome_cmd[@]}")
 echo "Chrome version: $chrome_version"
 
 set -x
