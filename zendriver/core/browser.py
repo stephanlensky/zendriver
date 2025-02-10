@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import copy
 import http
 import http.cookiejar
 import json
@@ -101,7 +102,7 @@ class Browser:
 
         return instance
 
-    def __init__(self, config: Config, **kwargs):
+    def __init__(self, config: Config):
         """
         constructor. to create a instance, use :py:meth:`Browser.create(...)`
 
@@ -117,7 +118,10 @@ class Browser:
                 )
             )
         # weakref.finalize(self, self._quit, self)
-        self.config = config
+
+        # each instance gets it's own copy so this class gets a copy that it can
+        # use to help manage the browser instance data (needed for multiple browsers)
+        self.config = copy.deepcopy(config)
 
         self.targets: List = []
         """current targets (all types)"""
@@ -125,7 +129,6 @@ class Browser:
         self._target = None
         self._process = None
         self._process_pid = None
-        self._keep_user_data_dir = None
         self._is_updating = asyncio.Event()
         self.connection = None
         logger.debug("Session object initialized: %s" % vars(self))
@@ -254,7 +257,7 @@ class Browser:
             raise RuntimeError("Browser not yet started. use await browser.start()")
 
         if new_tab or new_window:
-            # creat new target using the browser session
+            # create new target using the browser session
             target_id = await self.connection.send(
                 cdp.target.create_target(
                     url, new_window=new_window, enable_begin_frame_control=True
@@ -572,21 +575,29 @@ class Browser:
             logger.debug("closed the connection")
 
         if self._process:
-            self._process.terminate()
-            logger.debug("gracefully stopping browser process")
-            # wait 3 seconds for the browser to stop
-            for _ in range(12):
-                if self._process.returncode is not None:
-                    break
-                await asyncio.sleep(0.25)
-            else:
-                logger.debug("browser process did not stop. killing it")
-                self._process.kill()
-                logger.debug("killed browser process")
+            try:
+                self._process.terminate()
+                logger.debug("gracefully stopping browser process")
+                # wait 3 seconds for the browser to stop
+                for _ in range(12):
+                    if self._process.returncode is not None:
+                        break
+                    await asyncio.sleep(0.25)
+                else:
+                    logger.debug("browser process did not stop. killing it")
+                    self._process.kill()
+                    logger.debug("killed browser process")
 
-            await self._process.wait()
+                await self._process.wait()
+
+            except ProcessLookupError:
+                # ignore this well known race condition because it only means that
+                # the process was not found while trying to terminate or kill it
+                pass
+
             self._process = None
             self._process_pid = None
+
         await self._cleanup_temporary_profile()
 
     async def _cleanup_temporary_profile(self) -> None:

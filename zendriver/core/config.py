@@ -53,7 +53,7 @@ class Config:
 
         Instances of this class are usually not instantiated by end users.
 
-        :param user_data_dir: the data directory to use
+        :param user_data_dir: the data directory to use (must be unique if using multiple browsers)
         :param headless: set to True for headless mode
         :param browser_executable_path: specify browser executable, instead of using autodetect
         :param browser_args: forwarded to browser executable. eg : ["--some-chromeparam=somevalue", "some-other-param=someval"]
@@ -78,11 +78,12 @@ class Config:
         if not browser_args:
             browser_args = []
 
-        if not user_data_dir:
-            self._user_data_dir = temp_profile_dir()
-            self._custom_data_dir = False
-        else:
-            self.user_data_dir = user_data_dir
+        # defer creating a temp user data dir until the browser requests it so
+        # config can be used/reused as a template for multiple browser instances
+        self._user_data_dir = None
+        self._custom_data_dir = False
+        if user_data_dir:
+            self.user_data_dir = str(user_data_dir)
 
         if not browser_executable_path:
             browser_executable_path = find_chrome_executable()
@@ -96,10 +97,11 @@ class Config:
         self.port = port
         self.expert = expert
         self._extensions: list[PathLike] = []
+
         # when using posix-ish operating system and running as root
         # you must use no_sandbox = True, which in case is corrected here
         if is_posix and is_root() and sandbox:
-            logger.info("detected root usage, autoo disabling sandbox mode")
+            logger.info("detected root usage, auto disabling sandbox mode")
             self.sandbox = False
 
         self.autodiscover_targets = True
@@ -136,13 +138,27 @@ class Config:
         return sorted(self._default_browser_args + self._browser_args)
 
     @property
-    def user_data_dir(self):
+    def user_data_dir(self) -> str:
+        """
+        Get the user data dir or lazily create a new one if unset.
+
+        Returns:
+            str: User data directory (used for Chrome profile)
+        """
+        if not self._user_data_dir:
+            self._user_data_dir = temp_profile_dir()
+            self._custom_data_dir = False
+
         return self._user_data_dir
 
     @user_data_dir.setter
     def user_data_dir(self, path: PathLike):
-        self._user_data_dir = str(path)
-        self._custom_data_dir = True
+        if path:
+            self._user_data_dir = str(path)
+            self._custom_data_dir = True
+        else:
+            self._user_data_dir = None
+            self._custom_data_dir = False
 
     @property
     def uses_custom_data_dir(self) -> bool:

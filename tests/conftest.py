@@ -43,6 +43,7 @@ async def browser(request: pytest.FixtureRequest) -> AsyncGenerator[zd.Browser, 
     )
     browser_pid = browser._process_pid
     assert browser_pid is not None and browser_pid > 0
+    await browser.wait(0)
     yield browser
     if PAUSE_AFTER_TEST:
         logger.info(
