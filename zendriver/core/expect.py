@@ -75,10 +75,11 @@ class DownloadExpectation:
     def __init__(self, tab: Connection):
         self.tab = tab
         self.future: asyncio.Future[cdp.page.DownloadWillBegin] = asyncio.Future()
-        self.default_behavior = self.tab._download_behavior[0] if self.tab._download_behavior else "default"
+        self.default_behavior = (
+            self.tab._download_behavior[0] if self.tab._download_behavior else "default"
+        )
 
     async def _handler(self, event: cdp.page.DownloadWillBegin):
-
         self._remove_handler()
         self.future.set_result(event)
         # TODO: Stop Download
@@ -87,12 +88,14 @@ class DownloadExpectation:
         self.tab.remove_handlers(cdp.page.DownloadWillBegin, self._handler)
 
     async def __aenter__(self):
-        await self.tab.send(cdp.browser.set_download_behavior(behavior='deny'))
+        await self.tab.send(cdp.browser.set_download_behavior(behavior="deny"))
         self.tab.add_handler(cdp.page.DownloadWillBegin, self._handler)
         return self
 
     async def __aexit__(self, *args):
-        await self.tab.send(cdp.browser.set_download_behavior(behavior=self.default_behavior))
+        await self.tab.send(
+            cdp.browser.set_download_behavior(behavior=self.default_behavior)
+        )
         self._remove_handler()
 
     @property
