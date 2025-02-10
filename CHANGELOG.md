@@ -11,14 +11,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+### Changed
+
+### Removed
+
+## [0.4.1] - 2025-02-09
+
+### Fixed
+
+- Ignore irrelevant `DOM.disable` errors @raycardillo
+- Test scripts improved for running on macOS @raycardillo
+
+## [0.4.0] - 2025-02-06
+
+### Added
+
 - Add `tab.expect_request` and `tab.expect_response` methods to wait for a specific request or response @3mora2
 - Add `tab.wait_for_ready_state` method for to wait for page to load @3mora2
 - Add `tab.remove_handlers` method for removing handlers @khamaileon
 - Clean up temporary profiles when `Browser.stop()` is called @barrycarey
-
-### Changed
-
-### Removed
 
 ## [0.3.1] - 2025-01-28
 

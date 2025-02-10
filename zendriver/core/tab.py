@@ -155,6 +155,23 @@ class Tab(Connection):
     def inspector_open(self):
         webbrowser.open(self.inspector_url, new=2)
 
+    async def disable_dom_agent(self):
+        # The DOM.disable can throw an exception if not enabled,
+        # but if it's already disabled, that's not a "real" error.
+
+        # DOM agent hasn't been enabled
+        # command:DOM.disable
+        # params:[] [code: -32000]
+
+        # If not ignored, an exception is thrown, and masks other problems
+        # (e.g., Could not find node with given id)
+
+        try:
+            await self.send(cdp.dom.disable())
+        except ProtocolException:
+            logger.debug("Ignoring DOM.disable exception", exc_info=True)
+            pass
+
     async def open_external_inspector(self):
         """
         opens the system's browser containing the devtools inspector page
@@ -250,7 +267,7 @@ class Tab(Connection):
             item = await self.query_selector(selector)
             if loop.time() - start_time > timeout:
                 raise asyncio.TimeoutError(
-                    "time ran out while waiting for %s" % selector
+                    "time ran out while waiting for: %s" % selector
                 )
             await self.sleep(0.5)
         return item
@@ -318,7 +335,7 @@ class Tab(Connection):
             items = await self.query_selector_all(selector)
             if loop.time() - now > timeout:
                 raise asyncio.TimeoutError(
-                    "time ran out while waiting for %s" % selector
+                    "time ran out while waiting for: %s" % selector
                 )
             await self.sleep(0.5)
         return items
@@ -396,7 +413,7 @@ class Tab(Connection):
                     setattr(_node, "__last", True)
                     return await self.query_selector_all(selector, _node)
             else:
-                await self.send(cdp.dom.disable())
+                await self.disable_dom_agent()
                 raise
         if not node_ids:
             return []
@@ -454,7 +471,7 @@ class Tab(Connection):
                     setattr(_node, "__last", True)
                     return await self.query_selector(selector, _node)
             else:
-                await self.send(cdp.dom.disable())
+                await self.disable_dom_agent()
                 raise
         if not node_id:
             return
@@ -545,7 +562,7 @@ class Tab(Connection):
                         items.extend(
                             text_node.parent for text_node in iframe_text_elems
                         )
-        await self.send(cdp.dom.disable())
+        await self.disable_dom_agent()
         return items or []
 
     async def find_element_by_text(
@@ -647,7 +664,7 @@ class Tab(Connection):
                     if elem:
                         return elem
         finally:
-            await self.send(cdp.dom.disable())
+            await self.disable_dom_agent()
 
         return None
 
