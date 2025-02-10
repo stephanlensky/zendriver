@@ -11,6 +11,7 @@ import warnings
 import webbrowser
 from typing import TYPE_CHECKING, Any, List, Optional, Tuple, Union, Literal
 
+from .expect import RequestExpectation, ResponseExpectation, DownloadExpectation
 from .. import cdp
 from . import element, util
 from .config import PathLike
@@ -1165,13 +1166,16 @@ class Tab(Connection):
 
     def expect_request(
         self, url_pattern: Union[str, re.Pattern[str]]
-    ) -> "RequestExpectation":
+    ) -> RequestExpectation:
         return RequestExpectation(self, url_pattern)
 
     def expect_response(
         self, url_pattern: Union[str, re.Pattern[str]]
-    ) -> "ResponseExpectation":
+    ) -> ResponseExpectation:
         return ResponseExpectation(self, url_pattern)
+
+    def expect_download(self) -> DownloadExpectation:
+        return DownloadExpectation(self)
 
     async def download_file(self, url: str, filename: Optional[PathLike] = None):
         """
@@ -1495,67 +1499,3 @@ class Tab(Connection):
         s = f"<{type(self).__name__} [{self.target_id}] [{self.type_}] {extra}>"
         return s
 
-
-class BaseRequestExpectation:
-    def __init__(self, tab: Tab, url_pattern: Union[str, re.Pattern[str]]):
-        self.tab = tab
-        self.url_pattern = url_pattern
-        self.request_future: asyncio.Future[cdp.network.RequestWillBeSent] = (
-            asyncio.Future()
-        )
-        self.response_future: asyncio.Future[cdp.network.ResponseReceived] = (
-            asyncio.Future()
-        )
-        self.request_id: Union[cdp.network.RequestId, None] = None
-
-    async def _request_handler(self, event: cdp.network.RequestWillBeSent):
-        if re.fullmatch(self.url_pattern, event.request.url):
-            self._remove_request_handler()
-            self.request_id = event.request_id
-            self.request_future.set_result(event)
-
-    async def _response_handler(self, event: cdp.network.ResponseReceived):
-        if event.request_id == self.request_id:
-            self._remove_response_handler()
-            self.response_future.set_result(event)
-
-    def _remove_request_handler(self):
-        self.tab.remove_handlers(cdp.network.RequestWillBeSent, self._request_handler)
-
-    def _remove_response_handler(self):
-        self.tab.remove_handlers(cdp.network.ResponseReceived, self._response_handler)
-
-    async def __aenter__(self):
-        self.tab.add_handler(cdp.network.RequestWillBeSent, self._request_handler)
-        self.tab.add_handler(cdp.network.ResponseReceived, self._response_handler)
-        return self
-
-    async def __aexit__(self, *args):
-        self._remove_request_handler()
-        self._remove_response_handler()
-
-    @property
-    async def request(self):
-        return (await self.request_future).request
-
-    @property
-    async def response(self):
-        return (await self.response_future).response
-
-    @property
-    async def response_body(self):
-        request_id = (await self.request_future).request_id
-        body = await self.tab.send(cdp.network.get_response_body(request_id=request_id))
-        return body
-
-
-class RequestExpectation(BaseRequestExpectation):
-    @property
-    async def value(self) -> cdp.network.RequestWillBeSent:
-        return await self.request_future
-
-
-class ResponseExpectation(BaseRequestExpectation):
-    @property
-    async def value(self) -> cdp.network.ResponseReceived:
-        return await self.response_future
