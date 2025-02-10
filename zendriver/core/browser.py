@@ -240,7 +240,7 @@ class Browser:
             self.targets.remove(current_tab)
 
     async def get(
-        self, url="chrome://welcome", new_tab: bool = False, new_window: bool = False
+        self, url="about:blank", new_tab: bool = False, new_window: bool = False
     ) -> tab.Tab:
         """top level get. utilizes the first tab to retrieve given url.
 
@@ -331,6 +331,7 @@ class Browser:
 
         exe = self.config.browser_executable_path
         params = self.config()
+        params.append("about:blank")
 
         logger.info(
             "starting\n\texecutable :%s\n\narguments:\n%s", exe, "\n\t".join(params)

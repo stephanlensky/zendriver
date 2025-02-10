@@ -341,7 +341,7 @@ class Tab(Connection):
         return items
 
     async def get(
-        self, url="chrome://welcome", new_tab: bool = False, new_window: bool = False
+        self, url="about:blank", new_tab: bool = False, new_window: bool = False
     ):
         """top level get. utilizes the first tab to retrieve given url.
 
