@@ -1147,8 +1147,18 @@ class Tab(Connection):
     async def wait_for_ready_state(
         self,
         until: Literal["loading", "interactive", "complete"] = "interactive",
-        timeout=30,
+        timeout: int = 10,
     ):
+        """
+        Waits for the page to reach a certain ready state.
+        :param until: The ready state to wait for. Can be one of "loading", "interactive", or "complete".
+        :type until: str
+        :param timeout: The maximum number of seconds to wait.
+        :type timeout: int
+        :raises asyncio.TimeoutError: If the timeout is reached before the ready state is reached.
+        :return: True if the ready state is reached.
+        :rtype: bool
+        """
         loop = asyncio.get_event_loop()
         start_time = loop.time()
 
@@ -1167,14 +1177,33 @@ class Tab(Connection):
     def expect_request(
         self, url_pattern: Union[str, re.Pattern[str]]
     ) -> RequestExpectation:
+        """
+        Creates a request expectation for a specific URL pattern.
+        :param url_pattern: The URL pattern to match requests.
+        :type url_pattern: Union[str, re.Pattern[str]]
+        :return: A RequestExpectation instance.
+        :rtype: RequestExpectation
+        """
         return RequestExpectation(self, url_pattern)
 
     def expect_response(
         self, url_pattern: Union[str, re.Pattern[str]]
     ) -> ResponseExpectation:
+        """
+        Creates a response expectation for a specific URL pattern.
+        :param url_pattern: The URL pattern to match responses.
+        :type url_pattern: Union[str, re.Pattern[str]]
+        :return: A ResponseExpectation instance.
+        :rtype: ResponseExpectation
+        """
         return ResponseExpectation(self, url_pattern)
 
     def expect_download(self) -> DownloadExpectation:
+        """
+        Creates a download expectation for next download.
+        :return: A DownloadExpectation instance.
+        :rtype: DownloadExpectation
+        """
         return DownloadExpectation(self)
 
     async def download_file(self, url: str, filename: Optional[PathLike] = None):
