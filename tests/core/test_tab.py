@@ -195,3 +195,13 @@ async def test_expect_response(browser: zd.Browser):
         response_body = await response_info.response_body
         assert response_body is not None
         assert type(response_body) is tuple
+
+async def test_expect_download(browser: zd.Browser):
+    tab = browser.main_tab
+
+    async with tab.expect_download() as download_ex:
+        await tab.get(sample_file("groceries.html"))
+        await (await tab.select("#download_file")).click()
+        download = await download_ex.value
+        assert type(download) is zd.cdp.page.DownloadWillBegin
+        assert download.url is not None
