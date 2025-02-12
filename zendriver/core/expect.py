@@ -181,5 +181,5 @@ class DownloadExpectation:
         self._remove_handler()
 
     @property
-    async def value(self):
+    async def value(self) -> cdp.page.DownloadWillBegin:
         return await self.future
