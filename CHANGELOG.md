@@ -17,6 +17,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
+## [0.4.3] - 2025-02-11
+
+### Added
+
+- Add logs for Chrome process output on connection failure @stephanlensky
+
+### Changed
+
+- Default and launch changed to use `about:blank` (faster start and less bandwidth) @raycardillo
+
+## [0.4.2] - 2025-02-11
+
+### Fixed
+
+- Multiple Browsers can be created without one affecting the other @raycardillo
+
 ## [0.4.1] - 2025-02-09
 
 ### Fixed

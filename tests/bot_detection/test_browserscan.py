@@ -4,6 +4,9 @@ import zendriver as zd
 async def test_browserscan(browser: zd.Browser):
     page = await browser.get("https://www.browserscan.net/bot-detection")
 
+    # wait for the page to fully load
+    await page.wait_for_ready_state("complete")
+
     # give the javascript some time to finish executing
     await page.wait(2)
 

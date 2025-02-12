@@ -4,7 +4,7 @@ import asyncio
 import logging
 import types
 import typing
-from typing import Callable, List, Optional, Set, Union
+from typing import Any, Callable, List, Optional, Set, Union
 
 import zendriver
 
@@ -33,7 +33,7 @@ async def start(
     host: Optional[str] = None,
     port: Optional[int] = None,
     expert: Optional[bool] = None,
-    **kwargs: Optional[dict],
+    **kwargs: Any,
 ) -> Browser:
     """
     helper function to launch a browser. it accepts several keyword parameters.
@@ -87,7 +87,7 @@ async def start(
             host=host,
             port=port,
             expert=expert,
-            **kwargs,  # type: ignore
+            **kwargs,
         )
     from .browser import Browser
 
@@ -321,3 +321,21 @@ def cdp_get_module(domain: Union[str, types.ModuleType]):
                     "could not find cdp module from input '%s'" % domain
                 )
     return domain_mod
+
+
+async def _read_process_stderr(
+    process: asyncio.subprocess.Process, n: int = 2**16
+) -> str:
+    """
+    Read the given number of bytes from the stderr of the given process.
+
+    Read bytes are automatically decoded to utf-8.
+    """
+    if process.stderr is None:
+        raise ValueError("Process has no stderr")
+
+    try:
+        return (await asyncio.wait_for(process.stderr.read(n), 0.25)).decode("utf-8")
+    except asyncio.TimeoutError:
+        logger.debug("Timeout reading process stderr")
+        return ""

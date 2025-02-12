@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import copy
 import http
 import http.cookiejar
 import json
@@ -101,7 +102,7 @@ class Browser:
 
         return instance
 
-    def __init__(self, config: Config, **kwargs):
+    def __init__(self, config: Config):
         """
         constructor. to create a instance, use :py:meth:`Browser.create(...)`
 
@@ -117,7 +118,10 @@ class Browser:
                 )
             )
         # weakref.finalize(self, self._quit, self)
-        self.config = config
+
+        # each instance gets it's own copy so this class gets a copy that it can
+        # use to help manage the browser instance data (needed for multiple browsers)
+        self.config = copy.deepcopy(config)
 
         self.targets: List = []
         """current targets (all types)"""
@@ -125,7 +129,6 @@ class Browser:
         self._target = None
         self._process = None
         self._process_pid = None
-        self._keep_user_data_dir = None
         self._is_updating = asyncio.Event()
         self.connection = None
         logger.debug("Session object initialized: %s" % vars(self))
@@ -237,7 +240,7 @@ class Browser:
             self.targets.remove(current_tab)
 
     async def get(
-        self, url="chrome://welcome", new_tab: bool = False, new_window: bool = False
+        self, url="about:blank", new_tab: bool = False, new_window: bool = False
     ) -> tab.Tab:
         """top level get. utilizes the first tab to retrieve given url.
 
@@ -254,7 +257,7 @@ class Browser:
             raise RuntimeError("Browser not yet started. use await browser.start()")
 
         if new_tab or new_window:
-            # creat new target using the browser session
+            # create new target using the browser session
             target_id = await self.connection.send(
                 cdp.target.create_target(
                     url, new_window=new_window, enable_begin_frame_control=True
@@ -328,6 +331,7 @@ class Browser:
 
         exe = self.config.browser_executable_path
         params = self.config()
+        params.append("about:blank")
 
         logger.info(
             "starting\n\texecutable :%s\n\narguments:\n%s", exe, "\n\t".join(params)
@@ -350,16 +354,19 @@ class Browser:
         self._http = HTTPApi((self.config.host, self.config.port))
         util.get_registered_instances().add(self)
         await asyncio.sleep(self.config.browser_connection_timeout)
-        for attempt in range(self.config.browser_connection_max_tries):
-            try:
-                self.info = ContraDict(await self._http.get("version"), silent=True)
-                break  # Exit loop if successful
-            except Exception:
-                if attempt == self.config.browser_connection_max_tries - 1:
-                    logger.debug("Could not start", exc_info=True)
-                await asyncio.sleep(self.config.browser_connection_timeout)
+        for _ in range(self.config.browser_connection_max_tries):
+            if await self.test_connection():
+                break
+
+            await asyncio.sleep(self.config.browser_connection_timeout)
 
         if not self.info:
+            if self._process is not None:
+                stderr = await util._read_process_stderr(self._process)
+                logger.info(
+                    "Browser stderr: %s", stderr if stderr else "No output from browser"
+                )
+
             await self.stop()
             raise Exception(
                 (
@@ -406,6 +413,17 @@ class Browser:
             await self.connection.send(cdp.target.set_discover_targets(discover=True))
         await self.update_targets()
         return self
+
+    async def test_connection(self) -> bool:
+        if not self._http:
+            raise ValueError("HTTPApi not yet initialized")
+
+        try:
+            self.info = ContraDict(await self._http.get("version"), silent=True)
+            return True
+        except Exception:
+            logger.debug("Could not start", exc_info=True)
+            return False
 
     async def grant_all_permissions(self):
         """
@@ -572,21 +590,29 @@ class Browser:
             logger.debug("closed the connection")
 
         if self._process:
-            self._process.terminate()
-            logger.debug("gracefully stopping browser process")
-            # wait 3 seconds for the browser to stop
-            for _ in range(12):
-                if self._process.returncode is not None:
-                    break
-                await asyncio.sleep(0.25)
-            else:
-                logger.debug("browser process did not stop. killing it")
-                self._process.kill()
-                logger.debug("killed browser process")
+            try:
+                self._process.terminate()
+                logger.debug("gracefully stopping browser process")
+                # wait 3 seconds for the browser to stop
+                for _ in range(12):
+                    if self._process.returncode is not None:
+                        break
+                    await asyncio.sleep(0.25)
+                else:
+                    logger.debug("browser process did not stop. killing it")
+                    self._process.kill()
+                    logger.debug("killed browser process")
 
-            await self._process.wait()
+                await self._process.wait()
+
+            except ProcessLookupError:
+                # ignore this well known race condition because it only means that
+                # the process was not found while trying to terminate or kill it
+                pass
+
             self._process = None
             self._process_pid = None
+
         await self._cleanup_temporary_profile()
 
     async def _cleanup_temporary_profile(self) -> None:
