@@ -196,6 +196,7 @@ async def test_expect_response(browser: zd.Browser):
         assert response_body is not None
         assert type(response_body) is tuple
 
+
 async def test_expect_download(browser: zd.Browser):
     tab = browser.main_tab
 
