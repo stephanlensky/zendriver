@@ -1,6 +1,6 @@
 [project]
 name = "zendriver"
-version = "0.4.3"
+version = "0.5.1"
 description = "A blazing fast, async-first, undetectable webscraping/web automation framework"
 readme = "README.md"
 authors = [{ name = "Stephan Lensky", email = "oss@slensky.com" }]
@@ -40,6 +40,7 @@ dev-dependencies = [
     "types-pyyaml>=6.0.12.20240917",
     "types-requests>=2.32.0.20241016",
     "pytest-mock>=3.14.0",
+    "types-deprecated>=1.2.15.20241117",
 ]
 
 [tool.pytest.ini_options]

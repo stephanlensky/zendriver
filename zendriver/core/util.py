@@ -6,6 +6,8 @@ import types
 import typing
 from typing import Any, Callable, List, Optional, Set, Union
 
+from deprecated import deprecated
+
 import zendriver
 
 from .element import Element
@@ -284,6 +286,9 @@ def compare_target_info(
     return [(k, v, d2[k]) for (k, v) in d1.items() if d2[k] != v]
 
 
+@deprecated(
+    version="0.5.1", reason="Use asyncio functions directly instead, e.g. asyncio.run"
+)
 def loop():
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)

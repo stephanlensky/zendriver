@@ -46,7 +46,7 @@ class CreateBrowser(AbstractAsyncContextManager):
         sandbox: bool = TestConfig.SANDBOX,
         browser_args: list[str] | None = None,
         browser_connection_max_tries: int = 15,
-        browser_connection_timeout: float = 1.0,
+        browser_connection_timeout: float = 3.0,
     ):
         args = []
         if not headless and TestConfig.USE_WAYLAND:
