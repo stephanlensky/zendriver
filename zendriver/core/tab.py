@@ -1264,28 +1264,25 @@ class Tab(Connection):
                 arguments=[cdp.runtime.CallArgument(object_id=body.object_id)],
             )
         )
-    async def save_snapshot(self, filename="snapshot.mhtml") -> str:
+    async def save_snapshot(self, filename="snapshot.mhtml"):
         """
         Saves a snapshot of the page.
-        
         :param filename: The save path; defaults to "snapshot.mhtml"
-        :return: The path/filename of the saved snapshot
-        :rtype: str
         """
-
         if filename is None:
             filename = "snapshot.mhtml"
         
         await self.sleep()  # update the target's url
         path = pathlib.Path(filename)
         path.parent.mkdir(parents=True, exist_ok=True)
-        
         data = await self.send(cdp.page.capture_snapshot())
+        if not data:
+            raise ProtocolException(
+                "could not take snapshot. most possible cause is the page has not finished loading yet."
+            )
         
         with open(filename, "w") as file:
             file.write(data)
-        
-        return str(path)
 
     async def save_screenshot(
         self,
