@@ -586,8 +586,12 @@ class Browser:
             return
 
         if self.connection:
-            await self.connection.aclose()
-            logger.debug("closed the connection")
+            try:
+                # defend against Chrome hanging and being non-responsive
+                await asyncio.wait_for(self.connection.aclose(), 10)
+                logger.debug("closed the connection")
+            except TimeoutError:
+                logger.error("timeout trying to close the connection")
 
         if self._process:
             try:
