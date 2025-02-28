@@ -117,12 +117,14 @@ class Transaction(asyncio.Future):
         if "error" in response:
             # set exception and bail out
             return self.set_exception(ProtocolException(response["error"]))
+        
         try:
             # try to parse the result according to the py cdp docs.
             self.__cdp_obj__.send(response["result"])
         except StopIteration as e:
             # exception value holds the parsed response
             return self.set_result(e.value)
+            
         raise ProtocolException("could not parse the cdp response:\n%s" % response)
 
     def __repr__(self):
@@ -447,7 +449,7 @@ class Connection(metaclass=CantTouchThis):
         :param cdp_obj: the generator object created by a cdp method
 
         :param _is_update: internal flag
-            prevents infinite loop by skipping the registeration of handlers
+            prevents infinite loop by skipping the registration of handlers
             when multiple calls to connection.send() are made
         :return:
         """
@@ -585,7 +587,7 @@ class Connection(metaclass=CantTouchThis):
         self.mapper.update({tx.id: tx})
         await self.websocket.send(tx.message)
         try:
-            # in try except since if browser connection sends this it reises an exception
+            # in try except since if browser connection sends this it raises an exception
             return await tx
         except ProtocolException:
             pass
@@ -650,7 +652,7 @@ class Listener:
             except asyncio.TimeoutError:
                 self.idle.set()
                 # breathe
-                # await asyncio.sleep(self.time_before_considered_idle / 10)
+                await asyncio.sleep(0)
                 continue
             except asyncio.CancelledError:
                 logger.debug(

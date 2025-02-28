@@ -343,8 +343,8 @@ class Browser:
                     # *cmdparams,
                     exe,
                     *params,
-                    stdin=asyncio.subprocess.PIPE,
-                    stdout=asyncio.subprocess.PIPE,
+                    stdin=asyncio.subprocess.DEVNULL,
+                    stdout=asyncio.subprocess.DEVNULL,
                     stderr=asyncio.subprocess.PIPE,
                     close_fds=is_posix,
                 )
@@ -361,12 +361,6 @@ class Browser:
             await asyncio.sleep(self.config.browser_connection_timeout)
 
         if not self.info:
-            if self._process is not None:
-                stderr = await util._read_process_stderr(self._process)
-                logger.info(
-                    "Browser stderr: %s", stderr if stderr else "No output from browser"
-                )
-
             await self.stop()
             raise Exception(
                 (
@@ -586,24 +580,37 @@ class Browser:
             return
 
         if self.connection:
-            await self.connection.aclose()
-            logger.debug("closed the connection")
+            try:
+                # defend against Chrome hanging and being non-responsive
+                await asyncio.wait_for(self.connection.aclose(), 10)
+                logger.debug("closed the connection")
+            except TimeoutError:
+                logger.error("timeout trying to close the connection")
 
         if self._process:
             try:
                 self._process.terminate()
                 logger.debug("gracefully stopping browser process")
-                # wait 3 seconds for the browser to stop
-                for _ in range(12):
-                    if self._process.returncode is not None:
-                        break
-                    await asyncio.sleep(0.25)
-                else:
+
+                try:
+                    stdout, stderr = await asyncio.wait_for(
+                        self._process.communicate(), 5
+                    )
+                    if stderr:
+                        logger.info(
+                            "Browser stderr: %s",
+                            stderr.decode("utf-8")
+                            if stderr
+                            else "No output from browser",
+                        )
+                except TimeoutError:
+                    logger.debug("timeout trying to terminate browser process")
+                    pass
+
+                if self._process.returncode is not None:
                     logger.debug("browser process did not stop. killing it")
                     self._process.kill()
                     logger.debug("killed browser process")
-
-                await self._process.wait()
 
             except ProcessLookupError:
                 # ignore this well known race condition because it only means that

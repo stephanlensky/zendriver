@@ -326,21 +326,3 @@ def cdp_get_module(domain: Union[str, types.ModuleType]):
                     "could not find cdp module from input '%s'" % domain
                 )
     return domain_mod
-
-
-async def _read_process_stderr(
-    process: asyncio.subprocess.Process, n: int = 2**16
-) -> str:
-    """
-    Read the given number of bytes from the stderr of the given process.
-
-    Read bytes are automatically decoded to utf-8.
-    """
-    if process.stderr is None:
-        raise ValueError("Process has no stderr")
-
-    try:
-        return (await asyncio.wait_for(process.stderr.read(n), 0.25)).decode("utf-8")
-    except asyncio.TimeoutError:
-        logger.debug("Timeout reading process stderr")
-        return ""
