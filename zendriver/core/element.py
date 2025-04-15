@@ -810,6 +810,46 @@ class Element:
         await self.update()
         return await self.tab.query_selector(selector, self)
 
+    async def take_screenshot(
+        self,
+        format: str = "jpeg",
+        scale: typing.Optional[typing.Union[int, float]] = 1,
+    ):
+        """
+        Takes a screenshot of this element (only)
+        This is not the same as :py:obj:`Tab.take_screenshot`, which takes a "regular" screenshot
+
+        When the element is hidden, or has no size, or is otherwise not capturable, a RuntimeError is raised
+
+        :param format: jpeg or png (defaults to jpeg)
+        :type format: str
+        :param scale: the scale of the screenshot, eg: 1 = size as is, 2 = double, 0.5 is half
+        :return: screenshot data as base64 encoded
+        :rtype: str
+        """
+        pos = await self.get_position()
+        if not pos:
+            raise RuntimeError(
+                "could not determine position of element. probably because it's not in view, or hidden"
+            )
+        viewport = pos.to_viewport(scale)
+        await self.tab.sleep()
+
+        data = await self._tab.send(
+            cdp.page.capture_screenshot(
+                format, clip=viewport, capture_beyond_viewport=True
+            )
+        )
+
+        if not data:
+            from .connection import ProtocolException
+
+            raise ProtocolException(
+                "could not take screenshot. most possible cause is the page has not finished loading yet."
+            )
+
+        return str(data)
+
     async def save_screenshot(
         self,
         filename: typing.Optional[PathLike] = "auto",
@@ -830,14 +870,8 @@ class Element:
         :return: the path/filename of saved screenshot
         :rtype: str
         """
-        pos = await self.get_position()
-        if not pos:
-            raise RuntimeError(
-                "could not determine position of element. probably because it's not in view, or hidden"
-            )
-        viewport = pos.to_viewport(scale)
-        path = None
         await self.tab.sleep()
+
         if not filename or filename == "auto":
             parsed = urllib.parse.urlparse(self.tab.target.url)
             parts = parsed.path.split("/")
@@ -848,26 +882,15 @@ class Element:
             ext = ""
             if format.lower() in ["jpg", "jpeg"]:
                 ext = ".jpg"
-                format = "jpeg"
             elif format.lower() in ["png"]:
                 ext = ".png"
-                format = "png"
             path = pathlib.Path(candidate + ext)
         else:
             path = pathlib.Path(filename)
 
         path.parent.mkdir(parents=True, exist_ok=True)
-        data = await self._tab.send(
-            cdp.page.capture_screenshot(
-                format, clip=viewport, capture_beyond_viewport=True
-            )
-        )
-        if not data:
-            from .connection import ProtocolException
 
-            raise ProtocolException(
-                "could not take screenshot. most possible cause is the page has not finished loading yet."
-            )
+        data = await self.take_screenshot(format, scale)
 
         data_bytes = base64.b64decode(data)
         if not path:
