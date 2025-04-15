@@ -11,11 +11,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Added `tab.take_screenshot` and `element.take_screenshot` methods to return screenshot as base64 string
+- Added `tab.take_screenshot` and `element.take_screenshot` methods to return screenshot as base64 string @falmar
 
 ### Changed
 
-- Changed `take.save_screenshot` and `element.save_screenshot` to use `self.take_screenshot` to fetch screenshot data and only perform the file saving
+- Changed `take.save_screenshot` and `element.save_screenshot` to use `self.take_screenshot` to fetch screenshot data and only perform the file saving @falmar
 
 ### Removed
 
