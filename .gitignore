@@ -4,7 +4,6 @@ site/
 # auto-generated docs
 docs/reference
 docs/release-notes.md
-docs/index.md
 
 # uv/pyenv
 .python-version

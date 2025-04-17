@@ -345,7 +345,7 @@ class Element:
         return parent_element
 
     @property
-    def children(self) -> typing.Union[typing.List[Element], str]:
+    def children(self) -> list[Element]:
         """
         returns the elements' children. those children also have a children property
         so you can browse through the entire tree as well.
