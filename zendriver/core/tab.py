@@ -9,13 +9,13 @@ import typing
 import urllib.parse
 import warnings
 import webbrowser
-from typing import TYPE_CHECKING, Any, List, Optional, Tuple, Union, Literal
+from typing import TYPE_CHECKING, Any, List, Literal, Optional, Tuple, Union
 
-from .expect import RequestExpectation, ResponseExpectation, DownloadExpectation
 from .. import cdp
 from . import element, util
 from .config import PathLike
 from .connection import Connection, ProtocolException
+from .expect import DownloadExpectation, RequestExpectation, ResponseExpectation
 
 if TYPE_CHECKING:
     from .browser import Browser
@@ -1282,6 +1282,23 @@ class Tab(Connection):
                 arguments=[cdp.runtime.CallArgument(object_id=body.object_id)],
             )
         )
+
+    async def save_snapshot(self, filename: str = "snapshot.mhtml") -> None:
+        """
+        Saves a snapshot of the page.
+        :param filename: The save path; defaults to "snapshot.mhtml"
+        """
+        await self.sleep()  # update the target's url
+        path = pathlib.Path(filename)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        data = await self.send(cdp.page.capture_snapshot())
+        if not data:
+            raise ProtocolException(
+                "Could not take snapshot. Most possible cause is the page has not finished loading yet."
+            )
+
+        with open(filename, "w") as file:
+            file.write(data)
 
     async def save_screenshot(
         self,
