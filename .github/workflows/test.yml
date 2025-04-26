@@ -1,4 +1,4 @@
-name: lint
+name: test
 on:
   push:
     branches:
@@ -10,8 +10,9 @@ on:
       - main
     paths:
       - "**.py"
+  workflow_dispatch:
 jobs:
-  lint:
+  test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -21,5 +22,8 @@ jobs:
         run: uv python install
       - name: Install dependencies
         run: uv sync --all-extras --dev
-      - name: Lint with ruff/mypy
-        run: /bin/bash ./scripts/lint.sh
+      - name: Run tests
+        env:
+          ZENDRIVER_TEST_BROWSERS: "headless"
+          ZENDRIVER_TEST_NO_SANDBOX: "true"
+        run: /bin/bash ./scripts/test.sh

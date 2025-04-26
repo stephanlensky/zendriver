@@ -15,6 +15,67 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
+## [0.6.1] - 2025-04-25
+
+### Fixed
+
+- Fix race condition in `Browser.get` and `Tab.close` which could cause exceptions, especially when running multiple browsers in parallel @stephanlensky
+
+## [0.6.0] - 2025-04-20
+
+### Fixed
+
+- `Browser.get` and `Tab.close` will now wait for their appropiate target events before returning @ccev
+
+### Added
+
+- Added `Tab.save_snapshot` to export the current page to MHTML format.
+
+## [0.5.2] - 2025-04-09
+
+### Fixed
+
+- Fixed type annotation of `Element.children` @stephanlensky
+
+## [0.5.1] - 2025-02-16
+
+### Changed
+
+- Deprecated `zendriver.loop()` function. You should instead use `asyncio` functions directly, for example:
+
+  ```python
+  asyncio.run(your_main_method())
+  ```
+
+## [0.5.0] - 2025-02-16
+
+### Added
+
+- Add `tab.expect_download` methods to wait for download file @3mora2
+
+## [0.4.3] - 2025-02-11
+
+### Added
+
+- Add logs for Chrome process output on connection failure @stephanlensky
+
+### Changed
+
+- Default and launch changed to use `about:blank` (faster start and less bandwidth) @raycardillo
+
+## [0.4.2] - 2025-02-11
+
+### Fixed
+
+- Multiple Browsers can be created without one affecting the other @raycardillo
+
+## [0.4.1] - 2025-02-09
+
+### Fixed
+
+- Ignore irrelevant `DOM.disable` errors @raycardillo
+- Test scripts improved for running on macOS @raycardillo
+
 ## [0.4.0] - 2025-02-06
 
 ### Added

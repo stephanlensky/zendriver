@@ -1,6 +1,6 @@
 [project]
 name = "zendriver"
-version = "0.4.0"
+version = "0.6.1"
 description = "A blazing fast, async-first, undetectable webscraping/web automation framework"
 readme = "README.md"
 authors = [{ name = "Stephan Lensky", email = "oss@slensky.com" }]
@@ -39,11 +39,14 @@ dev-dependencies = [
     "ruff>=0.7.4",
     "types-pyyaml>=6.0.12.20240917",
     "types-requests>=2.32.0.20241016",
+    "pytest-mock>=3.14.0",
+    "types-deprecated>=1.2.15.20241117",
 ]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
+log_level = "INFO"
 
 [tool.ruff]
 exclude = ["zendriver/cdp"]
