@@ -10,7 +10,17 @@ import typing
 import urllib.parse
 import warnings
 import webbrowser
-from typing import TYPE_CHECKING, Any, List, Literal, Optional, Tuple, Union
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Awaitable,
+    Callable,
+    List,
+    Literal,
+    Optional,
+    Tuple,
+    Union,
+)
 
 from .. import cdp
 from . import element, util
@@ -138,6 +148,10 @@ class Tab(Connection):
         self.browser = browser
         self._dom = None
         self._window_id = None
+
+        self._auto_dismiss_javascript_dialog_handler: (
+            Callable[[cdp.page.JavascriptDialogOpening], Awaitable[None]] | None
+        ) = None
 
     @property
     def inspector_url(self):
@@ -1426,6 +1440,62 @@ class Tab(Connection):
             )
         )
         self._download_behavior = ["allow", str(path.resolve())]
+
+    async def handle_javascript_dialog(
+        self, accept: bool, prompt_text: str | None = None
+    ) -> None:
+        """
+        Handles a JavaScript dialog (alert, confirm, or prompt) by accepting or dismissing it.
+
+        :param accept: accept or dismiss
+        :type accept: bool
+        :param prompt_text: text to send to the prompt dialog (if applicable)
+        :type prompt_text: str
+        :return:
+        :rtype:
+        """
+        await self.send(
+            cdp.page.handle_java_script_dialog(accept=accept, prompt_text=prompt_text)
+        )
+
+    def set_auto_dismiss_javascript_dialogs(self, auto_dismiss: bool = True) -> None:
+        """
+        Sets whether to automatically dismiss JavaScript dialogs.
+
+        :param auto_dismiss: If True, dialogs will be automatically dismissed.
+        :type auto_dismiss: bool
+        """
+        if not auto_dismiss:
+            if self._auto_dismiss_javascript_dialog_handler is not None:
+                self.remove_handlers(
+                    cdp.page.JavascriptDialogOpening,
+                    self._auto_dismiss_javascript_dialog_handler,
+                )
+                self._auto_dismiss_javascript_dialog_handler = None
+            return
+        if self._auto_dismiss_javascript_dialog_handler is not None:
+            # handler already configured
+            return
+
+        async def dialog_handler(event: cdp.page.JavascriptDialogOpening) -> None:
+            if event.type_ == "alert":
+                await self.handle_javascript_dialog(accept=True)
+            elif event.type_ == "confirm":
+                await self.handle_javascript_dialog(accept=False)
+            elif event.type_ == "prompt":
+                await self.handle_javascript_dialog(
+                    accept=True, prompt_text=event.default_prompt
+                )
+            else:
+                raise ValueError(
+                    f"Unknown dialog type: {event.type_}. Supported types are: alert, confirm, prompt."
+                )
+
+        self._auto_dismiss_javascript_dialog_handler = dialog_handler
+        self.add_handler(
+            cdp.page.JavascriptDialogOpening,
+            self._auto_dismiss_javascript_dialog_handler,
+        )
 
     async def get_all_linked_sources(self) -> List[Element]:
         """

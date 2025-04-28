@@ -20,6 +20,7 @@ services:
       # When set to true, the test runner will pause after each test is complete to allow debugging with VNC client
       # Proceed to the next test by sending Mod+Return over VNC
       - ZENDRIVER_PAUSE_AFTER_TEST=false
+      - ZENDRIVER_TEST_BROWSERS=headful
     privileged: true
 
 volumes:

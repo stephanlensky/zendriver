@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>JavaScript Dialog Test Page</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        max-width: 600px;
+        margin: 0 auto;
+        padding: 20px;
+        text-align: center;
+      }
+      #result {
+        margin-top: 20px;
+        padding: 15px;
+        border: 1px solid #ccc;
+        border-radius: 5px;
+        display: none;
+        background-color: #e8f5e9;
+      }
+      button {
+        padding: 10px 15px;
+        font-size: 16px;
+        cursor: pointer;
+        background-color: #4caf50;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        margin-top: 20px;
+      }
+      button:hover {
+        background-color: #45a049;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>JavaScript Dialog Test Page</h1>
+    <p>
+      This page will display a sequence of JavaScript dialogs (alert, confirm,
+      prompt).
+    </p>
+    <button id="startButton">Start Dialog Sequence</button>
+    <div id="result"></div>
+
+    <script>
+      document
+        .getElementById("startButton")
+        .addEventListener("click", function () {
+          // First dialog - Alert
+          alert("This is an alert dialog. Click OK to continue.");
+
+          // Second dialog - Confirm
+          const confirmResult = confirm(
+            "This is a confirm dialog. Click OK or Cancel."
+          );
+
+          // Third dialog - Prompt
+          const promptResult = prompt(
+            "This is a prompt dialog. Enter some text:",
+            "Default text"
+          );
+
+          // Show completion message
+          document.getElementById("result").style.display = "block";
+          document.getElementById("result").innerHTML +=
+            "<p>All dialogs dismissed successfully!</p>";
+
+          // Hide the start button
+          this.style.display = "none";
+        });
+    </script>
+  </body>
+</html>

@@ -206,3 +206,16 @@ async def test_expect_download(browser: zd.Browser):
         download = await asyncio.wait_for(download_ex.value, timeout=3)
         assert type(download) is zd.cdp.browser.DownloadWillBegin
         assert download.url is not None
+
+
+async def test_auto_dismiss_javascript_dialogs(browser: zd.Browser):
+    tab = browser.main_tab
+    tab.set_auto_dismiss_javascript_dialogs(True)
+    await tab.get(sample_file("javascript_dialogs.html"))
+
+    start_button = await tab.select("#startButton")
+    await start_button.click()
+    await asyncio.sleep(1)  # Wait for the dialogs to be shown and dismissed
+
+    success = await tab.find(text="All dialogs dismissed successfully!", timeout=1)
+    assert success is not None
