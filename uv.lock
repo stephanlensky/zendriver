@@ -926,7 +926,7 @@ wheels = [
 
 [[package]]
 name = "zendriver"
-version = "0.5.2"
+version = "0.6.1"
 source = { editable = "." }
 dependencies = [
     { name = "asyncio-atexit" },

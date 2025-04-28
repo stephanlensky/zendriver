@@ -57,6 +57,7 @@ async def main() -> None:
     page = await browser.get(
         "https://slensky.com/zendriver-examples/login-page.html",
     )
+    await asyncio.sleep(0.5)  # Wait for the page to load
 
     name = "John Doe"
     email = "john.doe@example.com"

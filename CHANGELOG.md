@@ -19,6 +19,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
+## [0.6.1] - 2025-04-25
+
+### Fixed
+
+- Fix race condition in `Browser.get` and `Tab.close` which could cause exceptions, especially when running multiple browsers in parallel @stephanlensky
+
+## [0.6.0] - 2025-04-20
+
+### Fixed
+
+- `Browser.get` and `Tab.close` will now wait for their appropiate target events before returning @ccev
+
+### Added
+
+- Added `Tab.save_snapshot` to export the current page to MHTML format.
+
 ## [0.5.2] - 2025-04-09
 
 ### Fixed

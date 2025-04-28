@@ -252,9 +252,25 @@ class Browser:
         :param new_tab: open new tab
         :param new_window:  open new window
         :return: Page
+        :raises: asyncio.TimeoutError
         """
         if not self.connection:
             raise RuntimeError("Browser not yet started. use await browser.start()")
+
+        future = asyncio.get_running_loop().create_future()
+        event_type = cdp.target.TargetInfoChanged
+
+        async def get_handler(event: cdp.target.TargetInfoChanged) -> None:
+            if future.done():
+                return
+
+            # ignore TargetInfoChanged event from browser startup
+            if event.target_info.url != "about:blank" or (
+                url == "about:blank" and event.target_info.url == "about:blank"
+            ):
+                future.set_result(event)
+
+        self.connection.add_handler(event_type, get_handler)
 
         if new_tab or new_window:
             # create new target using the browser session
@@ -271,7 +287,6 @@ class Browser:
                 )
             )
             connection.browser = self
-
         else:
             # first tab from browser.tabs
             connection = next(filter(lambda item: item.type_ == "page", self.targets))
@@ -279,7 +294,9 @@ class Browser:
             await connection.send(cdp.page.navigate(url))
             connection.browser = self
 
-        await connection.sleep(0.25)
+        await asyncio.wait_for(future, 10)
+        self.connection.remove_handlers(event_type, get_handler)
+
         return connection
 
     async def start(self) -> Browser:
