@@ -257,9 +257,9 @@ def enable() -> typing.Generator[T_JSON_DICT, T_JSON_DICT, None]:
     json = yield cmd_dict
 
 
-def get_best_effort_coverage() -> (
-    typing.Generator[T_JSON_DICT, T_JSON_DICT, typing.List[ScriptCoverage]]
-):
+def get_best_effort_coverage() -> typing.Generator[
+    T_JSON_DICT, T_JSON_DICT, typing.List[ScriptCoverage]
+]:
     """
     Collect coverage data for the current isolate. The coverage data may be incomplete due to
     garbage collection.
@@ -351,11 +351,9 @@ def stop_precise_coverage() -> typing.Generator[T_JSON_DICT, T_JSON_DICT, None]:
     json = yield cmd_dict
 
 
-def take_precise_coverage() -> (
-    typing.Generator[
-        T_JSON_DICT, T_JSON_DICT, typing.Tuple[typing.List[ScriptCoverage], float]
-    ]
-):
+def take_precise_coverage() -> typing.Generator[
+    T_JSON_DICT, T_JSON_DICT, typing.Tuple[typing.List[ScriptCoverage], float]
+]:
     """
     Collect coverage data for the current isolate, and resets execution counters. Precise code
     coverage needs to have started.

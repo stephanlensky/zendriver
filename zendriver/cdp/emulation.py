@@ -18,6 +18,76 @@ from deprecated.sphinx import deprecated  # type: ignore
 
 
 @dataclass
+class SafeAreaInsets:
+    #: Overrides safe-area-inset-top.
+    top: typing.Optional[int] = None
+
+    #: Overrides safe-area-max-inset-top.
+    top_max: typing.Optional[int] = None
+
+    #: Overrides safe-area-inset-left.
+    left: typing.Optional[int] = None
+
+    #: Overrides safe-area-max-inset-left.
+    left_max: typing.Optional[int] = None
+
+    #: Overrides safe-area-inset-bottom.
+    bottom: typing.Optional[int] = None
+
+    #: Overrides safe-area-max-inset-bottom.
+    bottom_max: typing.Optional[int] = None
+
+    #: Overrides safe-area-inset-right.
+    right: typing.Optional[int] = None
+
+    #: Overrides safe-area-max-inset-right.
+    right_max: typing.Optional[int] = None
+
+    def to_json(self) -> T_JSON_DICT:
+        json: T_JSON_DICT = dict()
+        if self.top is not None:
+            json["top"] = self.top
+        if self.top_max is not None:
+            json["topMax"] = self.top_max
+        if self.left is not None:
+            json["left"] = self.left
+        if self.left_max is not None:
+            json["leftMax"] = self.left_max
+        if self.bottom is not None:
+            json["bottom"] = self.bottom
+        if self.bottom_max is not None:
+            json["bottomMax"] = self.bottom_max
+        if self.right is not None:
+            json["right"] = self.right
+        if self.right_max is not None:
+            json["rightMax"] = self.right_max
+        return json
+
+    @classmethod
+    def from_json(cls, json: T_JSON_DICT) -> SafeAreaInsets:
+        return cls(
+            top=int(json["top"]) if json.get("top", None) is not None else None,
+            top_max=int(json["topMax"])
+            if json.get("topMax", None) is not None
+            else None,
+            left=int(json["left"]) if json.get("left", None) is not None else None,
+            left_max=int(json["leftMax"])
+            if json.get("leftMax", None) is not None
+            else None,
+            bottom=int(json["bottom"])
+            if json.get("bottom", None) is not None
+            else None,
+            bottom_max=int(json["bottomMax"])
+            if json.get("bottomMax", None) is not None
+            else None,
+            right=int(json["right"]) if json.get("right", None) is not None else None,
+            right_max=int(json["rightMax"])
+            if json.get("rightMax", None) is not None
+            else None,
+        )
+
+
+@dataclass
 class ScreenOrientation:
     """
     Screen orientation.
@@ -568,6 +638,26 @@ def set_default_background_color_override(
     json = yield cmd_dict
 
 
+def set_safe_area_insets_override(
+    insets: SafeAreaInsets,
+) -> typing.Generator[T_JSON_DICT, T_JSON_DICT, None]:
+    """
+    Overrides the values for env(safe-area-inset-*) and env(safe-area-max-inset-*). Unset values will cause the
+    respective variables to be undefined, even if previously overridden.
+
+    **EXPERIMENTAL**
+
+    :param insets:
+    """
+    params: T_JSON_DICT = dict()
+    params["insets"] = insets.to_json()
+    cmd_dict: T_JSON_DICT = {
+        "method": "Emulation.setSafeAreaInsetsOverride",
+        "params": params,
+    }
+    json = yield cmd_dict
+
+
 def set_device_metrics_override(
     width: int,
     height: int,
@@ -601,7 +691,7 @@ def set_device_metrics_override(
     :param dont_set_visible_size: **(EXPERIMENTAL)** *(Optional)* Do not set visible view size, rely upon explicit setVisibleSize call.
     :param screen_orientation: *(Optional)* Screen orientation override.
     :param viewport: **(EXPERIMENTAL)** *(Optional)* If set, the visible area of the page will be overridden to this viewport. This viewport change is not observed by the page, e.g. viewport-relative elements do not change positions.
-    :param display_feature: **(EXPERIMENTAL)** *(Optional)* If set, the display feature of a multi-segment screen. If not set, multi-segment support is turned-off.
+    :param display_feature: **(DEPRECATED)** **(EXPERIMENTAL)** *(Optional)* If set, the display feature of a multi-segment screen. If not set, multi-segment support is turned-off. Deprecated, use Emulation.setDisplayFeaturesOverride.
     :param device_posture: **(DEPRECATED)** **(EXPERIMENTAL)** *(Optional)* If set, the posture of a foldable device. If not set the posture is set to continuous. Deprecated, use Emulation.setDevicePostureOverride.
     """
     params: T_JSON_DICT = dict()
@@ -667,6 +757,43 @@ def clear_device_posture_override() -> typing.Generator[T_JSON_DICT, T_JSON_DICT
     """
     cmd_dict: T_JSON_DICT = {
         "method": "Emulation.clearDevicePostureOverride",
+    }
+    json = yield cmd_dict
+
+
+def set_display_features_override(
+    features: typing.List[DisplayFeature],
+) -> typing.Generator[T_JSON_DICT, T_JSON_DICT, None]:
+    """
+    Start using the given display features to pupulate the Viewport Segments API.
+    This override can also be set in setDeviceMetricsOverride().
+
+    **EXPERIMENTAL**
+
+    :param features:
+    """
+    params: T_JSON_DICT = dict()
+    params["features"] = [i.to_json() for i in features]
+    cmd_dict: T_JSON_DICT = {
+        "method": "Emulation.setDisplayFeaturesOverride",
+        "params": params,
+    }
+    json = yield cmd_dict
+
+
+def clear_display_features_override() -> typing.Generator[
+    T_JSON_DICT, T_JSON_DICT, None
+]:
+    """
+    Clears the display features override set with either setDeviceMetricsOverride()
+    or setDisplayFeaturesOverride() and starts using display features from the
+    platform again.
+    Does nothing if no override is set.
+
+    **EXPERIMENTAL**
+    """
+    cmd_dict: T_JSON_DICT = {
+        "method": "Emulation.clearDisplayFeaturesOverride",
     }
     json = yield cmd_dict
 
@@ -774,14 +901,22 @@ def set_geolocation_override(
     latitude: typing.Optional[float] = None,
     longitude: typing.Optional[float] = None,
     accuracy: typing.Optional[float] = None,
+    altitude: typing.Optional[float] = None,
+    altitude_accuracy: typing.Optional[float] = None,
+    heading: typing.Optional[float] = None,
+    speed: typing.Optional[float] = None,
 ) -> typing.Generator[T_JSON_DICT, T_JSON_DICT, None]:
     """
-    Overrides the Geolocation Position or Error. Omitting any of the parameters emulates position
-    unavailable.
+    Overrides the Geolocation Position or Error. Omitting latitude, longitude or
+    accuracy emulates position unavailable.
 
     :param latitude: *(Optional)* Mock latitude
     :param longitude: *(Optional)* Mock longitude
     :param accuracy: *(Optional)* Mock accuracy
+    :param altitude: *(Optional)* Mock altitude
+    :param altitude_accuracy: *(Optional)* Mock altitudeAccuracy
+    :param heading: *(Optional)* Mock heading
+    :param speed: *(Optional)* Mock speed
     """
     params: T_JSON_DICT = dict()
     if latitude is not None:
@@ -790,6 +925,14 @@ def set_geolocation_override(
         params["longitude"] = longitude
     if accuracy is not None:
         params["accuracy"] = accuracy
+    if altitude is not None:
+        params["altitude"] = altitude
+    if altitude_accuracy is not None:
+        params["altitudeAccuracy"] = altitude_accuracy
+    if heading is not None:
+        params["heading"] = heading
+    if speed is not None:
+        params["speed"] = speed
     cmd_dict: T_JSON_DICT = {
         "method": "Emulation.setGeolocationOverride",
         "params": params,
@@ -1208,6 +1351,26 @@ def set_automation_override(
     params["enabled"] = enabled
     cmd_dict: T_JSON_DICT = {
         "method": "Emulation.setAutomationOverride",
+        "params": params,
+    }
+    json = yield cmd_dict
+
+
+def set_small_viewport_height_difference_override(
+    difference: int,
+) -> typing.Generator[T_JSON_DICT, T_JSON_DICT, None]:
+    """
+    Allows overriding the difference between the small and large viewport sizes, which determine the
+    value of the ``svh`` and ``lvh`` unit, respectively. Only supported for top-level frames.
+
+    **EXPERIMENTAL**
+
+    :param difference: This will cause an element of size 100svh to be ```difference``` pixels smaller than an element of size 100lvh.
+    """
+    params: T_JSON_DICT = dict()
+    params["difference"] = difference
+    cmd_dict: T_JSON_DICT = {
+        "method": "Emulation.setSmallViewportHeightDifferenceOverride",
         "params": params,
     }
     json = yield cmd_dict

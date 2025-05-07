@@ -198,9 +198,9 @@ def get_object_by_heap_object_id(
     return runtime.RemoteObject.from_json(json["result"])
 
 
-def get_sampling_profile() -> (
-    typing.Generator[T_JSON_DICT, T_JSON_DICT, SamplingHeapProfile]
-):
+def get_sampling_profile() -> typing.Generator[
+    T_JSON_DICT, T_JSON_DICT, SamplingHeapProfile
+]:
     """
 
 

@@ -233,6 +233,28 @@ class PreloadingAttemptSource:
         )
 
 
+class PreloadPipelineId(str):
+    """
+    Chrome manages different types of preloads together using a
+    concept of preloading pipeline. For example, if a site uses a
+    SpeculationRules for prerender, Chrome first starts a prefetch and
+    then upgrades it to prerender.
+
+    CDP events for them are emitted separately but they share
+    ``PreloadPipelineId``.
+    """
+
+    def to_json(self) -> str:
+        return self
+
+    @classmethod
+    def from_json(cls, json: str) -> PreloadPipelineId:
+        return cls(json)
+
+    def __repr__(self):
+        return "PreloadPipelineId({})".format(super().__repr__())
+
+
 class PrerenderFinalStatus(enum.Enum):
     """
     List of FinalStatus reasons for Prerender2.
@@ -339,6 +361,7 @@ class PrerenderFinalStatus(enum.Enum):
     OTHER_PRERENDERED_PAGE_ACTIVATED = "OtherPrerenderedPageActivated"
     V8_OPTIMIZER_DISABLED = "V8OptimizerDisabled"
     PRERENDER_FAILED_DURING_PREFETCH = "PrerenderFailedDuringPrefetch"
+    BROWSING_DATA_REMOVED = "BrowsingDataRemoved"
 
     def to_json(self) -> str:
         return self.value
@@ -381,6 +404,9 @@ class PrefetchStatus(enum.Enum):
     PREFETCH_FAILED_MIME_NOT_SUPPORTED = "PrefetchFailedMIMENotSupported"
     PREFETCH_FAILED_NET_ERROR = "PrefetchFailedNetError"
     PREFETCH_FAILED_NON2_XX = "PrefetchFailedNon2XX"
+    PREFETCH_EVICTED_AFTER_BROWSING_DATA_REMOVED = (
+        "PrefetchEvictedAfterBrowsingDataRemoved"
+    )
     PREFETCH_EVICTED_AFTER_CANDIDATE_REMOVED = "PrefetchEvictedAfterCandidateRemoved"
     PREFETCH_EVICTED_FOR_NEWER_PREFETCH = "PrefetchEvictedForNewerPrefetch"
     PREFETCH_HELDBACK = "PrefetchHeldback"
@@ -403,6 +429,15 @@ class PrefetchStatus(enum.Enum):
     PREFETCH_NOT_ELIGIBLE_USER_HAS_COOKIES = "PrefetchNotEligibleUserHasCookies"
     PREFETCH_NOT_ELIGIBLE_USER_HAS_SERVICE_WORKER = (
         "PrefetchNotEligibleUserHasServiceWorker"
+    )
+    PREFETCH_NOT_ELIGIBLE_USER_HAS_SERVICE_WORKER_NO_FETCH_HANDLER = (
+        "PrefetchNotEligibleUserHasServiceWorkerNoFetchHandler"
+    )
+    PREFETCH_NOT_ELIGIBLE_REDIRECT_FROM_SERVICE_WORKER = (
+        "PrefetchNotEligibleRedirectFromServiceWorker"
+    )
+    PREFETCH_NOT_ELIGIBLE_REDIRECT_TO_SERVICE_WORKER = (
+        "PrefetchNotEligibleRedirectToServiceWorker"
     )
     PREFETCH_NOT_ELIGIBLE_BATTERY_SAVER_ENABLED = (
         "PrefetchNotEligibleBatterySaverEnabled"
@@ -532,6 +567,7 @@ class PrefetchStatusUpdated:
     """
 
     key: PreloadingAttemptKey
+    pipeline_id: PreloadPipelineId
     #: The frame id of the frame initiating prefetch.
     initiating_frame_id: page.FrameId
     prefetch_url: str
@@ -543,6 +579,7 @@ class PrefetchStatusUpdated:
     def from_json(cls, json: T_JSON_DICT) -> PrefetchStatusUpdated:
         return cls(
             key=PreloadingAttemptKey.from_json(json["key"]),
+            pipeline_id=PreloadPipelineId.from_json(json["pipelineId"]),
             initiating_frame_id=page.FrameId.from_json(json["initiatingFrameId"]),
             prefetch_url=str(json["prefetchUrl"]),
             status=PreloadingStatus.from_json(json["status"]),
@@ -559,6 +596,7 @@ class PrerenderStatusUpdated:
     """
 
     key: PreloadingAttemptKey
+    pipeline_id: PreloadPipelineId
     status: PreloadingStatus
     prerender_status: typing.Optional[PrerenderFinalStatus]
     #: This is used to give users more information about the name of Mojo interface
@@ -570,6 +608,7 @@ class PrerenderStatusUpdated:
     def from_json(cls, json: T_JSON_DICT) -> PrerenderStatusUpdated:
         return cls(
             key=PreloadingAttemptKey.from_json(json["key"]),
+            pipeline_id=PreloadPipelineId.from_json(json["pipelineId"]),
             status=PreloadingStatus.from_json(json["status"]),
             prerender_status=PrerenderFinalStatus.from_json(json["prerenderStatus"])
             if json.get("prerenderStatus", None) is not None
