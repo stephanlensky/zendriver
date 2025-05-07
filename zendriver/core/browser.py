@@ -476,7 +476,6 @@ class Browser:
             raise RuntimeError("Browser not yet started. use await browser.start()")
 
         permissions = list(cdp.browser.PermissionType)
-        permissions.remove(cdp.browser.PermissionType.FLASH)
         permissions.remove(cdp.browser.PermissionType.CAPTURED_SURFACE_CONTROL)
         await self.connection.send(cdp.browser.grant_permissions(permissions))
 
