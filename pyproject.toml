@@ -41,6 +41,7 @@ dev-dependencies = [
     "types-requests>=2.32.0.20241016",
     "pytest-mock>=3.14.0",
     "types-deprecated>=1.2.15.20241117",
+    "inflection>=0.5.1",
 ]
 
 [tool.pytest.ini_options]
