@@ -13,7 +13,10 @@ on:
   workflow_dispatch:
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ ubuntu-latest, windows-latest ]
     steps:
       - uses: actions/checkout@v4
       - name: Install uv
@@ -26,4 +29,5 @@ jobs:
         env:
           ZENDRIVER_TEST_BROWSERS: "headless"
           ZENDRIVER_TEST_NO_SANDBOX: "true"
-        run: /bin/bash ./scripts/test.sh
+        shell: bash
+        run: ./scripts/test.sh
