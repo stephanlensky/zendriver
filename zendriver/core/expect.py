@@ -35,7 +35,7 @@ class BaseRequestExpectation:
         :param event: The request event.
         :type event: cdp.network.RequestWillBeSent
         """
-        if re.fullmatch(self.url_pattern, event.request.url):
+        if re.fullmatch(re.escape(self.url_pattern), event.request.url):
             self._remove_request_handler()
             self.request_id = event.request_id
             self.request_future.set_result(event)
