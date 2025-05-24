@@ -123,7 +123,9 @@ def handle_next_test(signum, frame):
     NEXT_TEST_EVENT.set()
 
 
-if hasattr(signal, 'SIGUSR1'):
+if hasattr(signal, "SIGUSR1"):
     signal.signal(signal.SIGUSR1, handle_next_test)
 else:
-    logger.warning("SIGUSR1 not available on this platform, handle_next_test will not be called.")
+    logger.warning(
+        "SIGUSR1 not available on this platform, handle_next_test will not be called."
+    )
