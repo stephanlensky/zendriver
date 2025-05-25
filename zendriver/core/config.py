@@ -42,6 +42,7 @@ class Config:
         expert: bool | None = AUTO,
         browser_connection_timeout: float = 0.25,
         browser_connection_max_tries: int = 10,
+        disable_asyncio_subprocess: bool = False,
         **kwargs: Any,
     ):
         """
@@ -65,6 +66,8 @@ class Config:
         :param expert: when set to True, enabled "expert" mode.
                This conveys, the inclusion of parameters: --disable-web-security ----disable-site-isolation-trials,
                as well as some scripts and patching useful for debugging (for example, ensuring shadow-root is always in "open" mode)
+        :param disable_asyncio_subprocess: when set to True, disables the asyncio subprocess and use the standard subprocess module instead.
+               On Windows, this might be preferable to use WindowsSelectorEventLoopPolicy, which is not compatible with asyncio subprocesses.
 
         :param kwargs:
 
@@ -111,6 +114,7 @@ class Config:
 
         self.browser_connection_timeout = browser_connection_timeout
         self.browser_connection_max_tries = browser_connection_max_tries
+        self.disable_asyncio_subprocess = disable_asyncio_subprocess
 
         # other keyword args will be accessible by attribute
         self.__dict__.update(kwargs)

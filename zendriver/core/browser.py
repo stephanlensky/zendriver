@@ -10,6 +10,7 @@ import pathlib
 import pickle
 import re
 import shutil
+import subprocess
 import urllib.parse
 import urllib.request
 import warnings
@@ -54,7 +55,7 @@ class Browser:
 
     """
 
-    _process: asyncio.subprocess.Process | None
+    _process: asyncio.subprocess.Process | subprocess.Popen | None
     _process_pid: int | None
     _http: HTTPApi | None = None
     _cookies: CookieJar | None = None
@@ -354,17 +355,8 @@ class Browser:
             "starting\n\texecutable :%s\n\narguments:\n%s", exe, "\n\t".join(params)
         )
         if not connect_existing:
-            self._process: asyncio.subprocess.Process = (
-                await asyncio.create_subprocess_exec(
-                    # self.config.browser_executable_path,
-                    # *cmdparams,
-                    exe,
-                    *params,
-                    stdin=asyncio.subprocess.PIPE,
-                    stdout=asyncio.subprocess.PIPE,
-                    stderr=asyncio.subprocess.PIPE,
-                    close_fds=is_posix,
-                )
+            self._process = await util._start_process(
+                exe, params, is_posix, self.config.disable_asyncio_subprocess
             )
             self._process_pid = self._process.pid
 
@@ -619,7 +611,10 @@ class Browser:
                     self._process.kill()
                     logger.debug("killed browser process")
 
-                await self._process.wait()
+                if isinstance(self._process, asyncio.subprocess.Process):
+                    await self._process.wait()
+                else:
+                    self._process.wait()
 
             except ProcessLookupError:
                 # ignore this well known race condition because it only means that
