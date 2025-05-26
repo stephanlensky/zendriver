@@ -1,6 +1,8 @@
+import asyncio
 import logging
 import os
 import signal
+import sys
 from contextlib import AbstractAsyncContextManager
 from enum import Enum
 from threading import Event
@@ -88,6 +90,9 @@ class CreateBrowser(AbstractAsyncContextManager):
 def create_browser(
     disable_asyncio_subprocess: bool,
 ) -> type[CreateBrowser] | functools.partial[CreateBrowser]:
+    if disable_asyncio_subprocess and sys.platform == "win32":
+        asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())  # type: ignore
+
     return functools.partial(
         CreateBrowser, disable_asyncio_subprocess=disable_asyncio_subprocess
     )

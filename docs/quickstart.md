@@ -93,7 +93,21 @@ config.user_data_dir="/path/to/existing/profile",  # by specifying it, it won't 
 config.browser_executable_path="/path/to/some/other/browser",
 config.browser_args=['--some-browser-arg=true', '--some-other-option'],
 config.lang="en-US"   # this could set iso-language-code in navigator, not recommended to change
-)
+```
+
+On Windows, we recommend using `WindowsSelectorEventLoopPolicy` for better compatibility with asyncio:
+
+```python
+import asyncio
+import sys
+import zendriver as zd
+
+config = zd.Config()
+# ...
+
+if sys.platform == "win32":
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+    config.disable_asyncio_subprocess = True # required since WindowsSelectorEventLoopPolicy does not support asyncio subprocesses
 ```
 
 A more concrete example, which can be found in the ./example/ folder,
