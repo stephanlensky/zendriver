@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Fixing tests so that they can run on Windows (and still run on Linux like before) @nathanfallet
+- Adding `config.disable_asyncio_subprocess` option to disable asyncio subprocesses on Windows @nathanfallet
 
 ### Added
 
