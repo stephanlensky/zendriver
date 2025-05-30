@@ -307,6 +307,7 @@ def find_chrome_executable() -> PathLike:
                     "Google/Chrome/Application",
                     "Google/Chrome Beta/Application",
                     "Google/Chrome Canary/Application",
+                    "Google/Chrome SxS/Application",
                 ):
                     candidates.append(os.sep.join((item2, subitem, "chrome.exe")))
     rv = []
