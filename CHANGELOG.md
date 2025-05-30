@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Fixing tests so that they can run on Windows (and still run on Linux like before) @nathanfallet
 - Adding a missing Chrome Canary path for Windows @nathanfallet
+- Adding a flag to re-enable `--load-extension` (disabled by default in Chrome 136+) @nathanfallet
 
 ### Added
 
