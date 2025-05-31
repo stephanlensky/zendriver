@@ -1,6 +1,8 @@
+import asyncio
 import logging
 import os
 import signal
+import sys
 from contextlib import AbstractAsyncContextManager
 from enum import Enum
 from threading import Event
@@ -83,6 +85,9 @@ class CreateBrowser(AbstractAsyncContextManager):
 
 @pytest.fixture
 def create_browser() -> type[CreateBrowser]:
+    if sys.platform == "win32":
+        asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())  # type: ignore
+
     return CreateBrowser
 
 
