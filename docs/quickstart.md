@@ -100,14 +100,9 @@ On Windows, we recommend using `WindowsSelectorEventLoopPolicy` for better compa
 ```python
 import asyncio
 import sys
-import zendriver as zd
-
-config = zd.Config()
-# ...
 
 if sys.platform == "win32":
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
-    config.disable_asyncio_subprocess = True # required since WindowsSelectorEventLoopPolicy does not support asyncio subprocesses
 ```
 
 A more concrete example, which can be found in the ./example/ folder,

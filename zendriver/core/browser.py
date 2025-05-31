@@ -55,7 +55,7 @@ class Browser:
 
     """
 
-    _process: asyncio.subprocess.Process | subprocess.Popen | None
+    _process: subprocess.Popen | None
     _process_pid: int | None
     _http: HTTPApi | None = None
     _cookies: CookieJar | None = None
@@ -355,9 +355,7 @@ class Browser:
             "starting\n\texecutable :%s\n\narguments:\n%s", exe, "\n\t".join(params)
         )
         if not connect_existing:
-            self._process = await util._start_process(
-                exe, params, is_posix, self.config.disable_asyncio_subprocess
-            )
+            self._process = util._start_process(exe, params, is_posix)
             self._process_pid = self._process.pid
 
         self._http = HTTPApi((self.config.host, self.config.port))
@@ -611,10 +609,7 @@ class Browser:
                     self._process.kill()
                     logger.debug("killed browser process")
 
-                if isinstance(self._process, asyncio.subprocess.Process):
-                    await self._process.wait()
-                else:
-                    self._process.wait()
+                await asyncio.to_thread(self._process.wait)
 
             except ProcessLookupError:
                 # ignore this well known race condition because it only means that

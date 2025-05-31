@@ -330,44 +330,29 @@ def cdp_get_module(domain: Union[str, types.ModuleType]):
     return domain_mod
 
 
-async def _start_process(
-    exe: str | Path, params: List[str], is_posix: bool, disable_asyncio_subprocess: bool
-) -> asyncio.subprocess.Process | subprocess.Popen:
+def _start_process(
+    exe: str | Path, params: List[str], is_posix: bool
+) -> subprocess.Popen:
     """
     Start a subprocess with the given executable and parameters.
-    If `disable_asyncio_subprocess` is True, it uses `subprocess.Popen` directly.
-    If `disable_asyncio_subprocess` is False, it uses `asyncio.create_subprocess_exec`.
 
     :param exe: The executable to run.
     :param params: List of parameters to pass to the executable.
     :param is_posix: Boolean indicating if the system is POSIX compliant.
-    :param disable_asyncio_subprocess: If True, use `subprocess.Popen` instead of `asyncio.create_subprocess_exec`.
 
-    :return: An instance of `asyncio.subprocess.Process` or `subprocess.Popen`.
+    :return: An instance of `subprocess.Popen`.
     """
-    if disable_asyncio_subprocess:
-        # On Windows, we might prefer to use subprocess.Popen directly, to solve async issues
-        # using WindowsSelectorEventLoopPolicy, since it does not support asyncio.subprocess
-        return subprocess.Popen(
-            [str(exe)] + params,
-            stdin=asyncio.subprocess.PIPE,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-            close_fds=is_posix,
-        )
-
-    return await asyncio.create_subprocess_exec(
-        exe,
-        *params,
-        stdin=asyncio.subprocess.PIPE,
-        stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.PIPE,
+    return subprocess.Popen(
+        [str(exe)] + params,
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
         close_fds=is_posix,
     )
 
 
 async def _read_process_stderr(
-    process: asyncio.subprocess.Process | subprocess.Popen, n: int = 2**16
+    process: subprocess.Popen, n: int = 2**16
 ) -> str:
     """
     Read the given number of bytes from the stderr of the given process.
@@ -378,11 +363,7 @@ async def _read_process_stderr(
     async def read_stderr() -> bytes:
         if process.stderr is None:
             raise ValueError("Process has no stderr")
-
-        if isinstance(process, asyncio.subprocess.Process):
-            return await process.stderr.read(n)
-        else:
-            return await asyncio.to_thread(process.stderr.read, n)
+        return await asyncio.to_thread(process.stderr.read, n)
 
     try:
         return (await asyncio.wait_for(read_stderr(), 0.25)).decode("utf-8")
