@@ -351,9 +351,7 @@ def _start_process(
     )
 
 
-async def _read_process_stderr(
-    process: subprocess.Popen, n: int = 2**16
-) -> str:
+async def _read_process_stderr(process: subprocess.Popen, n: int = 2**16) -> str:
     """
     Read the given number of bytes from the stderr of the given process.
 

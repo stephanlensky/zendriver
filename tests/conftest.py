@@ -7,7 +7,6 @@ from contextlib import AbstractAsyncContextManager
 from enum import Enum
 from threading import Event
 from typing import AsyncGenerator
-import functools
 
 import pytest
 
