@@ -130,7 +130,7 @@ class Config:
             "--disable-renderer-backgrounding",
             "--disable-background-networking",
             "--disable-dev-shm-usage",
-            "--disable-features=IsolateOrigins,site-per-process",
+            "--disable-features=IsolateOrigins,DisableLoadExtensionCommandLineSwitch,site-per-process",
             "--disable-session-crashed-bubble",
             "--disable-search-engine-choice-screen",
         ]
@@ -307,6 +307,7 @@ def find_chrome_executable() -> PathLike:
                     "Google/Chrome/Application",
                     "Google/Chrome Beta/Application",
                     "Google/Chrome Canary/Application",
+                    "Google/Chrome SxS/Application",
                 ):
                     candidates.append(os.sep.join((item2, subitem, "chrome.exe")))
     rv = []
