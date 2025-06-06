@@ -9,6 +9,7 @@ import pathlib
 import secrets
 import typing
 import urllib.parse
+import grapheme  # type: ignore
 
 from .. import cdp
 from . import util
@@ -703,6 +704,25 @@ class Element:
         await self.apply("(elem) => elem.focus()")
         for char in list(text):
             await self._tab.send(cdp.input_.dispatch_key_event("char", text=char))
+
+    async def send_keys_with_special_chars(self, text: str):
+        """
+        send text to an input field, properly handling grapheme clusters and special Unicode characters.
+
+        if the character is in the printable ASCII range, it sends it using dispatch_key_event.
+        otherwise, it uses insertText, which handles special characters more robustly.
+
+        :param text: text to send
+        :return: None
+        """
+        await self.apply("(elem) => elem.focus()")
+        for cluster in grapheme.graphemes(text):
+            if all(32 <= ord(c) <= 126 for c in cluster):
+                await self._tab.send(
+                    cdp.input_.dispatch_key_event("char", text=cluster)
+                )
+            else:
+                await self._tab.send(cdp.input_.insert_text(cluster))
 
     async def send_file(self, *file_paths: PathLike):
         """
