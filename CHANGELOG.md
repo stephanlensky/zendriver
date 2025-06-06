@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Adding an alternate method (`Element.send_keys_with_special_chars`) to support sending special characters @nathanfallet
+
 ### Added
 
 ### Changed
