@@ -691,32 +691,23 @@ class Element:
         """clears an input field"""
         return await self.apply('function (element) { element.value = "" } ')
 
-    async def send_keys(self, text: str):
+    async def send_keys(self, text: str, special_characters: bool = False):
         """
         send text to an input field, or any other html element.
 
         hint, if you ever get stuck where using py:meth:`~click`
         does not work, sending the keystroke \\n or \\r\\n or a spacebar work wonders!
 
-        :param text: text to send
-        :return: None
-        """
-        await self.apply("(elem) => elem.focus()")
-        for char in list(text):
-            await self._tab.send(cdp.input_.dispatch_key_event("char", text=char))
-
-    async def send_keys_with_special_chars(self, text: str):
-        """
-        send text to an input field, properly handling grapheme clusters and special Unicode characters.
-
+        when special_characters is True, it will use grapheme clusters to send the text:
         if the character is in the printable ASCII range, it sends it using dispatch_key_event.
         otherwise, it uses insertText, which handles special characters more robustly.
 
         :param text: text to send
+        :param special_characters: when True, uses grapheme clusters to send the text.
         :return: None
         """
         await self.apply("(elem) => elem.focus()")
-        for cluster in grapheme.graphemes(text):
+        for cluster in grapheme.graphemes(text) if special_characters else text:
             if all(32 <= ord(c) <= 126 for c in cluster):
                 await self._tab.send(
                     cdp.input_.dispatch_key_event("char", text=cluster)
