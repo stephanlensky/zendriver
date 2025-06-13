@@ -153,6 +153,12 @@ wheels = [
 ]
 
 [[package]]
+name = "grapheme"
+version = "0.6.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/ce/e7/bbaab0d2a33e07c8278910c1d0d8d4f3781293dfbc70b5c38197159046bf/grapheme-0.6.0.tar.gz", hash = "sha256:44c2b9f21bbe77cfb05835fec230bd435954275267fea1858013b102f8603cca", size = 207306 }
+
+[[package]]
 name = "griffe"
 version = "1.5.1"
 source = { registry = "https://pypi.org/simple" }
@@ -935,11 +941,12 @@ wheels = [
 
 [[package]]
 name = "zendriver"
-version = "0.8.0"
+version = "0.8.1"
 source = { editable = "." }
 dependencies = [
     { name = "asyncio-atexit" },
     { name = "deprecated" },
+    { name = "grapheme" },
     { name = "mss" },
     { name = "websockets" },
 ]
@@ -964,6 +971,7 @@ dev = [
 requires-dist = [
     { name = "asyncio-atexit", specifier = ">=1.0.1" },
     { name = "deprecated", specifier = ">=1.2.14" },
+    { name = "grapheme", specifier = ">=0.6.0" },
     { name = "mss", specifier = ">=9.0.2" },
     { name = "websockets", specifier = ">=14.0" },
 ]
