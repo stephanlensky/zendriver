@@ -1069,12 +1069,14 @@ class Tab(Connection):
 
         await self.send(cdp.browser.set_window_bounds(window_id, bounds=bounds))
 
-    async def scroll_down(self, amount=25):
+    async def scroll_down(self, amount=25, speed=800):
         """
         scrolls down maybe
 
         :param amount: number in percentage. 25 is a quarter of page, 50 half, and 1000 is 10x the page
+        :param speed: number swipe speed in pixels per second (default: 800).
         :type amount: int
+        :type speed: int
         :return:
         :rtype:
         """
@@ -1091,16 +1093,18 @@ class Tab(Connection):
                 x_overscroll=0,
                 prevent_fling=True,
                 repeat_delay_ms=0,
-                speed=7777,
+                speed=speed,
             )
         )
 
-    async def scroll_up(self, amount=25):
+    async def scroll_up(self, amount=25, speed=800):
         """
         scrolls up maybe
 
         :param amount: number in percentage. 25 is a quarter of page, 50 half, and 1000 is 10x the page
+        :param speed: number swipe speed in pixels per second (default: 800).
         :type amount: int
+        :type speed: int
 
         :return:
         :rtype:
@@ -1117,7 +1121,7 @@ class Tab(Connection):
                 x_overscroll=0,
                 prevent_fling=True,
                 repeat_delay_ms=0,
-                speed=7777,
+                speed=speed,
             )
         )
 
