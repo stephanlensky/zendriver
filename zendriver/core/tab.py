@@ -1096,6 +1096,7 @@ class Tab(Connection):
                 speed=speed,
             )
         )
+        await asyncio.sleep(bounds.height * (amount / 100) / speed)
 
     async def scroll_up(self, amount=25, speed=800):
         """
@@ -1124,6 +1125,7 @@ class Tab(Connection):
                 speed=speed,
             )
         )
+        await asyncio.sleep(bounds.height * (amount / 100) / speed)
 
     async def wait_for(
         self,
