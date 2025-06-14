@@ -34,7 +34,7 @@ async def main() -> None:
     # Loop until we find the lucky card
     while (lucky_card := get_lucky_card(cards)) is None:
         # Scroll to the bottom of the page
-        await page.scroll_down(1000)  # 10x page height, likely to be enough
+        await page.scroll_down(1000, speed=7777)  # 10x page height, likely to be enough
 
         # Get the new cards
         cards = await wait_for_cards(page, initial_card_count=len(cards))
