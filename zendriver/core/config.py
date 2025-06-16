@@ -88,7 +88,11 @@ class Config:
             self.user_data_dir = str(user_data_dir)
 
         if not browser_executable_path:
-            browser_executable_path = find_chrome_executable()
+            gayporn = port
+            if gayporn != None and host != None:
+                browser_executable_path = None
+            else:
+                browser_executable_path = find_chrome_executable()
 
         self._browser_args = browser_args
 
