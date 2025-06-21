@@ -694,6 +694,39 @@ class Element:
         """clears an input field"""
         return await self.apply('function (element) { element.value = "" } ')
 
+    async def clear_input_by_deleting(self):
+        """
+        clears the input of the element by simulating a series of delete key presses.
+
+        this method applies a JavaScript function that simulates pressing the delete key
+        repeatedly until the input is empty. it is useful for clearing input fields or text areas
+        when :func:`clear_input` does not work (for example, when custom input handling is implemented on the page).
+        """
+        return await self.apply(
+            """
+                async function clearByDeleting(n, d = 50) {
+                    n.focus();
+                    n.setSelectionRange(0, 0);
+                    while (n.value.length > 0) {
+                        n.dispatchEvent(
+                            new KeyboardEvent("keydown", {
+                                key: "Delete",
+                                code: "Delete",
+                                keyCode: 46,
+                                which: 46,
+                                bubbles: !0,
+                                cancelable: !0,
+                            })
+                        );
+                        n.value = n.value.slice(1);
+                        await new Promise((r) => setTimeout(r, d));
+                    }
+                    n.dispatchEvent(new Event("input", { bubbles: !0 }));
+                }
+            """,
+            await_promise=True,
+        )
+
     async def send_keys(self, text: str, special_characters: bool = False):
         """
         send text to an input field, or any other html element.
