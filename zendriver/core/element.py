@@ -455,10 +455,10 @@ class Element:
 
         :param js_function: the js function definition which received this element.
         :type js_function: str
-        :param await_promise: when True, waits for the promise to resolve before returning
-        :type await_promise: bool
         :param return_by_value:
         :type return_by_value:
+        :param await_promise: when True, waits for the promise to resolve before returning
+        :type await_promise: bool
         :return:
         :rtype:
         """
