@@ -444,7 +444,7 @@ class Element:
         """
         return self.apply(f"(e) => e['{js_method}']()")
 
-    async def apply(self, js_function, await_promise=False, return_by_value=True):
+    async def apply(self, js_function, return_by_value=True, *, await_promise=False):
         """
         apply javascript to this element. the given js_function string should accept the js element as parameter,
         and can be a arrow function, or function declaration.
