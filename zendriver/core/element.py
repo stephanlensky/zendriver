@@ -444,7 +444,7 @@ class Element:
         """
         return self.apply(f"(e) => e['{js_method}']()")
 
-    async def apply(self, js_function, return_by_value=True):
+    async def apply(self, js_function, await_promise=False, return_by_value=True):
         """
         apply javascript to this element. the given js_function string should accept the js element as parameter,
         and can be a arrow function, or function declaration.
@@ -455,6 +455,8 @@ class Element:
 
         :param js_function: the js function definition which received this element.
         :type js_function: str
+        :param await_promise: when True, waits for the promise to resolve before returning
+        :type await_promise: bool
         :param return_by_value:
         :type return_by_value:
         :return:
@@ -474,6 +476,7 @@ class Element:
                 ],
                 return_by_value=True,
                 user_gesture=True,
+                await_promise=await_promise,
             )
         )
         if result and result[0]:

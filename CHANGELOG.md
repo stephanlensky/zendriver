@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Added `speed` in `Tab.scroll_down` and `Tab.scroll_up` methods to control the scroll speed @nathanfallet
+- Allow to wait for promise in `Element.apply` method @nathanfallet
 
 ### Changed
 
