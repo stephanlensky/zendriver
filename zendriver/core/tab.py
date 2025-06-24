@@ -9,12 +9,15 @@ import typing
 import urllib.parse
 import warnings
 import webbrowser
-from typing import TYPE_CHECKING, Any, List, Literal, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, Coroutine, List, Literal, Optional, Tuple, Union
+
+from zendriver.cdp.dom import Node
 
 from .. import cdp
 from . import element, util
 from .config import PathLike
 from .connection import Connection, ProtocolException
+from .expect import DownloadExpectation, RequestExpectation, ResponseExpectation
 
 if TYPE_CHECKING:
     from .browser import Browser
@@ -181,6 +184,72 @@ class Tab(Connection):
 
         webbrowser.open(self.inspector_url)
 
+    async def find(
+        self,
+        text: Optional[str] = None,
+        tagname: Optional[str] = None,
+        attrs: Optional[dict[str, str]] = None,
+        timeout: Union[int, float] = 10,
+    ):
+        """
+        find single element by text
+        can also be used to wait for such element to appear.
+
+        :param text: text to search for. note: script contents are also considered text
+        :type text: str
+        :param tagname: tagname to search for. ex: div, span, input, button..
+        :type tagname: str
+        :param attrs: attributes to search for. ex: {'class':'class1', 'name':'name1', 'id':'123'}
+        :type attrs: dict
+       
+                 since we deal with nodes instead of elements, the find function most often returns
+                 so called text nodes, which is actually a element of plain text, which is
+                 the somehow imaginary "child" of a "span", "p", "script" or any other elements which have text between their opening
+                 and closing tags.
+                 most often when we search by text, we actually aim for the element containing the text instead of
+                 a lousy plain text node, so by default the containing element is returned.
+
+                 however, there are (why not) exceptions, for example elements that use the "placeholder=" property.
+                 this text is rendered, but is not a pure text node. in that case you can set this flag to False.
+                 since in this case we are probably interested in just that element, and not it's parent.
+
+
+                 # todo, automatically determine node type
+                 # ignore the return_enclosing_element flag if the found node is NOT a text node but a
+                 # regular element (one having a tag) in which case that is exactly what we need.
+        :param timeout: raise timeout exception when after this many seconds nothing is found.
+        :type timeout: float,int
+        """
+
+        loop = asyncio.get_running_loop()
+        start_time = loop.time()
+
+        text = text.strip().lower() if text else None
+        tagname = tagname.strip().lower() if tagname else None
+        attrs = {k.strip(): v.strip() for k, v in attrs.items()} if attrs else None
+
+        if not text and not tagname and not attrs:
+            # raising an error in case neither text nor tagname values were provided
+            raise ValueError(
+                "You must provide either tagname, attrs, or text to find an element."
+            )
+
+        items = await self._find_elements_by_tagname_attrs_text(  # items is a list that might contain either a single element if found, or None
+            tagname=tagname, attrs=attrs, text=text, return_after_first_match=True
+        )
+        while not items:
+            await self.wait()
+            items = await self._find_elements_by_tagname_attrs_text(
+                tagname=tagname, attrs=attrs, text=text, return_after_first_match=True
+            )
+            if loop.time() - start_time > timeout:
+                raise asyncio.TimeoutError(
+                    f"Time ran out while waiting for element with tagname: {tagname}, attributes: {attrs}, text:{text}"
+                )
+            await self.sleep(0.5)
+
+        return items[0]  # returning the first and only element of the list items
+
     async def select(
         self,
         selector: str,
@@ -213,89 +282,23 @@ class Tab(Connection):
             await self.sleep(0.5)
         return item
 
-    async def find(
-        self,
-        *,
-        tagname: str | None = None,
-        attrs: dict[str, str] | None = None,
-        text: str | None = None,
-        timeout: int | float = 10,
-    ):
-        """
-        find single element by text
-        can also be used to wait for such element to appear.
-
-        :param tagname: tagname to search for. ex: div, span, input, button..
-        :type tagname: str
-        :param attrs: attributes to search for. ex: {'class':'class1', 'name':'name1', 'id':'123'}
-        :type attrs: dict
-        :param text: text to search for. note: script contents are also considered text
-        :type text: str
-                 since we deal with nodes instead of elements, the find function most often returns
-                 so called text nodes, which is actually a element of plain text, which is
-                 the somehow imaginary "child" of a "span", "p", "script" or any other elements which have text between their opening
-                 and closing tags.
-                 most often when we search by text, we actually aim for the element containing the text instead of
-                 a lousy plain text node, so by default the containing element is returned.
-
-                 however, there are (why not) exceptions, for example elements that use the "placeholder=" property.
-                 this text is rendered, but is not a pure text node. in that case you can set this flag to False.
-                 since in this case we are probably interested in just that element, and not it's parent.
-
-
-                 # todo, automatically determine node type
-                 # ignore the return_enclosing_element flag if the found node is NOT a text node but a
-                 # regular element (one having a tag) in which case that is exactly what we need.
-         :type return_enclosing_element: bool
-        :param timeout: raise timeout exception when after this many seconds nothing is found.
-        :type timeout: float,int
-        """
-        loop = asyncio.get_running_loop()
-        start_time = loop.time()
-
-        tagname = tagname.strip().lower() if tagname else None
-        attrs = {k.strip(): v.strip() for k, v in attrs.items()} if attrs else None
-        text = text.strip() if text else None
-
-        if not text and not tagname and not attrs:
-            raise ValueError(
-                "You must provide either tagname, attrs, or text to find an element."
-            )
-
-        items = await self._find_elements_by_tagname_attrs_text(
-            tagname=tagname, attrs=attrs, text=text, return_after_first_match=True
-        )
-        while not items:
-            await self.wait()
-            items = await self._find_elements_by_tagname_attrs_text(
-                tagname=tagname, attrs=attrs, text=text, return_after_first_match=True
-            )
-            if loop.time() - start_time > timeout:
-                raise asyncio.TimeoutError(
-                    f"Time ran out while waiting for element with tagname: {tagname}, attributes: {attrs}, text:{text}"
-                )
-            await self.sleep(0.5)
-
-        return items[0]
-
     async def find_all(
         self,
-        *,
-        tagname: str | None = None,
-        attrs: dict[str, str] | None = None,
-        text: str | None = None,
-        timeout: int | float = 10,
+        text: Optional[str] = None,
+        tagname: Optional[str] = None,
+        attrs: Optional[dict[str, str]] = None,
+        timeout: Union[int, float] = 10,
     ) -> List[Element]:
         """
         find multiple elements by text
         can also be used to wait for such element to appear.
 
+        :param text: text to search for. note: script contents are also considered text
+        :type text: str
         :param tagname: tagname to search for. ex: div, span, input, button..
         :type tagname: str
         :param attrs: attributes to search for. ex: {'class':'class1', 'name':'name1', 'id':'123'}
         :type attrs: dict
-        :param text: text to search for. note: script contents are also considered text
-        :type text: str
 
         :param timeout: raise timeout exception when after this many seconds nothing is found.
         :type timeout: float,int
@@ -306,7 +309,7 @@ class Tab(Connection):
 
         tagname = tagname.strip().lower() if tagname else None
         attrs = {k.strip(): v.strip() for k, v in attrs.items()} if attrs else None
-        text = text.strip() if text else None
+        text = text.strip().lower() if text else None
 
         if not text and not tagname and not attrs:
             # raising an error in case neither text nor tagname values were provided
@@ -324,7 +327,7 @@ class Tab(Connection):
             )
             if loop.time() - start_time > timeout:
                 raise asyncio.TimeoutError(
-                    f"Time ran out while waiting for elements with tagname: {tagname}, attributess: {attrs}, text: {text}"
+                    f"Time ran out while waiting for elements with tagname: {tagname}, attributes: {attrs}, text: {text}"
                 )
             await self.sleep(0.5)
 
@@ -368,7 +371,7 @@ class Tab(Connection):
         return items
 
     async def get(
-        self, url="chrome://welcome", new_tab: bool = False, new_window: bool = False
+        self, url="about:blank", new_tab: bool = False, new_window: bool = False
     ):
         """top level get. utilizes the first tab to retrieve given url.
 
@@ -394,163 +397,6 @@ class Tab(Connection):
             await self.send(cdp.page.navigate(url))
             await self.wait()
             return self
-
-    async def find_element_by_text(
-        self,
-        text: str,
-    ) -> Element | None:
-        """
-        finds and returns the first element containing <text>, or best match
-
-        :param text:
-        :type text:
-        :return:
-        :rtype:
-        """
-        if not text:
-            raise ValueError("You must provide a text value to find an element with.")
-
-        return await self.find(text=text)
-
-    async def find_elements_by_text(
-        self,
-        text: str,
-    ) -> list[Element]:
-        """
-        returns element which match the given text.
-        please note: this may (or will) also return any other element (like inline scripts),
-        which happen to contain that text.
-
-        :param text:
-        :type text:
-        :return:
-        :rtype:
-        """
-        if not text:
-            raise ValueError("You must provide a text value to find elements with.")
-
-        return await self.find_all(text=text)
-
-    async def _find_elements_by_tagname_attrs_text(
-        self,
-        tagname: str | None = None,
-        attrs: dict[str, str] | None = None,
-        text: str | None = None,
-        return_after_first_match: bool = False,
-    ) -> list[Element]:
-        """
-        Finds and returns all elements matching the tagname, attributes, and optional innerText.
-
-        :param tagname: The name of the HTML tag to search for (e.g., 'button', 'input'). Optional.
-        :type tagname: str | None
-        :param attrs: A dictionary of attributes and their corresponding values to match. Optional.
-        :type attrs: dict[str, str] | None
-        :param text: The expected text value of the element. Optional.
-        :type text: str | None
-        :param return_after_first_match: If True, stops traversal and returns a list containing only the first matching element.
-        :type return_after_first_match: bool
-        :return: List of matching elements. If return_after_first_match is True, the list contains at most one element.
-        :rtype: list[Element]
-        """
-
-        elements = []
-        stop_searching = False  # flag to indicate whether to stop searching
-
-        async def traverse(node, parent_tree):
-            """Recursive traversal of the DOM and shadow DOM to collect all matching elements."""
-
-            nonlocal stop_searching
-
-            if not node or stop_searching:
-                return
-
-            # create an element to check for the conditions we're looking for
-            elem = element.create(node, self, parent_tree)
-
-            # check for conditions
-            matches_tagname = (
-                not tagname
-                or (
-                    elem.tag_name
-                    and tagname.strip().lower() == elem.tag_name.strip().lower()
-                )
-            )  # this condition evaluates to True if tagname was not provided; no filtering by tagname. Or if tagname equals our targeted element's tagname
-
-            matches_attrs = (
-                not attrs
-                or (
-                    elem.attributes
-                    and all(
-                        any(
-                            elem.attributes[i] == attr
-                            and value in elem.attributes[i + 1].split()
-                            for i in range(0, len(elem.attributes), 2)
-                        )
-                        for attr, value in attrs.items()
-                    )
-                )
-            )  # this condition evaluates to True if attrs was not provided; no filtering by attrs. Or if the provided attrs are in our targeted element's attributes
-
-            matches_text = (
-                not text
-                or (elem.text and text.strip().lower() in elem.text.strip().lower())
-            )  # this condition evaluates to True if text was not provided; no filtering by text. Or if text is in our targeted element's text
-
-            # if all conditions match, add the element to the list of elements to return
-            if matches_tagname and matches_attrs and matches_text:
-                elements.append(elem)
-                if return_after_first_match:  # if return_after_first_match is True then we stop searching for other elements after finding one target element
-                    stop_searching = (
-                        True  # set the flag to True to stop further traversal
-                    )
-                    return
-
-            # if stop_searching is True, skip further traversal
-            if stop_searching:
-                return
-
-            tasks: list[asyncio.Task] = []
-
-            # traverse shadow roots nodes
-            if node.shadow_roots:
-                tasks.extend(
-                    traverse(shadow_root, parent_tree)
-                    for shadow_root in node.shadow_roots
-                )
-
-            # traverse child nodes
-            if node.children:
-                tasks.extend(traverse(child, parent_tree) for child in node.children)
-
-            await asyncio.gather(*tasks)
-
-        # fetch the document root
-        doc = await self.send(cdp.dom.get_document(depth=-1, pierce=True))
-
-        # start traversing the DOM tree
-        await traverse(doc, doc)
-
-        # search within iframes concurrently
-        if not stop_searching:  # only search iframes if we haven't found a match yet
-            iframes = util.filter_recurse_all(
-                doc, lambda node: node.node_name == "IFRAME"
-            )
-            iframe_tasks = [
-                traverse(iframe.content_document, iframe.content_document)
-                for iframe in iframes
-                if iframe.content_document
-            ]
-
-            if iframe_tasks:
-                await asyncio.gather(*iframe_tasks)
-
-        # return the appropriate result
-        if return_after_first_match:
-            return elements[
-                :1
-            ]  # return a list containing only the first element (or empty list if no match)
-        else:
-            return elements  # return all matching elements
 
     async def query_selector_all(
         self,
@@ -663,6 +509,150 @@ class Tab(Connection):
         if not node:
             return
         return element.create(node, self, doc)
+
+    async def _find_elements_by_tagname_attrs_text(
+        self,
+        text: Optional[str] = None,
+        tagname: Optional[str] = None,
+        attrs: Optional[dict[str, str]] = None,
+        return_after_first_match: bool = False,
+    ) -> list[Element]:
+        """
+        Finds and returns all elements matching the tagname, attributes, and optional innerText.
+
+        :param text: The expected text value of the element. Optional.
+        :type text: str | None
+        :param tagname: The name of the HTML tag to search for (e.g., 'button', 'input'). Optional.
+        :type tagname: str | None
+        :param attrs: A dictionary of attributes and their corresponding values to match. Optional.
+        :type attrs: dict[str, str] | None
+        :param return_after_first_match: If True, stops traversal and returns a list containing only the first matching element.
+        :type return_after_first_match: bool
+        :return: List of matching elements. If return_after_first_match is True, the list contains at most one element.
+        :rtype: list[Element]
+        """
+        elements = []
+        stop_searching = False  # flag to indicate whether to stop searching
+
+        async def traverse(node: Node, parent_tree):
+            """Recursive traversal of the DOM and shadow DOM to collect all matching elements."""
+            nonlocal stop_searching
+
+            if not node or stop_searching:
+                return
+
+            # To find the most specific element, traverse children first (post-order traversal).
+            tasks: list[Coroutine] = []
+            if node.shadow_roots:
+                tasks.extend(
+                    traverse(shadow_root, parent_tree)
+                    for shadow_root in node.shadow_roots
+                )
+            if node.children:
+                tasks.extend(traverse(child, parent_tree) for child in node.children)
+
+            if tasks:
+                await asyncio.gather(*tasks)
+
+            # If a deeper match was already found and we only need the first one, stop.
+            if stop_searching:
+                return
+
+            # create an element to check for the conditions we're looking for
+            elem = element.create(node, self, parent_tree)
+
+            # Do not match on text nodes directly. Let their parent elements be the match.
+            if elem.node_type == 3:
+                return
+
+            # check for conditions
+            matches_tagname = (
+                not tagname
+                or (
+                    elem.tag_name
+                    and tagname.strip().lower() == elem.tag_name.strip().lower()
+                )
+            )
+            matches_attrs = (
+                not attrs
+                or (
+                    elem.attributes
+                    and all(
+                        any(
+                            elem.attributes[i] == attr and value in elem.attributes[i + 1].split()
+                            for i in range(0, len(elem.attributes), 2)
+                        )
+                        for attr, value in attrs.items()
+                    )
+                )
+            )
+            matches_text = (
+                not text
+                or (elem.text and text.strip().lower() in elem.text.strip().lower())
+            )
+
+            # if all conditions match, add the element to the list of elements to return
+            if matches_tagname and matches_attrs and matches_text:
+                elements.append(elem)
+                if return_after_first_match:
+                    stop_searching = True
+                    return
+
+        # fetch the document root
+        doc = await self.send(cdp.dom.get_document(depth=-1, pierce=True))
+
+        # start traversing the DOM tree
+        await traverse(doc, doc)
+
+        # search within iframes concurrently
+        if not stop_searching:
+            iframes = util.filter_recurse_all(doc, lambda node: node.node_name == "IFRAME")
+            iframe_tasks = [
+                traverse(iframe.content_document, iframe.content_document)
+                for iframe in iframes if iframe.content_document
+            ]
+
+            if iframe_tasks:
+                await asyncio.gather(*iframe_tasks)
+
+        # return the appropriate result
+        if return_after_first_match:
+            return elements[:1]
+        else:
+            return elements
+
+    async def find_element_by_text(
+        self,
+        text: str,
+    ) -> Element | None:
+        """
+        finds and returns the first element containing <text>, or best match
+
+        :param text:
+        :type text:
+        :return:
+        :rtype:
+        """
+        if not text:
+            raise ValueError("You must provide a text value to find an element with.")
+        else:
+            return await self.find(text=text)
+
+    async def find_elements_by_text(self, text: str) -> list[Element]:
+        """
+        returns element which match the given text.
+        please note: this may (or will) also return any other element (like inline scripts),
+        which happen to contain that text.
+
+        :param text:
+        :type text:
+        :return:
+        :rtype:
+        """
+        if not text:
+            raise ValueError("You must provide a text value to find elements with.")
+        else:
+            return await self.find_all(text=text)
 
     async def back(self):
         """
@@ -902,9 +892,30 @@ class Tab(Connection):
         close the current target (ie: tab,window,page)
         :return:
         :rtype:
+        :raises: asyncio.TimeoutError
+        :raises: RuntimeError
         """
+
+        if not self.browser or not self.browser.connection:
+            raise RuntimeError("Browser not yet started. use await browser.start()")
+
+        future = asyncio.get_running_loop().create_future()
+        event_type = cdp.target.TargetDestroyed
+
+        async def close_handler(event: cdp.target.TargetDestroyed) -> None:
+            if future.done():
+                return
+
+            if self.target and event.target_id == self.target.target_id:
+                future.set_result(event)
+
+        self.browser.connection.add_handler(event_type, close_handler)
+
         if self.target and self.target.target_id:
             await self.send(cdp.target.close_target(target_id=self.target.target_id))
+
+        await asyncio.wait_for(future, 10)
+        self.browser.connection.remove_handlers(event_type, close_handler)
 
     async def get_window(self) -> Tuple[cdp.browser.WindowID, cdp.browser.Bounds]:
         """
@@ -1096,10 +1107,10 @@ class Tab(Connection):
 
     async def wait_for(
         self,
+        text: Optional[str] = None,
         tagname: Optional[str] = None,
         attrs: Optional[dict[str, str]] = None,
         selector: Optional[str] = None,
-        text: Optional[str] = None,
         timeout: int | float = 10,
     ) -> element.Element:
         """
@@ -1110,14 +1121,14 @@ class Tab(Connection):
         it will block for a maximum of <timeout> seconds, after which
         an TimeoutError will be raised
 
+        :param text: text 
+        :type text: str
         :param tagname: element tagname
         :type tagname: str
         :param attrs: dictionary of attributes
         :type attrs: dictionary
         :param selector: css selector
         :type selector:
-        :param text: text
-        :type text:
         :param timeout:
         :type timeout:
         :return:
@@ -1163,7 +1174,6 @@ class Tab(Connection):
     ):
         """
         Waits for the page to reach a certain ready state.
-
         :param until: The ready state to wait for. Can be one of "loading", "interactive", or "complete".
         :type until: str
         :param timeout: The maximum number of seconds to wait.
@@ -1189,10 +1199,9 @@ class Tab(Connection):
 
     def expect_request(
         self, url_pattern: Union[str, re.Pattern[str]]
-    ) -> "RequestExpectation":
+    ) -> RequestExpectation:
         """
         Creates a request expectation for a specific URL pattern.
-
         :param url_pattern: The URL pattern to match requests.
         :type url_pattern: Union[str, re.Pattern[str]]
         :return: A RequestExpectation instance.
@@ -1202,16 +1211,23 @@ class Tab(Connection):
 
     def expect_response(
         self, url_pattern: Union[str, re.Pattern[str]]
-    ) -> "ResponseExpectation":
+    ) -> ResponseExpectation:
         """
         Creates a response expectation for a specific URL pattern.
-
         :param url_pattern: The URL pattern to match responses.
         :type url_pattern: Union[str, re.Pattern[str]]
         :return: A ResponseExpectation instance.
         :rtype: ResponseExpectation
         """
         return ResponseExpectation(self, url_pattern)
+
+    def expect_download(self) -> DownloadExpectation:
+        """
+        Creates a download expectation for next download.
+        :return: A DownloadExpectation instance.
+        :rtype: DownloadExpectation
+        """
+        return DownloadExpectation(self)
 
     async def download_file(self, url: str, filename: Optional[PathLike] = None):
         """
@@ -1271,6 +1287,23 @@ class Tab(Connection):
                 arguments=[cdp.runtime.CallArgument(object_id=body.object_id)],
             )
         )
+
+    async def save_snapshot(self, filename: str = "snapshot.mhtml") -> None:
+        """
+        Saves a snapshot of the page.
+        :param filename: The save path; defaults to "snapshot.mhtml"
+        """
+        await self.sleep()  # update the target's url
+        path = pathlib.Path(filename)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        data = await self.send(cdp.page.capture_snapshot())
+        if not data:
+            raise ProtocolException(
+                "Could not take snapshot. Most possible cause is the page has not finished loading yet."
+            )
+
+        with open(filename, "w") as file:
+            file.write(data)
 
     async def save_screenshot(
         self,
@@ -1499,9 +1532,9 @@ class Tab(Connection):
 
     def __call__(
         self,
+        text: str | None = None,
         tagname: str | None = None,
         attrs: dict[str, str] | None = None,
-        text: str | None = None,
         selector: str | None = None,
         timeout: int | float = 10,
     ):
@@ -1509,6 +1542,12 @@ class Tab(Connection):
         alias to query_selector_all or find_elements_by_text, depending
         on whether text= is set or selector= is set
 
+        :param text: text to search for. note: script contents are also considered text
+        :type text: str
+        :param tagname: tagname to search for. ex: div, span, input, button..
+        :type tagname: str
+        :param attrs: attributes to search for. ex: {'class':'class1', 'name':'name1', 'id':'123'}
+        :type attrs: dict
         :param selector: css selector string
         :type selector: str
         :return:
@@ -1538,157 +1577,3 @@ class Tab(Connection):
             extra = f"[url: {self.target.url}]"
         s = f"<{type(self).__name__} [{self.target_id}] [{self.type_}] {extra}>"
         return s
-
-
-class BaseRequestExpectation:
-    """
-    Base class for handling request and response expectations.
-
-    This class provides a context manager to wait for specific network requests and responses
-    based on a URL pattern. It sets up handlers for request and response events and provides
-    properties to access the request, response, and response body.
-
-    :param tab: The Tab instance to monitor.
-    :type tab: Tab
-    :param url_pattern: The URL pattern to match requests and responses.
-    :type url_pattern: Union[str, re.Pattern[str]]
-    """
-
-    def __init__(self, tab: Tab, url_pattern: Union[str, re.Pattern[str]]):
-        self.tab = tab
-        self.url_pattern = url_pattern
-        self.request_future: asyncio.Future[cdp.network.RequestWillBeSent] = (
-            asyncio.Future()
-        )
-        self.response_future: asyncio.Future[cdp.network.ResponseReceived] = (
-            asyncio.Future()
-        )
-        self.request_id: Union[cdp.network.RequestId, None] = None
-
-    async def _request_handler(self, event: cdp.network.RequestWillBeSent):
-        """
-        Internal handler for request events.
-
-        :param event: The request event.
-        :type event: cdp.network.RequestWillBeSent
-        """
-        if re.fullmatch(self.url_pattern, event.request.url):
-            self._remove_request_handler()
-            self.request_id = event.request_id
-            self.request_future.set_result(event)
-
-    async def _response_handler(self, event: cdp.network.ResponseReceived):
-        """
-        Internal handler for response events.
-
-        :param event: The response event.
-        :type event: cdp.network.ResponseReceived
-        """
-        if event.request_id == self.request_id:
-            self._remove_response_handler()
-            self.response_future.set_result(event)
-
-    def _remove_request_handler(self):
-        """
-        Remove the request event handler.
-        """
-        self.tab.remove_handlers(cdp.network.RequestWillBeSent, self._request_handler)
-
-    def _remove_response_handler(self):
-        """
-        Remove the response event handler.
-        """
-        self.tab.remove_handlers(cdp.network.ResponseReceived, self._response_handler)
-
-    async def __aenter__(self):
-        """
-        Enter the context manager, adding request and response handlers.
-        """
-        self.tab.add_handler(cdp.network.RequestWillBeSent, self._request_handler)
-        self.tab.add_handler(cdp.network.ResponseReceived, self._response_handler)
-        return self
-
-    async def __aexit__(self, *args):
-        """
-        Exit the context manager, removing request and response handlers.
-        """
-        self._remove_request_handler()
-        self._remove_response_handler()
-
-    @property
-    async def request(self):
-        """
-        Get the matched request.
-
-        :return: The matched request.
-        :rtype: cdp.network.Request
-        """
-        return (await self.request_future).request
-
-    @property
-    async def response(self):
-        """
-        Get the matched response.
-
-        :return: The matched response.
-        :rtype: cdp.network.Response
-        """
-        return (await self.response_future).response
-
-    @property
-    async def response_body(self):
-        """
-        Get the body of the matched response.
-
-        :return: The response body.
-        :rtype: str
-        """
-        request_id = (await self.request_future).request_id
-        body = await self.tab.send(cdp.network.get_response_body(request_id=request_id))
-        return body
-
-
-class RequestExpectation(BaseRequestExpectation):
-    """
-    Class for handling request expectations.
-
-    This class extends `BaseRequestExpectation` and provides a property to access the matched request.
-
-    :param tab: The Tab instance to monitor.
-    :type tab: Tab
-    :param url_pattern: The URL pattern to match requests.
-    :type url_pattern: Union[str, re.Pattern[str]]
-    """
-
-    @property
-    async def value(self) -> cdp.network.RequestWillBeSent:
-        """
-        Get the matched request event.
-
-        :return: The matched request event.
-        :rtype: cdp.network.RequestWillBeSent
-        """
-        return await self.request_future
-
-
-class ResponseExpectation(BaseRequestExpectation):
-    """
-    Class for handling response expectations.
-
-    This class extends `BaseRequestExpectation` and provides a property to access the matched response.
-
-    :param tab: The Tab instance to monitor.
-    :type tab: Tab
-    :param url_pattern: The URL pattern to match responses.
-    :type url_pattern: Union[str, re.Pattern[str]]
-    """
-
-    @property
-    async def value(self) -> cdp.network.ResponseReceived:
-        """
-        Get the matched response event.
-
-        :return: The matched response event.
-        :rtype: cdp.network.ResponseReceived
-        """
-        return await self.response_future
