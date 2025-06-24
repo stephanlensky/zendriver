@@ -23,7 +23,7 @@ async def main():
     search_inp = await tab.select("textarea")
     await search_inp.send_keys("undetected zendriver")
 
-    search_btn = await tab.find("google search", True)
+    search_btn = await tab.find("google search", best_match=True)
     await search_btn.click()
 
     for _ in range(10):

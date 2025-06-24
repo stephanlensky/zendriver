@@ -189,6 +189,7 @@ class Tab(Connection):
         text: Optional[str] = None,
         tagname: Optional[str] = None,
         attrs: Optional[dict[str, str]] = None,
+        best_match: Optional[bool] = False,
         timeout: Union[int, float] = 10,
     ):
         """
@@ -201,22 +202,12 @@ class Tab(Connection):
         :type tagname: str
         :param attrs: attributes to search for. ex: {'class':'class1', 'name':'name1', 'id':'123'}
         :type attrs: dict
-
-                 since we deal with nodes instead of elements, the find function most often returns
-                 so called text nodes, which is actually a element of plain text, which is
-                 the somehow imaginary "child" of a "span", "p", "script" or any other elements which have text between their opening
-                 and closing tags.
-                 most often when we search by text, we actually aim for the element containing the text instead of
-                 a lousy plain text node, so by default the containing element is returned.
-
-                 however, there are (why not) exceptions, for example elements that use the "placeholder=" property.
-                 this text is rendered, but is not a pure text node. in that case you can set this flag to False.
-                 since in this case we are probably interested in just that element, and not it's parent.
-
-
-                 # todo, automatically determine node type
-                 # ignore the return_enclosing_element flag if the found node is NOT a text node but a
-                 # regular element (one having a tag) in which case that is exactly what we need.
+        :param best_match: when True, it will return the element which has the most
+                          comparable string length. this could help tremendously, when for example
+                          you search for "login", you'd probably want the login button element,
+                          and not thousands of scripts,meta,headings containing a string of "login".
+                          When False (default), it will return naively just the first match (but is way faster).
+        :type best_match: bool
         :param timeout: raise timeout exception when after this many seconds nothing is found.
         :type timeout: float,int
         """
@@ -234,21 +225,52 @@ class Tab(Connection):
                 "You must provide either tagname, attrs, or text to find an element."
             )
 
-        items = await self._find_elements_by_tagname_attrs_text(  # items is a list that might contain either a single element if found, or None
-            tagname=tagname, attrs=attrs, text=text, return_after_first_match=True
-        )
-        while not items:
-            await self.wait()
+        if text and best_match:
+            # Use best_match logic for text searches
+            items = await self._find_elements_by_tagname_attrs_text(
+                tagname=tagname, attrs=attrs, text=text, return_after_first_match=False
+            )
+            while not items:
+                await self.wait()
+                items = await self._find_elements_by_tagname_attrs_text(
+                    tagname=tagname,
+                    attrs=attrs,
+                    text=text,
+                    return_after_first_match=False,
+                )
+                if loop.time() - start_time > timeout:
+                    raise asyncio.TimeoutError(
+                        f"Time ran out while waiting for element with tagname: {tagname}, attributes: {attrs}, text:{text}"
+                    )
+                await self.sleep(0.5)
+
+            # Apply best match logic - find element with closest text length
+            if items:
+                closest_by_length = min(
+                    items,
+                    key=lambda el: abs(len(text.strip()) - len(el.text_all or "")),
+                )
+                return closest_by_length
+        else:
+            # Use existing logic for non-best-match or non-text searches
             items = await self._find_elements_by_tagname_attrs_text(
                 tagname=tagname, attrs=attrs, text=text, return_after_first_match=True
             )
-            if loop.time() - start_time > timeout:
-                raise asyncio.TimeoutError(
-                    f"Time ran out while waiting for element with tagname: {tagname}, attributes: {attrs}, text:{text}"
+            while not items:
+                await self.wait()
+                items = await self._find_elements_by_tagname_attrs_text(
+                    tagname=tagname,
+                    attrs=attrs,
+                    text=text,
+                    return_after_first_match=True,
                 )
-            await self.sleep(0.5)
+                if loop.time() - start_time > timeout:
+                    raise asyncio.TimeoutError(
+                        f"Time ran out while waiting for element with tagname: {tagname}, attributes: {attrs}, text:{text}"
+                    )
+                await self.sleep(0.5)
 
-        return items[0]  # returning the first and only element of the list items
+            return items[0]  # returning the first and only element of the list items
 
     async def select(
         self,
@@ -621,19 +643,25 @@ class Tab(Connection):
     async def find_element_by_text(
         self,
         text: str,
+        best_match: Optional[bool] = False,
     ) -> Element | None:
         """
         finds and returns the first element containing <text>, or best match
 
-        :param text:
-        :type text:
-        :return:
-        :rtype:
+        :param text: text to search for
+        :type text: str
+        :param best_match: when True, which is MUCH more expensive (thus much slower),
+                          will find the closest match based on length.
+                          this could help tremendously, when for example you search for "login", you'd probably want the login button element,
+                          and not thousands of scripts,meta,headings containing a string of "login".
+        :type best_match: bool
+        :return: Element or None
+        :rtype: Element | None
         """
         if not text:
             raise ValueError("You must provide a text value to find an element with.")
         else:
-            return await self.find(text=text)
+            return await self.find(text=text, best_match=best_match)
 
     async def find_elements_by_text(self, text: str) -> list[Element]:
         """
