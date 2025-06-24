@@ -201,7 +201,7 @@ class Tab(Connection):
         :type tagname: str
         :param attrs: attributes to search for. ex: {'class':'class1', 'name':'name1', 'id':'123'}
         :type attrs: dict
-       
+
                  since we deal with nodes instead of elements, the find function most often returns
                  so called text nodes, which is actually a element of plain text, which is
                  the somehow imaginary "child" of a "span", "p", "script" or any other elements which have text between their opening
@@ -566,29 +566,23 @@ class Tab(Connection):
                 return
 
             # check for conditions
-            matches_tagname = (
-                not tagname
-                or (
-                    elem.tag_name
-                    and tagname.strip().lower() == elem.tag_name.strip().lower()
-                )
+            matches_tagname = not tagname or (
+                elem.tag_name
+                and tagname.strip().lower() == elem.tag_name.strip().lower()
             )
-            matches_attrs = (
-                not attrs
-                or (
-                    elem.attributes
-                    and all(
-                        any(
-                            elem.attributes[i] == attr and value in elem.attributes[i + 1].split()
-                            for i in range(0, len(elem.attributes), 2)
-                        )
-                        for attr, value in attrs.items()
+            matches_attrs = not attrs or (
+                elem.attributes
+                and all(
+                    any(
+                        elem.attributes[i] == attr
+                        and value in elem.attributes[i + 1].split()
+                        for i in range(0, len(elem.attributes), 2)
                     )
+                    for attr, value in attrs.items()
                 )
             )
-            matches_text = (
-                not text
-                or (elem.text and text.strip().lower() in elem.text.strip().lower())
+            matches_text = not text or (
+                elem.text and text.strip().lower() in elem.text.strip().lower()
             )
 
             # if all conditions match, add the element to the list of elements to return
@@ -606,10 +600,13 @@ class Tab(Connection):
 
         # search within iframes concurrently
         if not stop_searching:
-            iframes = util.filter_recurse_all(doc, lambda node: node.node_name == "IFRAME")
+            iframes = util.filter_recurse_all(
+                doc, lambda node: node.node_name == "IFRAME"
+            )
             iframe_tasks = [
                 traverse(iframe.content_document, iframe.content_document)
-                for iframe in iframes if iframe.content_document
+                for iframe in iframes
+                if iframe.content_document
             ]
 
             if iframe_tasks:
@@ -1121,7 +1118,7 @@ class Tab(Connection):
         it will block for a maximum of <timeout> seconds, after which
         an TimeoutError will be raised
 
-        :param text: text 
+        :param text: text
         :type text: str
         :param tagname: element tagname
         :type tagname: str
