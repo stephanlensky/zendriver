@@ -585,6 +585,11 @@ class Browser:
                 logger.debug("killed browser process")
 
             await self._process.wait()
+
+            # Close subprocess transports to prevent event loop cleanup warnings
+            if hasattr(self._process, "_transport") and self._process._transport:  # type: ignore
+                self._process._transport.close()  # type: ignore
+
             self._process = None
             self._process_pid = None
         await self._cleanup_temporary_profile()
