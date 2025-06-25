@@ -6,7 +6,7 @@ import secrets
 import sys
 import tempfile
 import zipfile
-from typing import Any, List, Optional, Union
+from typing import List, Optional, Union
 
 __all__ = [
     "Config",
@@ -40,9 +40,7 @@ class Config:
         host: str | None = AUTO,
         port: int | None = AUTO,
         expert: bool | None = AUTO,
-        browser_connection_timeout: float = 0.25,
-        browser_connection_max_tries: int = 10,
-        **kwargs: Any,
+        **kwargs: dict,
     ):
         """
         creates a config object.
@@ -55,7 +53,7 @@ class Config:
 
         Instances of this class are usually not instantiated by end users.
 
-        :param user_data_dir: the data directory to use (must be unique if using multiple browsers)
+        :param user_data_dir: the data directory to use
         :param headless: set to True for headless mode
         :param browser_executable_path: specify browser executable, instead of using autodetect
         :param browser_args: forwarded to browser executable. eg : ["--some-chromeparam=somevalue", "some-other-param=someval"]
@@ -80,12 +78,11 @@ class Config:
         if not browser_args:
             browser_args = []
 
-        # defer creating a temp user data dir until the browser requests it so
-        # config can be used/reused as a template for multiple browser instances
-        self._user_data_dir = None
-        self._custom_data_dir = False
-        if user_data_dir:
-            self.user_data_dir = str(user_data_dir)
+        if not user_data_dir:
+            self._user_data_dir = temp_profile_dir()
+            self._custom_data_dir = False
+        else:
+            self.user_data_dir = user_data_dir
 
         if not browser_executable_path:
             browser_executable_path = find_chrome_executable()
@@ -99,18 +96,17 @@ class Config:
         self.port = port
         self.expert = expert
         self._extensions: list[PathLike] = []
-
         # when using posix-ish operating system and running as root
         # you must use no_sandbox = True, which in case is corrected here
         if is_posix and is_root() and sandbox:
-            logger.info("detected root usage, auto disabling sandbox mode")
+            logger.info("detected root usage, autoo disabling sandbox mode")
             self.sandbox = False
 
         self.autodiscover_targets = True
         self.lang = lang
 
-        self.browser_connection_timeout = browser_connection_timeout
-        self.browser_connection_max_tries = browser_connection_max_tries
+        self.browser_connection_timeout = 0.25
+        self.browser_connection_max_tries = 10
 
         # other keyword args will be accessible by attribute
         self.__dict__.update(kwargs)
@@ -130,7 +126,7 @@ class Config:
             "--disable-renderer-backgrounding",
             "--disable-background-networking",
             "--disable-dev-shm-usage",
-            "--disable-features=IsolateOrigins,DisableLoadExtensionCommandLineSwitch,site-per-process",
+            "--disable-features=IsolateOrigins,site-per-process",
             "--disable-session-crashed-bubble",
             "--disable-search-engine-choice-screen",
         ]
@@ -140,27 +136,13 @@ class Config:
         return sorted(self._default_browser_args + self._browser_args)
 
     @property
-    def user_data_dir(self) -> str:
-        """
-        Get the user data dir or lazily create a new one if unset.
-
-        Returns:
-            str: User data directory (used for Chrome profile)
-        """
-        if not self._user_data_dir:
-            self._user_data_dir = temp_profile_dir()
-            self._custom_data_dir = False
-
+    def user_data_dir(self):
         return self._user_data_dir
 
     @user_data_dir.setter
     def user_data_dir(self, path: PathLike):
-        if path:
-            self._user_data_dir = str(path)
-            self._custom_data_dir = True
-        else:
-            self._user_data_dir = None
-            self._custom_data_dir = False
+        self._user_data_dir = str(path)
+        self._custom_data_dir = True
 
     @property
     def uses_custom_data_dir(self) -> bool:
@@ -307,7 +289,6 @@ def find_chrome_executable() -> PathLike:
                     "Google/Chrome/Application",
                     "Google/Chrome Beta/Application",
                     "Google/Chrome Canary/Application",
-                    "Google/Chrome SxS/Application",
                 ):
                     candidates.append(os.sep.join((item2, subitem, "chrome.exe")))
     rv = []

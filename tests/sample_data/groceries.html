@@ -2,27 +2,6 @@
 <html>
   <head>
     <title>Grocery List</title>
-      <script>
-        function downloadGroceryList() {
-            const groceries = [
-                "Apples (42)",
-                "Bananas",
-                "Carrots",
-                "Donuts",
-                "Eggs",
-                "French Fries",
-                "Grapes"
-            ];
-
-            const blob = new Blob([groceries.join('\n')], { type: 'text/plain' });
-            const a = document.createElement('a');
-            a.href = URL.createObjectURL(blob);
-            a.download = 'grocery_list.txt';
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-        }
-    </script>
   </head>
 
     <body>
@@ -35,7 +14,6 @@
         <li>Eggs</li>
         <li>French Fries</li>
         <li>Grapes</li>
-        </ul>
-        <button id="download_file" onclick="downloadGroceryList()">Download List</button>
+        <ul>
     </body>
 </html>

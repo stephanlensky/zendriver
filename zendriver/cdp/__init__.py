@@ -19,6 +19,7 @@ from . import (
     dom_debugger,
     dom_snapshot,
     dom_storage,
+    database,
     debugger,
     device_access,
     device_orientation,

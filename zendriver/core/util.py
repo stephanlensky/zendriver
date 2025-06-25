@@ -2,13 +2,9 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import subprocess
 import types
 import typing
-from pathlib import Path
-from typing import Any, Callable, List, Optional, Set, Union
-
-from deprecated import deprecated
+from typing import Callable, List, Optional, Set, Union
 
 import zendriver
 
@@ -37,7 +33,7 @@ async def start(
     host: Optional[str] = None,
     port: Optional[int] = None,
     expert: Optional[bool] = None,
-    **kwargs: Any,
+    **kwargs: Optional[dict],
 ) -> Browser:
     """
     helper function to launch a browser. it accepts several keyword parameters.
@@ -91,7 +87,7 @@ async def start(
             host=host,
             port=port,
             expert=expert,
-            **kwargs,
+            **kwargs,  # type: ignore
         )
     from .browser import Browser
 
@@ -288,9 +284,6 @@ def compare_target_info(
     return [(k, v, d2[k]) for (k, v) in d1.items() if d2[k] != v]
 
 
-@deprecated(
-    version="0.5.1", reason="Use asyncio functions directly instead, e.g. asyncio.run"
-)
 def loop():
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
@@ -328,43 +321,3 @@ def cdp_get_module(domain: Union[str, types.ModuleType]):
                     "could not find cdp module from input '%s'" % domain
                 )
     return domain_mod
-
-
-def _start_process(
-    exe: str | Path, params: List[str], is_posix: bool
-) -> subprocess.Popen:
-    """
-    Start a subprocess with the given executable and parameters.
-
-    :param exe: The executable to run.
-    :param params: List of parameters to pass to the executable.
-    :param is_posix: Boolean indicating if the system is POSIX compliant.
-
-    :return: An instance of `subprocess.Popen`.
-    """
-    return subprocess.Popen(
-        [str(exe)] + params,
-        stdin=subprocess.PIPE,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        close_fds=is_posix,
-    )
-
-
-async def _read_process_stderr(process: subprocess.Popen, n: int = 2**16) -> str:
-    """
-    Read the given number of bytes from the stderr of the given process.
-
-    Read bytes are automatically decoded to utf-8.
-    """
-
-    async def read_stderr() -> bytes:
-        if process.stderr is None:
-            raise ValueError("Process has no stderr")
-        return await asyncio.to_thread(process.stderr.read, n)
-
-    try:
-        return (await asyncio.wait_for(read_stderr(), 0.25)).decode("utf-8")
-    except asyncio.TimeoutError:
-        logger.debug("Timeout reading process stderr")
-        return ""

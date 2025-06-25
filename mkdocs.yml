@@ -1,112 +1,104 @@
 extra_css:
-  - stylesheets/extra.css
+- stylesheets/extra.css
 markdown_extensions:
-  - pymdownx.highlight:
-      anchor_linenums: true
-  - pymdownx.inlinehilite
-  - pymdownx.snippets
-  - pymdownx.superfences
-  - pymdownx.details
-  - def_list
-  - admonition
-  - md_in_html
+- pymdownx.highlight:
+    anchor_linenums: true
+- pymdownx.inlinehilite
+- pymdownx.snippets
+- pymdownx.superfences
+- pymdownx.details
+- def_list
+- admonition
 nav:
-  - Documentation:
-      - Introduction: index.md
-      - Quickstart: quickstart.md
-  - Tutorials:
-      - About these Tutorials: tutorials/index.md
-      - Tutorials:
-          - Infinitely scrolling feed: tutorials/infinite-scrolling.md
-          - Creating accounts: tutorials/account-creation.md
-          - Reading API responses: tutorials/api-responses.md
-  - Reference:
-      - cdp:
-          - accessibility: reference/cdp/accessibility.md
-          - animation: reference/cdp/animation.md
-          - audits: reference/cdp/audits.md
-          - autofill: reference/cdp/autofill.md
-          - background_service: reference/cdp/background_service.md
-          - bluetooth_emulation: reference/cdp/bluetooth_emulation.md
-          - browser: reference/cdp/browser.md
-          - cache_storage: reference/cdp/cache_storage.md
-          - cast: reference/cdp/cast.md
-          - console: reference/cdp/console.md
-          - css: reference/cdp/css.md
-          - database: reference/cdp/database.md
-          - debugger: reference/cdp/debugger.md
-          - device_access: reference/cdp/device_access.md
-          - device_orientation: reference/cdp/device_orientation.md
-          - dom: reference/cdp/dom.md
-          - dom_debugger: reference/cdp/dom_debugger.md
-          - dom_snapshot: reference/cdp/dom_snapshot.md
-          - dom_storage: reference/cdp/dom_storage.md
-          - emulation: reference/cdp/emulation.md
-          - event_breakpoints: reference/cdp/event_breakpoints.md
-          - extensions: reference/cdp/extensions.md
-          - fed_cm: reference/cdp/fed_cm.md
-          - fetch: reference/cdp/fetch.md
-          - file_system: reference/cdp/file_system.md
-          - headless_experimental: reference/cdp/headless_experimental.md
-          - heap_profiler: reference/cdp/heap_profiler.md
-          - indexed_db: reference/cdp/indexed_db.md
-          - input_: reference/cdp/input_.md
-          - inspector: reference/cdp/inspector.md
-          - io: reference/cdp/io.md
-          - layer_tree: reference/cdp/layer_tree.md
-          - log: reference/cdp/log.md
-          - media: reference/cdp/media.md
-          - memory: reference/cdp/memory.md
-          - network: reference/cdp/network.md
-          - overlay: reference/cdp/overlay.md
-          - page: reference/cdp/page.md
-          - performance: reference/cdp/performance.md
-          - performance_timeline: reference/cdp/performance_timeline.md
-          - preload: reference/cdp/preload.md
-          - profiler: reference/cdp/profiler.md
-          - pwa: reference/cdp/pwa.md
-          - runtime: reference/cdp/runtime.md
-          - schema: reference/cdp/schema.md
-          - security: reference/cdp/security.md
-          - service_worker: reference/cdp/service_worker.md
-          - storage: reference/cdp/storage.md
-          - system_info: reference/cdp/system_info.md
-          - target: reference/cdp/target.md
-          - tethering: reference/cdp/tethering.md
-          - tracing: reference/cdp/tracing.md
-          - util: reference/cdp/util.md
-          - web_audio: reference/cdp/web_audio.md
-          - web_authn: reference/cdp/web_authn.md
-  - Release Notes:
-      - Release Notes: release-notes.md
+- Documentation:
+  - Introduction: index.md
+  - Quickstart: quickstart.md
+- Reference:
+  - cdp:
+    - accessibility: reference/cdp/accessibility.md
+    - animation: reference/cdp/animation.md
+    - audits: reference/cdp/audits.md
+    - autofill: reference/cdp/autofill.md
+    - background_service: reference/cdp/background_service.md
+    - bluetooth_emulation: reference/cdp/bluetooth_emulation.md
+    - browser: reference/cdp/browser.md
+    - cache_storage: reference/cdp/cache_storage.md
+    - cast: reference/cdp/cast.md
+    - console: reference/cdp/console.md
+    - css: reference/cdp/css.md
+    - database: reference/cdp/database.md
+    - debugger: reference/cdp/debugger.md
+    - device_access: reference/cdp/device_access.md
+    - device_orientation: reference/cdp/device_orientation.md
+    - dom: reference/cdp/dom.md
+    - dom_debugger: reference/cdp/dom_debugger.md
+    - dom_snapshot: reference/cdp/dom_snapshot.md
+    - dom_storage: reference/cdp/dom_storage.md
+    - emulation: reference/cdp/emulation.md
+    - event_breakpoints: reference/cdp/event_breakpoints.md
+    - extensions: reference/cdp/extensions.md
+    - fed_cm: reference/cdp/fed_cm.md
+    - fetch: reference/cdp/fetch.md
+    - file_system: reference/cdp/file_system.md
+    - headless_experimental: reference/cdp/headless_experimental.md
+    - heap_profiler: reference/cdp/heap_profiler.md
+    - indexed_db: reference/cdp/indexed_db.md
+    - input_: reference/cdp/input_.md
+    - inspector: reference/cdp/inspector.md
+    - io: reference/cdp/io.md
+    - layer_tree: reference/cdp/layer_tree.md
+    - log: reference/cdp/log.md
+    - media: reference/cdp/media.md
+    - memory: reference/cdp/memory.md
+    - network: reference/cdp/network.md
+    - overlay: reference/cdp/overlay.md
+    - page: reference/cdp/page.md
+    - performance: reference/cdp/performance.md
+    - performance_timeline: reference/cdp/performance_timeline.md
+    - preload: reference/cdp/preload.md
+    - profiler: reference/cdp/profiler.md
+    - pwa: reference/cdp/pwa.md
+    - runtime: reference/cdp/runtime.md
+    - schema: reference/cdp/schema.md
+    - security: reference/cdp/security.md
+    - service_worker: reference/cdp/service_worker.md
+    - storage: reference/cdp/storage.md
+    - system_info: reference/cdp/system_info.md
+    - target: reference/cdp/target.md
+    - tethering: reference/cdp/tethering.md
+    - tracing: reference/cdp/tracing.md
+    - util: reference/cdp/util.md
+    - web_audio: reference/cdp/web_audio.md
+    - web_authn: reference/cdp/web_authn.md
+- Release Notes:
+  - Release Notes: release-notes.md
 plugins:
-  - search
-  - mkdocstrings:
-      handlers:
-        python:
-          options:
-            docstring_style: sphinx
-            show_if_no_docstring: true
-            show_root_heading: false
-            show_root_toc_entry: false
+- search
+- mkdocstrings:
+    handlers:
+      python:
+        options:
+          docstring_style: sphinx
+          show_if_no_docstring: true
+          show_root_heading: false
+          show_root_toc_entry: false
 site_name: Zendriver
 site_url: https://slensky.com/zendriver
 theme:
   features:
-    - navigation.footer
-    - navigation.tabs
-    - navigation.expand
+  - navigation.footer
+  - navigation.tabs
   name: material
   palette:
-    - accent: green
-      primary: custom
-      scheme: slate
-      toggle:
-        icon: material/toggle-switch-off-outline
-        name: Switch to light mode
-    - accent: green
-      primary: custom
-      scheme: default
-      toggle:
-        icon: material/toggle-switch
-        name: Switch to dark mode
+  - accent: green
+    primary: custom
+    scheme: slate
+    toggle:
+      icon: material/toggle-switch-off-outline
+      name: Switch to light mode
+  - accent: green
+    primary: custom
+    scheme: default
+    toggle:
+      icon: material/toggle-switch
+      name: Switch to dark mode

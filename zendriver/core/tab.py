@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-import base64
 import datetime
 import logging
 import pathlib
@@ -10,7 +9,9 @@ import typing
 import urllib.parse
 import warnings
 import webbrowser
-from typing import TYPE_CHECKING, Any, List, Literal, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, Coroutine, List, Literal, Optional, Tuple, Union
+
+from zendriver.cdp.dom import Node
 
 from .. import cdp
 from . import element, util
@@ -189,7 +190,6 @@ class Tab(Connection):
         tagname: Optional[str] = None,
         attrs: Optional[dict[str, str]] = None,
         best_match: Optional[bool] = False,
-        return_enclosing_element = True,
         timeout: Union[int, float] = 10,
     ):
         """
@@ -210,54 +210,67 @@ class Tab(Connection):
         :type best_match: bool
         :param timeout: raise timeout exception when after this many seconds nothing is found.
         :type timeout: float,int
-        """    
+        """
 
-        if(text and not tagname and not attrs): # searches by text only if tagname and attrs weren't provided because it is more efficient to search by tagname and attrs.
-            loop = asyncio.get_running_loop()
-            start_time = loop.time()
+        loop = asyncio.get_running_loop()
+        start_time = loop.time()
 
-            text = text.strip()
+        text = text.strip().lower() if text else None
+        tagname = tagname.strip().lower() if tagname else None
+        attrs = {k.strip(): v.strip() for k, v in attrs.items()} if attrs else None
 
-            item = await self.find_element_by_text(
-                text, best_match, return_enclosing_element
+        if not text and not tagname and not attrs:
+            # raising an error in case neither text nor tagname values were provided
+            raise ValueError(
+                "You must provide either tagname, attrs, or text to find an element."
             )
-            while not item:
+
+        if text and best_match:
+            # Use best_match logic for text searches
+            items = await self._find_elements_by_tagname_attrs_text(
+                tagname=tagname, attrs=attrs, text=text, return_after_first_match=False
+            )
+            while not items:
                 await self.wait()
-                item = await self.find_element_by_text(
-                    text, best_match, return_enclosing_element
+                items = await self._find_elements_by_tagname_attrs_text(
+                    tagname=tagname,
+                    attrs=attrs,
+                    text=text,
+                    return_after_first_match=False,
                 )
                 if loop.time() - start_time > timeout:
                     raise asyncio.TimeoutError(
-                        "Time ran out while waiting for text: %s" % text
+                        f"Time ran out while waiting for element with tagname: {tagname}, attributes: {attrs}, text:{text}"
                     )
                 await self.sleep(0.5)
-            return item
-        elif(tagname or attrs):
-            loop = asyncio.get_running_loop()
-            start_time = loop.time()
 
-            if(tagname):
-                tagname = tagname.strip().upper()
-            else:
-                tagname = None
-            if(attrs):
-                attrs = {k.strip(): v.strip() for k, v in attrs.items()}
-            else:
-                attrs = None
-
-            item = await self.find_element_by_tagname_attrs(tagname, attrs)
-            while not item:
+            # Apply best match logic - find element with closest text length
+            if items:
+                closest_by_length = min(
+                    items,
+                    key=lambda el: abs(len(text.strip()) - len(el.text_all or "")),
+                )
+                return closest_by_length
+        else:
+            # Use existing logic for non-best-match or non-text searches
+            items = await self._find_elements_by_tagname_attrs_text(
+                tagname=tagname, attrs=attrs, text=text, return_after_first_match=True
+            )
+            while not items:
                 await self.wait()
-                item = await self.find_element_by_tagname_attrs(tagname, attrs)
+                items = await self._find_elements_by_tagname_attrs_text(
+                    tagname=tagname,
+                    attrs=attrs,
+                    text=text,
+                    return_after_first_match=True,
+                )
                 if loop.time() - start_time > timeout:
                     raise asyncio.TimeoutError(
-                        f"Time ran out while waiting for element: {tagname}, with attributes: {attrs}"
+                        f"Time ran out while waiting for element with tagname: {tagname}, attributes: {attrs}, text:{text}"
                     )
                 await self.sleep(0.5)
-            return item
-        elif(not text and not tagname and not attrs):
-            # raising an error in case neither text nor tagname values were provided
-            raise ValueError("You must provide either tagname, attrs, or text to find an element.")
+
+            return items[0]  # returning the first and only element of the list items
 
     async def select(
         self,
@@ -312,48 +325,35 @@ class Tab(Connection):
         :param timeout: raise timeout exception when after this many seconds nothing is found.
         :type timeout: float,int
         """
-        if(text and not tagname and not attrs): # searches by text only if tagname and attrs weren't provided because it is more efficient to search by tagname and attrs.
-            loop = asyncio.get_running_loop()
-            now = loop.time()
 
-            text = text.strip()
-            items = await self.find_elements_by_text(text)
+        loop = asyncio.get_running_loop()
+        start_time = loop.time()
 
-            while not items:
-                await self.wait()
-                items = await self.find_elements_by_text(text)
-                if loop.time() - now > timeout:
-                    raise asyncio.TimeoutError(
-                        "time ran out while waiting for text: %s" % text
-                    )
-                await self.sleep(0.5)
-            return items
-        elif(tagname or attrs):
-            loop = asyncio.get_running_loop()
-            start_time = loop.time()
+        tagname = tagname.strip().lower() if tagname else None
+        attrs = {k.strip(): v.strip() for k, v in attrs.items()} if attrs else None
+        text = text.strip().lower() if text else None
 
-            if(tagname):
-                tagname = tagname.strip().upper()
-            else:
-                tagname = None
-            if(attrs):
-                attrs = {k.strip(): v.strip() for k, v in attrs.items()}
-            else:
-                attrs = None
-
-            items = await self.find_elements_by_tagname_attrs(tagname, attrs)
-            while not items:
-                await self.wait()
-                items = await self.find_elements_by_tagname_attrs(tagname, attrs)
-                if loop.time() - start_time > timeout:
-                    raise asyncio.TimeoutError(
-                        f"Time ran out while waiting for element: {tagname}, with attributes: {attrs}"
-                    )
-                await self.sleep(0.5)
-            return items
-        elif(not text and not tagname and not attrs):
+        if not text and not tagname and not attrs:
             # raising an error in case neither text nor tagname values were provided
-            raise ValueError("You must provide either tagname, attrs, or text to find elements.")
+            raise ValueError(
+                "You must provide either tagname, attrs, or text to find elements."
+            )
+
+        items = await self._find_elements_by_tagname_attrs_text(
+            tagname=tagname, attrs=attrs, text=text, return_after_first_match=False
+        )
+        while not items:
+            await self.wait()
+            items = await self._find_elements_by_tagname_attrs_text(
+                tagname=tagname, attrs=attrs, text=text, return_after_first_match=False
+            )
+            if loop.time() - start_time > timeout:
+                raise asyncio.TimeoutError(
+                    f"Time ran out while waiting for elements with tagname: {tagname}, attributes: {attrs}, text: {text}"
+                )
+            await self.sleep(0.5)
+
+        return items
 
     async def select_all(
         self, selector: str, timeout: Union[int, float] = 10, include_frames=False
@@ -532,7 +532,7 @@ class Tab(Connection):
             return
         return element.create(node, self, doc)
 
-    async def find_elements_by_text(
+    async def _find_elements_by_tagname_attrs_text(
         self,
         text: Optional[str] = None,
         tagname: Optional[str] = None,
@@ -540,113 +540,50 @@ class Tab(Connection):
         return_after_first_match: bool = False,
     ) -> list[Element]:
         """
-        Finds and returns all elements with the specified tagname and matching attributes.
+        Finds and returns all elements matching the tagname, attributes, and optional innerText.
 
-        :param tagname: The name of the HTML tag to search for (e.g., 'button', 'input').
-        :type tagname: str
-        :param attrs: A dictionary of attributes and their corresponding values to match.
-        :type attrs: dict[str, str]
-
-        :return: List of matching elements.
+        :param text: The expected text value of the element. Optional.
+        :type text: str | None
+        :param tagname: The name of the HTML tag to search for (e.g., 'button', 'input'). Optional.
+        :type tagname: str | None
+        :param attrs: A dictionary of attributes and their corresponding values to match. Optional.
+        :type attrs: dict[str, str] | None
+        :param return_after_first_match: If True, stops traversal and returns a list containing only the first matching element.
+        :type return_after_first_match: bool
+        :return: List of matching elements. If return_after_first_match is True, the list contains at most one element.
         :rtype: list[Element]
         """
-        elements = list()
+        elements = []
+        stop_searching = False  # flag to indicate whether to stop searching
 
-        async def traverse(node, parent_tree):
-            """
-            Recursive traversal of the DOM, including shadow DOM and iframes, to collect all matching elements.
-            """
-            if not node:
-                return None
+        async def traverse(node: Node, parent_tree):
+            """Recursive traversal of the DOM and shadow DOM to collect all matching elements."""
+            nonlocal stop_searching
 
-            # check if the node matches the tagname and attribute-value pairs
-            if (
-                node.node_type == 1  # Element node
-                and (not tagname or node.node_name.lower() == tagname.lower())
-                and node.attributes
-                and (not attrs or all(
-                    any(
-                        node.attributes[i] == attr and value in node.attributes[i + 1].split()
-                        for i in range(0, len(node.attributes), 2)
-                    )
-                    for attr, value in attrs.items()
-                ))
-            ):
-                elements.append(element.create(node, self, parent_tree))
+            if not node or stop_searching:
+                return
 
-            tasks = list()
-
-            # traverse shadow roots
+            # To find the most specific element, traverse children first (post-order traversal).
+            tasks: list[Coroutine] = []
             if node.shadow_roots:
-                tasks.extend(traverse(shadow_root, parent_tree) for shadow_root in node.shadow_roots)
-
-            # traverse child nodes
+                tasks.extend(
+                    traverse(shadow_root, parent_tree)
+                    for shadow_root in node.shadow_roots
+                )
             if node.children:
                 tasks.extend(traverse(child, parent_tree) for child in node.children)
 
             if tasks:
                 await asyncio.gather(*tasks)
 
-        # fetch the document root
-        doc = await self.send(cdp.dom.get_document(depth=-1, pierce=True))
+            # If a deeper match was already found and we only need the first one, stop.
+            if stop_searching:
+                return
 
-        # traverse the DOM tree
-        await traverse(doc, doc)
+            # create an element to check for the conditions we're looking for
+            elem = element.create(node, self, parent_tree)
 
-        # handle iframes
-        iframes = util.filter_recurse_all(doc, lambda node: node.node_name == "IFRAME")
-        iframe_tasks = [
-            traverse(iframe.content_document, iframe.content_document)
-            for iframe in iframes
-            if iframe.content_document
-        ]
-
-        if iframe_tasks:
-            await asyncio.gather(*iframe_tasks)
-
-        return elements
-
-    async def find_element_by_text(
-        self,
-        text: str,
-        best_match: Optional[bool] = False,
-        return_enclosing_element: Optional[bool] = True,
-    ) -> Element | None:
-        """
-        finds and returns the first element containing <text>, or best match
-
-        :param text:
-        :type text:
-        :param best_match:  when True, which is MUCH more expensive (thus much slower),
-                            will find the closest match based on length.
-                            this could help tremendously, when for example you search for "login", you'd probably want the login button element,
-                            and not thousands of scripts,meta,headings containing a string of "login".
-
-        :type best_match: bool
-        :param return_enclosing_element:
-        :type return_enclosing_element:
-        :return:
-        :rtype:
-        """
-        doc = await self.send(cdp.dom.get_document(-1, True))
-        text = text.strip()
-        search_id, nresult = await self.send(cdp.dom.perform_search(text, True))
-
-        node_ids = await self.send(cdp.dom.get_search_results(search_id, 0, nresult))
-        await self.send(cdp.dom.discard_search_results(search_id))
-
-        if not node_ids:
-            node_ids = []
-        items = []
-        for nid in node_ids:
-            node = util.filter_recurse(doc, lambda n: n.node_id == nid)
-            if node is None:
-                continue
-
-            try:
-                elem = element.create(node, self, doc)
-            except:  # noqa
-                continue
+            # Do not match on text nodes directly. Let their parent elements be the match.
             if elem.node_type == 3:
                 return
 
@@ -691,44 +628,42 @@ class Tab(Connection):
             iframe_tasks = [
                 traverse(iframe.content_document, iframe.content_document)
                 for iframe in iframes
+                if iframe.content_document
             ]
-            for iframe_elem in iframes_elems:
-                iframe_text_nodes = util.filter_recurse_all(
-                    iframe_elem,
-                    lambda node: node.node_type == 3  # noqa
-                    and text.lower() in node.node_value.lower(),
-                )
-                if iframe_text_nodes:
-                    iframe_text_elems = [
-                        element.create(text_node, self, iframe_elem.tree)
-                        for text_node in iframe_text_nodes
-                    ]
-                    items.extend(text_node.parent for text_node in iframe_text_elems)
-        try:
-            if not items:
-                return None
-            if best_match:
-                closest_by_length = min(
-                    items, key=lambda el: abs(len(text) - len(el.text_all))
-                )
-                elem = closest_by_length or items[0]
 
-                return elem
-            else:
-                # naively just return the first result
-                for elem in items:
-                    if elem:
-                        return elem
-        finally:
-            await self.send(cdp.dom.disable())
+            if iframe_tasks:
+                await asyncio.gather(*iframe_tasks)
 
-        return None
+        # return the appropriate result
+        if return_after_first_match:
+            return elements[:1]
+        else:
+            return elements
 
-    async def find_elements_by_text(
+    async def find_element_by_text(
         self,
         text: str,
-        tag_hint: Optional[str] = None,
-    ) -> list[Element]:
+        best_match: Optional[bool] = False,
+    ) -> Element | None:
+        """
+        finds and returns the first element containing <text>, or best match
+
+        :param text: text to search for
+        :type text: str
+        :param best_match: when True, which is MUCH more expensive (thus much slower),
+                          will find the closest match based on length.
+                          this could help tremendously, when for example you search for "login", you'd probably want the login button element,
+                          and not thousands of scripts,meta,headings containing a string of "login".
+        :type best_match: bool
+        :return: Element or None
+        :rtype: Element | None
+        """
+        if not text:
+            raise ValueError("You must provide a text value to find an element with.")
+        else:
+            return await self.find(text=text, best_match=best_match)
+
+    async def find_elements_by_text(self, text: str) -> list[Element]:
         """
         returns element which match the given text.
         please note: this may (or will) also return any other element (like inline scripts),
@@ -736,78 +671,13 @@ class Tab(Connection):
 
         :param text:
         :type text:
-        :param tag_hint: when provided, narrows down search to only elements which match given tag eg: a, div, script, span
-        :type tag_hint: str
         :return:
         :rtype:
         """
-        text = text.strip()
-        doc = await self.send(cdp.dom.get_document(-1, True))
-        search_id, nresult = await self.send(cdp.dom.perform_search(text, True))
-        if nresult:
-            node_ids = await self.send(
-                cdp.dom.get_search_results(search_id, 0, nresult)
-            )
+        if not text:
+            raise ValueError("You must provide a text value to find elements with.")
         else:
-            node_ids = []
-
-        await self.send(cdp.dom.discard_search_results(search_id))
-
-        items = []
-        for nid in node_ids:
-            node = util.filter_recurse(doc, lambda n: n.node_id == nid)
-            if not node:
-                node = await self.send(cdp.dom.resolve_node(node_id=nid))
-                if not node:
-                    continue
-                # remote_object = await self.send(cdp.dom.resolve_node(backend_node_id=node.backend_node_id))
-                # node_id = await self.send(cdp.dom.request_node(object_id=remote_object.object_id))
-            try:
-                elem = element.create(node, self, doc)
-            except:  # noqa
-                continue
-            if elem.node_type == 3:
-                # if found element is a text node (which is plain text, and useless for our purpose),
-                # we return the parent element of the node (which is often a tag which can have text between their
-                # opening and closing tags (that is most tags, except for example "img" and "video", "br")
-
-                if not elem.parent:
-                    # check if parent actually has a parent and update it to be absolutely sure
-                    await elem.update()
-
-                items.append(
-                    elem.parent or elem
-                )  # when it really has no parent, use the text node itself
-                continue
-            else:
-                # just add the element itself
-                items.append(elem)
-
-        # since we already fetched the entire doc, including shadow and frames
-        # let's also search through the iframes
-        iframes = util.filter_recurse_all(doc, lambda node: node.node_name == "IFRAME")
-        if iframes:
-            iframes_elems = [
-                element.create(iframe, self, iframe.content_document)
-                for iframe in iframes
-            ]
-            for iframe_elem in iframes_elems:
-                if iframe_elem.content_document:
-                    iframe_text_nodes = util.filter_recurse_all(
-                        iframe_elem,
-                        lambda node: node.node_type == 3  # noqa
-                        and text.lower() in node.node_value.lower(),
-                    )
-                    if iframe_text_nodes:
-                        iframe_text_elems = [
-                            element.create(text_node, self, iframe_elem.tree)
-                            for text_node in iframe_text_nodes
-                        ]
-                        items.extend(
-                            text_node.parent for text_node in iframe_text_elems
-                        )
-        await self.send(cdp.dom.disable())
-        return items or []
+            return await self.find_all(text=text)
 
     async def back(self):
         """
@@ -1208,14 +1078,12 @@ class Tab(Connection):
 
         await self.send(cdp.browser.set_window_bounds(window_id, bounds=bounds))
 
-    async def scroll_down(self, amount=25, speed=800):
+    async def scroll_down(self, amount=25):
         """
         scrolls down maybe
 
         :param amount: number in percentage. 25 is a quarter of page, 50 half, and 1000 is 10x the page
-        :param speed: number swipe speed in pixels per second (default: 800).
         :type amount: int
-        :type speed: int
         :return:
         :rtype:
         """
@@ -1232,19 +1100,16 @@ class Tab(Connection):
                 x_overscroll=0,
                 prevent_fling=True,
                 repeat_delay_ms=0,
-                speed=speed,
+                speed=7777,
             )
         )
-        await asyncio.sleep(bounds.height * (amount / 100) / speed)
 
-    async def scroll_up(self, amount=25, speed=800):
+    async def scroll_up(self, amount=25):
         """
         scrolls up maybe
 
         :param amount: number in percentage. 25 is a quarter of page, 50 half, and 1000 is 10x the page
-        :param speed: number swipe speed in pixels per second (default: 800).
         :type amount: int
-        :type speed: int
 
         :return:
         :rtype:
@@ -1261,15 +1126,16 @@ class Tab(Connection):
                 x_overscroll=0,
                 prevent_fling=True,
                 repeat_delay_ms=0,
-                speed=speed,
+                speed=7777,
             )
         )
-        await asyncio.sleep(bounds.height * (amount / 100) / speed)
 
     async def wait_for(
         self,
-        selector: str | None = None,
-        text: str | None = None,
+        text: Optional[str] = None,
+        tagname: Optional[str] = None,
+        attrs: Optional[dict[str, str]] = None,
+        selector: Optional[str] = None,
         timeout: int | float = 10,
     ) -> element.Element:
         """
@@ -1280,10 +1146,14 @@ class Tab(Connection):
         it will block for a maximum of <timeout> seconds, after which
         an TimeoutError will be raised
 
+        :param text: text
+        :type text: str
+        :param tagname: element tagname
+        :type tagname: str
+        :param attrs: dictionary of attributes
+        :type attrs: dictionary
         :param selector: css selector
         :type selector:
-        :param text: text
-        :type text:
         :param timeout:
         :type timeout:
         :return:
@@ -1292,6 +1162,25 @@ class Tab(Connection):
         """
         loop = asyncio.get_running_loop()
         start_time = loop.time()
+
+        if (
+            tagname or attrs or text
+        ):  # waiting for an element using either their tagname, attributes, text, or all.
+            if not tagname:
+                tagname = None
+            if not attrs:
+                attrs = None
+            if not text:
+                text = None
+
+            item = await self.find(tagname=tagname, attrs=attrs, text=text)
+            while not item and loop.time() - start_time < timeout:
+                item = await self.find(tagname=tagname, attrs=attrs, text=text)
+                await self.sleep(0.5)
+
+            if item:
+                return item
+
         if selector:
             item = await self.query_selector(selector)
             while not item and loop.time() - start_time < timeout:
@@ -1300,16 +1189,8 @@ class Tab(Connection):
 
             if item:
                 return item
-        if text:
-            item = await self.find_element_by_text(text)
-            while not item and loop.time() - start_time < timeout:
-                item = await self.find_element_by_text(text)
-                await self.sleep(0.5)
 
-            if item:
-                return item
-
-        raise asyncio.TimeoutError("time ran out while waiting")
+        raise asyncio.TimeoutError("Time ran out while waiting.")
 
     async def wait_for_ready_state(
         self,
@@ -1449,44 +1330,6 @@ class Tab(Connection):
         with open(filename, "w") as file:
             file.write(data)
 
-    async def screenshot_b64(
-        self,
-        format: str = "jpeg",
-        full_page: bool = False,
-    ) -> str:
-        """
-        Takes a screenshot of the page and return the result as a base64 encoded string.
-        This is not the same as :py:obj:`Element.screenshot_b64`, which takes a screenshot of a single element only
-
-        :param format: jpeg or png (defaults to jpeg)
-        :type format: str
-        :param full_page: when False (default) it captures the current viewport. when True, it captures the entire page
-        :type full_page: bool
-        :return: screenshot data as base64 encoded
-        :rtype: str
-        """
-        if self.target is None:
-            raise ValueError("target is none")
-
-        await self.sleep()  # update the target's url
-
-        if format.lower() in ["jpg", "jpeg"]:
-            format = "jpeg"
-        elif format.lower() in ["png"]:
-            format = "png"
-
-        data = await self.send(
-            cdp.page.capture_screenshot(
-                format_=format, capture_beyond_viewport=full_page
-            )
-        )
-        if not data:
-            raise ProtocolException(
-                "could not take screenshot. most possible cause is the page has not finished loading yet."
-            )
-
-        return data
-
     async def save_screenshot(
         self,
         filename: Optional[PathLike] = "auto",
@@ -1506,14 +1349,21 @@ class Tab(Connection):
         :return: the path/filename of saved screenshot
         :rtype: str
         """
+        if self.target is None:
+            raise ValueError("target is none")
+
+        await self.sleep()  # update the target's url
+        path = None
+
         if format.lower() in ["jpg", "jpeg"]:
             ext = ".jpg"
+            format = "jpeg"
 
         elif format.lower() in ["png"]:
             ext = ".png"
+            format = "png"
 
         if not filename or filename == "auto":
-            assert self.target is not None
             parsed = urllib.parse.urlparse(self.target.url)
             parts = parsed.path.split("/")
             last_part = parts[-1]
@@ -1524,35 +1374,22 @@ class Tab(Connection):
         else:
             path = pathlib.Path(filename)
         path.parent.mkdir(parents=True, exist_ok=True)
-
-        data = await self.screenshot_b64(format=format, full_page=full_page)
+        data = await self.send(
+            cdp.page.capture_screenshot(
+                format_=format, capture_beyond_viewport=full_page
+            )
+        )
+        if not data:
+            raise ProtocolException(
+                "could not take screenshot. most possible cause is the page has not finished loading yet."
+            )
+        import base64
 
         data_bytes = base64.b64decode(data)
         if not path:
             raise RuntimeError("invalid filename or path: '%s'" % filename)
         path.write_bytes(data_bytes)
         return str(path)
-
-    async def print_to_pdf(self, filename: PathLike, **kwargs: Any) -> pathlib.Path:
-        """
-        Prints the current page to a PDF file and saves it to the specified path.
-
-        :param filename: The path where the PDF will be saved.
-        :param kwargs: Additional options for printing to be passed to :py:obj:`cdp.page.print_to_pdf`.
-        :return: The path to the saved PDF file.
-        :rtype: pathlib.Path
-        """
-        filename = pathlib.Path(filename)
-        if filename.is_dir():
-            raise ValueError(
-                f"filename {filename} must be a file path, not a directory"
-            )
-
-        data, _ = await self.send(cdp.page.print_to_pdf(**kwargs))
-
-        data_bytes = base64.b64decode(data)
-        filename.write_bytes(data_bytes)
-        return filename
 
     async def set_download_path(self, path: PathLike):
         """
@@ -1721,6 +1558,8 @@ class Tab(Connection):
     def __call__(
         self,
         text: str | None = None,
+        tagname: str | None = None,
+        attrs: dict[str, str] | None = None,
         selector: str | None = None,
         timeout: int | float = 10,
     ):
@@ -1728,12 +1567,20 @@ class Tab(Connection):
         alias to query_selector_all or find_elements_by_text, depending
         on whether text= is set or selector= is set
 
+        :param text: text to search for. note: script contents are also considered text
+        :type text: str
+        :param tagname: tagname to search for. ex: div, span, input, button..
+        :type tagname: str
+        :param attrs: attributes to search for. ex: {'class':'class1', 'name':'name1', 'id':'123'}
+        :type attrs: dict
         :param selector: css selector string
         :type selector: str
         :return:
         :rtype:
         """
-        return self.wait_for(text, selector, timeout)
+        return self.wait_for(
+            tagname=tagname, attrs=attrs, text=text, selector=selector, timeout=timeout
+        )
 
     def __eq__(self, other: Any) -> bool:
         if not isinstance(other, Tab):

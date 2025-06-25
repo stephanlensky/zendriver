@@ -385,28 +385,6 @@ class DebugSymbols:
         )
 
 
-@dataclass
-class ResolvedBreakpoint:
-    #: Breakpoint unique identifier.
-    breakpoint_id: BreakpointId
-
-    #: Actual breakpoint location.
-    location: Location
-
-    def to_json(self) -> T_JSON_DICT:
-        json: T_JSON_DICT = dict()
-        json["breakpointId"] = self.breakpoint_id.to_json()
-        json["location"] = self.location.to_json()
-        return json
-
-    @classmethod
-    def from_json(cls, json: T_JSON_DICT) -> ResolvedBreakpoint:
-        return cls(
-            breakpoint_id=BreakpointId.from_json(json["breakpointId"]),
-            location=Location.from_json(json["location"]),
-        )
-
-
 def continue_to_location(
     location: Location, target_call_frames: typing.Optional[str] = None
 ) -> typing.Generator[T_JSON_DICT, T_JSON_DICT, None]:
@@ -1254,13 +1232,11 @@ def step_over(
     json = yield cmd_dict
 
 
-@deprecated(version="1.3")
 @event_class("Debugger.breakpointResolved")
 @dataclass
 class BreakpointResolved:
     """
     Fired when breakpoint is resolved to an actual script and location.
-    Deprecated in favor of ``resolvedBreakpoints`` in the ``scriptParsed`` event.
     """
 
     #: Breakpoint unique identifier.
@@ -1358,8 +1334,6 @@ class ScriptFailedToParse:
     execution_context_id: runtime.ExecutionContextId
     #: Content hash of the script, SHA-256.
     hash_: str
-    #: For Wasm modules, the content of the ``build_id`` custom section. For JavaScript the ``debugId`` magic comment.
-    build_id: str
     #: Embedder-specific auxiliary data likely matching {isDefault: boolean, type: 'default'``'isolated'``'worker', frameId: string}
     execution_context_aux_data: typing.Optional[dict]
     #: URL of source map associated with script (if any).
@@ -1392,7 +1366,6 @@ class ScriptFailedToParse:
                 json["executionContextId"]
             ),
             hash_=str(json["hash"]),
-            build_id=str(json["buildId"]),
             execution_context_aux_data=dict(json["executionContextAuxData"])
             if json.get("executionContextAuxData", None) is not None
             else None,
@@ -1447,8 +1420,6 @@ class ScriptParsed:
     execution_context_id: runtime.ExecutionContextId
     #: Content hash of the script, SHA-256.
     hash_: str
-    #: For Wasm modules, the content of the ``build_id`` custom section. For JavaScript the ``debugId`` magic comment.
-    build_id: str
     #: Embedder-specific auxiliary data likely matching {isDefault: boolean, type: 'default'``'isolated'``'worker', frameId: string}
     execution_context_aux_data: typing.Optional[dict]
     #: True, if this script is generated as a result of the live edit operation.
@@ -1471,10 +1442,6 @@ class ScriptParsed:
     debug_symbols: typing.Optional[typing.List[DebugSymbols]]
     #: The name the embedder supplied for this script.
     embedder_name: typing.Optional[str]
-    #: The list of set breakpoints in this script if calls to ``setBreakpointByUrl``
-    #: matches this script's URL or hash. Clients that use this list can ignore the
-    #: ``breakpointResolved`` event. They are equivalent.
-    resolved_breakpoints: typing.Optional[typing.List[ResolvedBreakpoint]]
 
     @classmethod
     def from_json(cls, json: T_JSON_DICT) -> ScriptParsed:
@@ -1489,7 +1456,6 @@ class ScriptParsed:
                 json["executionContextId"]
             ),
             hash_=str(json["hash"]),
-            build_id=str(json["buildId"]),
             execution_context_aux_data=dict(json["executionContextAuxData"])
             if json.get("executionContextAuxData", None) is not None
             else None,
@@ -1522,10 +1488,5 @@ class ScriptParsed:
             else None,
             embedder_name=str(json["embedderName"])
             if json.get("embedderName", None) is not None
-            else None,
-            resolved_breakpoints=[
-                ResolvedBreakpoint.from_json(i) for i in json["resolvedBreakpoints"]
-            ]
-            if json.get("resolvedBreakpoints", None) is not None
             else None,
         )

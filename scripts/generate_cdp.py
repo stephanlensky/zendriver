@@ -1,4 +1,9 @@
 #!/usr/bin/env -S uv run
+# /// script
+# dependencies = [
+#   "inflection"
+# ]
+# ///
 import builtins
 import itertools
 import json
@@ -8,6 +13,7 @@ import os
 import re
 import subprocess
 import typing
+import urllib.parse
 import urllib.request
 from dataclasses import dataclass
 from enum import Enum
@@ -15,7 +21,7 @@ from pathlib import Path
 from textwrap import dedent
 from textwrap import indent as tw_indent
 
-import inflection
+import inflection  # type: ignore
 
 log_level = getattr(logging, os.environ.get("LOG_LEVEL", "info").upper())
 logging.basicConfig(level=log_level)
@@ -966,8 +972,6 @@ def format(output_path: Path) -> None:
     """Format the generated code."""
     subprocess.run(
         [
-            "uv",
-            "run",
             "ruff",
             "format",
             str(output_path),

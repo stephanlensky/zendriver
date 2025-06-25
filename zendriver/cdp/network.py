@@ -729,7 +729,6 @@ class BlockedReason(enum.Enum):
     MIXED_CONTENT = "mixed-content"
     ORIGIN = "origin"
     INSPECTOR = "inspector"
-    INTEGRITY = "integrity"
     SUBRESOURCE_FILTER = "subresource-filter"
     CONTENT_TYPE = "content-type"
     COEP_FRAME_RESOURCE_NEEDS_COEP_HEADER = "coep-frame-resource-needs-coep-header"
@@ -747,7 +746,6 @@ class BlockedReason(enum.Enum):
         "corp-not-same-origin-after-defaulted-to-same-origin-by-coep-and-dip"
     )
     CORP_NOT_SAME_SITE = "corp-not-same-site"
-    SRI_MESSAGE_SIGNATURE_MISMATCH = "sri-message-signature-mismatch"
 
     def to_json(self) -> str:
         return self.value
@@ -802,7 +800,6 @@ class CorsError(enum.Enum):
         "PrivateNetworkAccessPermissionUnavailable"
     )
     PRIVATE_NETWORK_ACCESS_PERMISSION_DENIED = "PrivateNetworkAccessPermissionDenied"
-    LOCAL_NETWORK_ACCESS_PERMISSION_DENIED = "LocalNetworkAccessPermissionDenied"
 
     def to_json(self) -> str:
         return self.value
@@ -931,7 +928,6 @@ class ServiceWorkerRouterSource(enum.Enum):
     CACHE = "cache"
     FETCH_EVENT = "fetch-event"
     RACE_NETWORK_AND_FETCH_HANDLER = "race-network-and-fetch-handler"
-    RACE_NETWORK_AND_CACHE = "race-network-and-cache"
 
     def to_json(self) -> str:
         return self.value
@@ -1607,7 +1603,6 @@ class CookieBlockedReason(enum.Enum):
     NAME_VALUE_PAIR_EXCEEDS_MAX_SIZE = "NameValuePairExceedsMaxSize"
     PORT_MISMATCH = "PortMismatch"
     SCHEME_MISMATCH = "SchemeMismatch"
-    ANONYMOUS_CONTEXT = "AnonymousContext"
 
     def to_json(self) -> str:
         return self.value
@@ -1632,7 +1627,6 @@ class CookieExemptionReason(enum.Enum):
     STORAGE_ACCESS = "StorageAccess"
     TOP_LEVEL_STORAGE_ACCESS = "TopLevelStorageAccess"
     SCHEME = "Scheme"
-    SAME_SITE_NONE_COOKIES_IN_SANDBOX = "SameSiteNoneCookiesInSandbox"
 
     def to_json(self) -> str:
         return self.value
@@ -2245,172 +2239,12 @@ class ContentEncoding(enum.Enum):
         return cls(json)
 
 
-class DirectSocketDnsQueryType(enum.Enum):
-    IPV4 = "ipv4"
-    IPV6 = "ipv6"
-
-    def to_json(self) -> str:
-        return self.value
-
-    @classmethod
-    def from_json(cls, json: str) -> DirectSocketDnsQueryType:
-        return cls(json)
-
-
-@dataclass
-class DirectTCPSocketOptions:
-    #: TCP_NODELAY option
-    no_delay: bool
-
-    #: Expected to be unsigned integer.
-    keep_alive_delay: typing.Optional[float] = None
-
-    #: Expected to be unsigned integer.
-    send_buffer_size: typing.Optional[float] = None
-
-    #: Expected to be unsigned integer.
-    receive_buffer_size: typing.Optional[float] = None
-
-    dns_query_type: typing.Optional[DirectSocketDnsQueryType] = None
-
-    def to_json(self) -> T_JSON_DICT:
-        json: T_JSON_DICT = dict()
-        json["noDelay"] = self.no_delay
-        if self.keep_alive_delay is not None:
-            json["keepAliveDelay"] = self.keep_alive_delay
-        if self.send_buffer_size is not None:
-            json["sendBufferSize"] = self.send_buffer_size
-        if self.receive_buffer_size is not None:
-            json["receiveBufferSize"] = self.receive_buffer_size
-        if self.dns_query_type is not None:
-            json["dnsQueryType"] = self.dns_query_type.to_json()
-        return json
-
-    @classmethod
-    def from_json(cls, json: T_JSON_DICT) -> DirectTCPSocketOptions:
-        return cls(
-            no_delay=bool(json["noDelay"]),
-            keep_alive_delay=float(json["keepAliveDelay"])
-            if json.get("keepAliveDelay", None) is not None
-            else None,
-            send_buffer_size=float(json["sendBufferSize"])
-            if json.get("sendBufferSize", None) is not None
-            else None,
-            receive_buffer_size=float(json["receiveBufferSize"])
-            if json.get("receiveBufferSize", None) is not None
-            else None,
-            dns_query_type=DirectSocketDnsQueryType.from_json(json["dnsQueryType"])
-            if json.get("dnsQueryType", None) is not None
-            else None,
-        )
-
-
-@dataclass
-class DirectUDPSocketOptions:
-    remote_addr: typing.Optional[str] = None
-
-    #: Unsigned int 16.
-    remote_port: typing.Optional[int] = None
-
-    local_addr: typing.Optional[str] = None
-
-    #: Unsigned int 16.
-    local_port: typing.Optional[int] = None
-
-    dns_query_type: typing.Optional[DirectSocketDnsQueryType] = None
-
-    #: Expected to be unsigned integer.
-    send_buffer_size: typing.Optional[float] = None
-
-    #: Expected to be unsigned integer.
-    receive_buffer_size: typing.Optional[float] = None
-
-    def to_json(self) -> T_JSON_DICT:
-        json: T_JSON_DICT = dict()
-        if self.remote_addr is not None:
-            json["remoteAddr"] = self.remote_addr
-        if self.remote_port is not None:
-            json["remotePort"] = self.remote_port
-        if self.local_addr is not None:
-            json["localAddr"] = self.local_addr
-        if self.local_port is not None:
-            json["localPort"] = self.local_port
-        if self.dns_query_type is not None:
-            json["dnsQueryType"] = self.dns_query_type.to_json()
-        if self.send_buffer_size is not None:
-            json["sendBufferSize"] = self.send_buffer_size
-        if self.receive_buffer_size is not None:
-            json["receiveBufferSize"] = self.receive_buffer_size
-        return json
-
-    @classmethod
-    def from_json(cls, json: T_JSON_DICT) -> DirectUDPSocketOptions:
-        return cls(
-            remote_addr=str(json["remoteAddr"])
-            if json.get("remoteAddr", None) is not None
-            else None,
-            remote_port=int(json["remotePort"])
-            if json.get("remotePort", None) is not None
-            else None,
-            local_addr=str(json["localAddr"])
-            if json.get("localAddr", None) is not None
-            else None,
-            local_port=int(json["localPort"])
-            if json.get("localPort", None) is not None
-            else None,
-            dns_query_type=DirectSocketDnsQueryType.from_json(json["dnsQueryType"])
-            if json.get("dnsQueryType", None) is not None
-            else None,
-            send_buffer_size=float(json["sendBufferSize"])
-            if json.get("sendBufferSize", None) is not None
-            else None,
-            receive_buffer_size=float(json["receiveBufferSize"])
-            if json.get("receiveBufferSize", None) is not None
-            else None,
-        )
-
-
-@dataclass
-class DirectUDPMessage:
-    data: str
-
-    #: Null for connected mode.
-    remote_addr: typing.Optional[str] = None
-
-    #: Null for connected mode.
-    #: Expected to be unsigned integer.
-    remote_port: typing.Optional[int] = None
-
-    def to_json(self) -> T_JSON_DICT:
-        json: T_JSON_DICT = dict()
-        json["data"] = self.data
-        if self.remote_addr is not None:
-            json["remoteAddr"] = self.remote_addr
-        if self.remote_port is not None:
-            json["remotePort"] = self.remote_port
-        return json
-
-    @classmethod
-    def from_json(cls, json: T_JSON_DICT) -> DirectUDPMessage:
-        return cls(
-            data=str(json["data"]),
-            remote_addr=str(json["remoteAddr"])
-            if json.get("remoteAddr", None) is not None
-            else None,
-            remote_port=int(json["remotePort"])
-            if json.get("remotePort", None) is not None
-            else None,
-        )
-
-
 class PrivateNetworkRequestPolicy(enum.Enum):
     ALLOW = "Allow"
     BLOCK_FROM_INSECURE_TO_MORE_PRIVATE = "BlockFromInsecureToMorePrivate"
     WARN_FROM_INSECURE_TO_MORE_PRIVATE = "WarnFromInsecureToMorePrivate"
     PREFLIGHT_BLOCK = "PreflightBlock"
     PREFLIGHT_WARN = "PreflightWarn"
-    PERMISSION_BLOCK = "PermissionBlock"
-    PERMISSION_WARN = "PermissionWarn"
 
     def to_json(self) -> str:
         return self.value
@@ -2866,9 +2700,9 @@ def set_accepted_encodings(
     json = yield cmd_dict
 
 
-def clear_accepted_encodings_override() -> typing.Generator[
-    T_JSON_DICT, T_JSON_DICT, None
-]:
+def clear_accepted_encodings_override() -> (
+    typing.Generator[T_JSON_DICT, T_JSON_DICT, None]
+):
     """
     Clears accepted encodings set by setAcceptedEncodings
 
@@ -2913,9 +2747,9 @@ def can_clear_browser_cookies() -> typing.Generator[T_JSON_DICT, T_JSON_DICT, bo
 
 
 @deprecated(version="1.3")
-def can_emulate_network_conditions() -> typing.Generator[
-    T_JSON_DICT, T_JSON_DICT, bool
-]:
+def can_emulate_network_conditions() -> (
+    typing.Generator[T_JSON_DICT, T_JSON_DICT, bool]
+):
     """
     Tells whether emulation of network conditions is supported.
 
@@ -3093,7 +2927,6 @@ def enable(
     max_total_buffer_size: typing.Optional[int] = None,
     max_resource_buffer_size: typing.Optional[int] = None,
     max_post_data_size: typing.Optional[int] = None,
-    report_direct_socket_traffic: typing.Optional[bool] = None,
 ) -> typing.Generator[T_JSON_DICT, T_JSON_DICT, None]:
     """
     Enables network tracking, network events will now be delivered to the client.
@@ -3101,7 +2934,6 @@ def enable(
     :param max_total_buffer_size: **(EXPERIMENTAL)** *(Optional)* Buffer size in bytes to use when preserving network payloads (XHRs, etc).
     :param max_resource_buffer_size: **(EXPERIMENTAL)** *(Optional)* Per-resource buffer size in bytes to use when preserving network payloads (XHRs, etc).
     :param max_post_data_size: *(Optional)* Longest post body size (in bytes) that would be included in requestWillBeSent notification
-    :param report_direct_socket_traffic: **(EXPERIMENTAL)** *(Optional)* Whether DirectSocket chunk send/receive events should be reported.
     """
     params: T_JSON_DICT = dict()
     if max_total_buffer_size is not None:
@@ -3110,8 +2942,6 @@ def enable(
         params["maxResourceBufferSize"] = max_resource_buffer_size
     if max_post_data_size is not None:
         params["maxPostDataSize"] = max_post_data_size
-    if report_direct_socket_traffic is not None:
-        params["reportDirectSocketTraffic"] = report_direct_socket_traffic
     cmd_dict: T_JSON_DICT = {
         "method": "Network.enable",
         "params": params,
@@ -3120,9 +2950,9 @@ def enable(
 
 
 @deprecated(version="1.3")
-def get_all_cookies() -> typing.Generator[
-    T_JSON_DICT, T_JSON_DICT, typing.List[Cookie]
-]:
+def get_all_cookies() -> (
+    typing.Generator[T_JSON_DICT, T_JSON_DICT, typing.List[Cookie]]
+):
     """
     Returns all browser cookies. Depending on the backend support, will return detailed cookie
     information in the ``cookies`` field.
@@ -3641,32 +3471,6 @@ def load_network_resource(
     }
     json = yield cmd_dict
     return LoadNetworkResourcePageResult.from_json(json["resource"])
-
-
-def set_cookie_controls(
-    enable_third_party_cookie_restriction: bool,
-    disable_third_party_cookie_metadata: bool,
-    disable_third_party_cookie_heuristics: bool,
-) -> typing.Generator[T_JSON_DICT, T_JSON_DICT, None]:
-    """
-    Sets Controls for third-party cookie access
-    Page reload is required before the new cookie bahavior will be observed
-
-    **EXPERIMENTAL**
-
-    :param enable_third_party_cookie_restriction: Whether 3pc restriction is enabled.
-    :param disable_third_party_cookie_metadata: Whether 3pc grace period exception should be enabled; false by default.
-    :param disable_third_party_cookie_heuristics: Whether 3pc heuristics exceptions should be enabled; false by default.
-    """
-    params: T_JSON_DICT = dict()
-    params["enableThirdPartyCookieRestriction"] = enable_third_party_cookie_restriction
-    params["disableThirdPartyCookieMetadata"] = disable_third_party_cookie_metadata
-    params["disableThirdPartyCookieHeuristics"] = disable_third_party_cookie_heuristics
-    cmd_dict: T_JSON_DICT = {
-        "method": "Network.setCookieControls",
-        "params": params,
-    }
-    json = yield cmd_dict
 
 
 @event_class("Network.dataReceived")
@@ -4258,303 +4062,6 @@ class WebTransportClosed:
         )
 
 
-@event_class("Network.directTCPSocketCreated")
-@dataclass
-class DirectTCPSocketCreated:
-    """
-    **EXPERIMENTAL**
-
-    Fired upon direct_socket.TCPSocket creation.
-    """
-
-    identifier: RequestId
-    remote_addr: str
-    #: Unsigned int 16.
-    remote_port: int
-    options: DirectTCPSocketOptions
-    timestamp: MonotonicTime
-    initiator: typing.Optional[Initiator]
-
-    @classmethod
-    def from_json(cls, json: T_JSON_DICT) -> DirectTCPSocketCreated:
-        return cls(
-            identifier=RequestId.from_json(json["identifier"]),
-            remote_addr=str(json["remoteAddr"]),
-            remote_port=int(json["remotePort"]),
-            options=DirectTCPSocketOptions.from_json(json["options"]),
-            timestamp=MonotonicTime.from_json(json["timestamp"]),
-            initiator=Initiator.from_json(json["initiator"])
-            if json.get("initiator", None) is not None
-            else None,
-        )
-
-
-@event_class("Network.directTCPSocketOpened")
-@dataclass
-class DirectTCPSocketOpened:
-    """
-    **EXPERIMENTAL**
-
-    Fired when direct_socket.TCPSocket connection is opened.
-    """
-
-    identifier: RequestId
-    remote_addr: str
-    #: Expected to be unsigned integer.
-    remote_port: int
-    timestamp: MonotonicTime
-    local_addr: typing.Optional[str]
-    #: Expected to be unsigned integer.
-    local_port: typing.Optional[int]
-
-    @classmethod
-    def from_json(cls, json: T_JSON_DICT) -> DirectTCPSocketOpened:
-        return cls(
-            identifier=RequestId.from_json(json["identifier"]),
-            remote_addr=str(json["remoteAddr"]),
-            remote_port=int(json["remotePort"]),
-            timestamp=MonotonicTime.from_json(json["timestamp"]),
-            local_addr=str(json["localAddr"])
-            if json.get("localAddr", None) is not None
-            else None,
-            local_port=int(json["localPort"])
-            if json.get("localPort", None) is not None
-            else None,
-        )
-
-
-@event_class("Network.directTCPSocketAborted")
-@dataclass
-class DirectTCPSocketAborted:
-    """
-    **EXPERIMENTAL**
-
-    Fired when direct_socket.TCPSocket is aborted.
-    """
-
-    identifier: RequestId
-    error_message: str
-    timestamp: MonotonicTime
-
-    @classmethod
-    def from_json(cls, json: T_JSON_DICT) -> DirectTCPSocketAborted:
-        return cls(
-            identifier=RequestId.from_json(json["identifier"]),
-            error_message=str(json["errorMessage"]),
-            timestamp=MonotonicTime.from_json(json["timestamp"]),
-        )
-
-
-@event_class("Network.directTCPSocketClosed")
-@dataclass
-class DirectTCPSocketClosed:
-    """
-    **EXPERIMENTAL**
-
-    Fired when direct_socket.TCPSocket is closed.
-    """
-
-    identifier: RequestId
-    timestamp: MonotonicTime
-
-    @classmethod
-    def from_json(cls, json: T_JSON_DICT) -> DirectTCPSocketClosed:
-        return cls(
-            identifier=RequestId.from_json(json["identifier"]),
-            timestamp=MonotonicTime.from_json(json["timestamp"]),
-        )
-
-
-@event_class("Network.directTCPSocketChunkSent")
-@dataclass
-class DirectTCPSocketChunkSent:
-    """
-    **EXPERIMENTAL**
-
-    Fired when data is sent to tcp direct socket stream.
-    """
-
-    identifier: RequestId
-    data: str
-    timestamp: MonotonicTime
-
-    @classmethod
-    def from_json(cls, json: T_JSON_DICT) -> DirectTCPSocketChunkSent:
-        return cls(
-            identifier=RequestId.from_json(json["identifier"]),
-            data=str(json["data"]),
-            timestamp=MonotonicTime.from_json(json["timestamp"]),
-        )
-
-
-@event_class("Network.directTCPSocketChunkReceived")
-@dataclass
-class DirectTCPSocketChunkReceived:
-    """
-    **EXPERIMENTAL**
-
-    Fired when data is received from tcp direct socket stream.
-    """
-
-    identifier: RequestId
-    data: str
-    timestamp: MonotonicTime
-
-    @classmethod
-    def from_json(cls, json: T_JSON_DICT) -> DirectTCPSocketChunkReceived:
-        return cls(
-            identifier=RequestId.from_json(json["identifier"]),
-            data=str(json["data"]),
-            timestamp=MonotonicTime.from_json(json["timestamp"]),
-        )
-
-
-@event_class("Network.directUDPSocketCreated")
-@dataclass
-class DirectUDPSocketCreated:
-    """
-    **EXPERIMENTAL**
-
-    Fired upon direct_socket.UDPSocket creation.
-    """
-
-    identifier: RequestId
-    options: DirectUDPSocketOptions
-    timestamp: MonotonicTime
-    initiator: typing.Optional[Initiator]
-
-    @classmethod
-    def from_json(cls, json: T_JSON_DICT) -> DirectUDPSocketCreated:
-        return cls(
-            identifier=RequestId.from_json(json["identifier"]),
-            options=DirectUDPSocketOptions.from_json(json["options"]),
-            timestamp=MonotonicTime.from_json(json["timestamp"]),
-            initiator=Initiator.from_json(json["initiator"])
-            if json.get("initiator", None) is not None
-            else None,
-        )
-
-
-@event_class("Network.directUDPSocketOpened")
-@dataclass
-class DirectUDPSocketOpened:
-    """
-    **EXPERIMENTAL**
-
-    Fired when direct_socket.UDPSocket connection is opened.
-    """
-
-    identifier: RequestId
-    local_addr: str
-    #: Expected to be unsigned integer.
-    local_port: int
-    timestamp: MonotonicTime
-    remote_addr: typing.Optional[str]
-    #: Expected to be unsigned integer.
-    remote_port: typing.Optional[int]
-
-    @classmethod
-    def from_json(cls, json: T_JSON_DICT) -> DirectUDPSocketOpened:
-        return cls(
-            identifier=RequestId.from_json(json["identifier"]),
-            local_addr=str(json["localAddr"]),
-            local_port=int(json["localPort"]),
-            timestamp=MonotonicTime.from_json(json["timestamp"]),
-            remote_addr=str(json["remoteAddr"])
-            if json.get("remoteAddr", None) is not None
-            else None,
-            remote_port=int(json["remotePort"])
-            if json.get("remotePort", None) is not None
-            else None,
-        )
-
-
-@event_class("Network.directUDPSocketAborted")
-@dataclass
-class DirectUDPSocketAborted:
-    """
-    **EXPERIMENTAL**
-
-    Fired when direct_socket.UDPSocket is aborted.
-    """
-
-    identifier: RequestId
-    error_message: str
-    timestamp: MonotonicTime
-
-    @classmethod
-    def from_json(cls, json: T_JSON_DICT) -> DirectUDPSocketAborted:
-        return cls(
-            identifier=RequestId.from_json(json["identifier"]),
-            error_message=str(json["errorMessage"]),
-            timestamp=MonotonicTime.from_json(json["timestamp"]),
-        )
-
-
-@event_class("Network.directUDPSocketClosed")
-@dataclass
-class DirectUDPSocketClosed:
-    """
-    **EXPERIMENTAL**
-
-    Fired when direct_socket.UDPSocket is closed.
-    """
-
-    identifier: RequestId
-    timestamp: MonotonicTime
-
-    @classmethod
-    def from_json(cls, json: T_JSON_DICT) -> DirectUDPSocketClosed:
-        return cls(
-            identifier=RequestId.from_json(json["identifier"]),
-            timestamp=MonotonicTime.from_json(json["timestamp"]),
-        )
-
-
-@event_class("Network.directUDPSocketChunkSent")
-@dataclass
-class DirectUDPSocketChunkSent:
-    """
-    **EXPERIMENTAL**
-
-    Fired when message is sent to udp direct socket stream.
-    """
-
-    identifier: RequestId
-    message: DirectUDPMessage
-    timestamp: MonotonicTime
-
-    @classmethod
-    def from_json(cls, json: T_JSON_DICT) -> DirectUDPSocketChunkSent:
-        return cls(
-            identifier=RequestId.from_json(json["identifier"]),
-            message=DirectUDPMessage.from_json(json["message"]),
-            timestamp=MonotonicTime.from_json(json["timestamp"]),
-        )
-
-
-@event_class("Network.directUDPSocketChunkReceived")
-@dataclass
-class DirectUDPSocketChunkReceived:
-    """
-    **EXPERIMENTAL**
-
-    Fired when message is received from udp direct socket stream.
-    """
-
-    identifier: RequestId
-    message: DirectUDPMessage
-    timestamp: MonotonicTime
-
-    @classmethod
-    def from_json(cls, json: T_JSON_DICT) -> DirectUDPSocketChunkReceived:
-        return cls(
-            identifier=RequestId.from_json(json["identifier"]),
-            message=DirectUDPMessage.from_json(json["message"]),
-            timestamp=MonotonicTime.from_json(json["timestamp"]),
-        )
-
-
 @event_class("Network.requestWillBeSentExtraInfo")
 @dataclass
 class RequestWillBeSentExtraInfo:
@@ -4621,9 +4128,6 @@ class ResponseReceivedExtraInfo:
     #: are represented by the invalid cookie line string instead of a proper cookie.
     blocked_cookies: typing.List[BlockedSetCookieWithReason]
     #: Raw response headers as they were received over the wire.
-    #: Duplicate headers in the response are represented as a single key with their values
-    #: concatentated using ``\n`` as the separator.
-    #: See also ``headersText`` that contains verbatim text for HTTP/1.*.
     headers: Headers
     #: The IP address space of the resource. The address space can only be determined once the transport
     #: established the connection, so we can't send it in ``requestWillBeSentExtraInfo``.
@@ -4690,9 +4194,6 @@ class ResponseReceivedEarlyHints:
     #: Request identifier. Used to match this information to another responseReceived event.
     request_id: RequestId
     #: Raw response headers as they were received over the wire.
-    #: Duplicate headers in the response are represented as a single key with their values
-    #: concatentated using ``\n`` as the separator.
-    #: See also ``headersText`` that contains verbatim text for HTTP/1.*.
     headers: Headers
 
     @classmethod

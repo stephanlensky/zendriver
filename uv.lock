@@ -1,5 +1,4 @@
 version = 1
-revision = 1
 requires-python = ">=3.10"
 
 [[package]]
@@ -153,12 +152,6 @@ wheels = [
 ]
 
 [[package]]
-name = "grapheme"
-version = "0.6.0"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/ce/e7/bbaab0d2a33e07c8278910c1d0d8d4f3781293dfbc70b5c38197159046bf/grapheme-0.6.0.tar.gz", hash = "sha256:44c2b9f21bbe77cfb05835fec230bd435954275267fea1858013b102f8603cca", size = 207306 }
-
-[[package]]
 name = "griffe"
 version = "1.5.1"
 source = { registry = "https://pypi.org/simple" }
@@ -177,15 +170,6 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/f1/70/7703c29685631f5a7590aa73f1f1d3fa9a380e654b86af429e0934a32f7d/idna-3.10.tar.gz", hash = "sha256:12f65c9b470abda6dc35cf8e63cc574b1c52b11df2c86030af0ac09b01b13ea9", size = 190490 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/76/c6/c88e154df9c4e1a2a66ccf0005a88dfb2650c1dffb6f5ce603dfbd452ce3/idna-3.10-py3-none-any.whl", hash = "sha256:946d195a0d259cbba61165e88e65941f16e9b36ea6ddb97f00452bae8b1287d3", size = 70442 },
-]
-
-[[package]]
-name = "inflection"
-version = "0.5.1"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/e1/7e/691d061b7329bc8d54edbf0ec22fbfb2afe61facb681f9aaa9bff7a27d04/inflection-0.5.1.tar.gz", hash = "sha256:1a29730d366e996aaacffb2f1f1cb9593dc38e2ddd30c91250c6dde09ea9b417", size = 15091 }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/59/91/aa6bde563e0085a02a435aa99b49ef75b0a4b062635e606dab23ce18d720/inflection-0.5.1-py2.py3-none-any.whl", hash = "sha256:f38b2b640938a4f35ade69ac3d053042959b62a0f1076a5bbaa1b9526605a8a2", size = 9454 },
 ]
 
 [[package]]
@@ -555,18 +539,6 @@ wheels = [
 ]
 
 [[package]]
-name = "pytest-mock"
-version = "3.14.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "pytest" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/c6/90/a955c3ab35ccd41ad4de556596fa86685bf4fc5ffcc62d22d856cfd4e29a/pytest-mock-3.14.0.tar.gz", hash = "sha256:2719255a1efeceadbc056d6bf3df3d1c5015530fb40cf347c0f9afac88410bd0", size = 32814 }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/f2/3b/b26f90f74e2986a82df6e7ac7e319b8ea7ccece1caec9f8ab6104dc70603/pytest_mock-3.14.0-py3-none-any.whl", hash = "sha256:0b72c38033392a5f4621342fe11e9219ac11ec9d375f8e2a0c164539e0d70f6f", size = 9863 },
-]
-
-[[package]]
 name = "python-dateutil"
 version = "2.9.0.post0"
 source = { registry = "https://pypi.org/simple" }
@@ -762,15 +734,6 @@ wheels = [
 ]
 
 [[package]]
-name = "types-deprecated"
-version = "1.2.15.20241117"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/a8/76/d3735190891b12533115e73ac835cfdd1f28378b6b39fd50dfe2fbd63143/types-Deprecated-1.2.15.20241117.tar.gz", hash = "sha256:924002c8b7fddec51ba4949788a702411a2e3636cd9b2a33abd8ee119701d77e", size = 3377 }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/27/ed/9091bd7a90d3e2e08ee8c0bdbf0c826d3d9e3730ddd9b15cb64f4ae51b9b/types_Deprecated-1.2.15.20241117-py3-none-any.whl", hash = "sha256:a0cc5e39f769fc54089fd8e005416b55d74aa03f6964d2ed1a0b0b2e28751884", size = 3779 },
-]
-
-[[package]]
 name = "types-pyyaml"
 version = "6.0.12.20240917"
 source = { registry = "https://pypi.org/simple" }
@@ -941,28 +904,24 @@ wheels = [
 
 [[package]]
 name = "zendriver"
-version = "0.8.1"
+version = "0.4.1"
 source = { editable = "." }
 dependencies = [
     { name = "asyncio-atexit" },
     { name = "deprecated" },
-    { name = "grapheme" },
     { name = "mss" },
     { name = "websockets" },
 ]
 
 [package.dev-dependencies]
 dev = [
-    { name = "inflection" },
     { name = "mkdocs-material" },
     { name = "mkdocstrings", extra = ["python"] },
     { name = "mypy" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
-    { name = "pytest-mock" },
     { name = "pyyaml" },
     { name = "ruff" },
-    { name = "types-deprecated" },
     { name = "types-pyyaml" },
     { name = "types-requests" },
 ]
@@ -971,23 +930,19 @@ dev = [
 requires-dist = [
     { name = "asyncio-atexit", specifier = ">=1.0.1" },
     { name = "deprecated", specifier = ">=1.2.14" },
-    { name = "grapheme", specifier = ">=0.6.0" },
     { name = "mss", specifier = ">=9.0.2" },
     { name = "websockets", specifier = ">=14.0" },
 ]
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "inflection", specifier = ">=0.5.1" },
     { name = "mkdocs-material", specifier = ">=9.5.42" },
     { name = "mkdocstrings", extras = ["python"], specifier = ">=0.26.2" },
     { name = "mypy", specifier = ">=1.12.0" },
     { name = "pytest", specifier = ">=8.3.3" },
     { name = "pytest-asyncio", specifier = ">=0.24.0" },
-    { name = "pytest-mock", specifier = ">=3.14.0" },
     { name = "pyyaml", specifier = ">=6.0.2" },
     { name = "ruff", specifier = ">=0.7.4" },
-    { name = "types-deprecated", specifier = ">=1.2.15.20241117" },
     { name = "types-pyyaml", specifier = ">=6.0.12.20240917" },
     { name = "types-requests", specifier = ">=2.32.0.20241016" },
 ]

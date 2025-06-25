@@ -9,7 +9,6 @@ import pathlib
 import secrets
 import typing
 import urllib.parse
-import grapheme  # type: ignore
 
 from .. import cdp
 from . import util
@@ -346,7 +345,7 @@ class Element:
         return parent_element
 
     @property
-    def children(self) -> list[Element]:
+    def children(self) -> typing.Union[typing.List[Element], str]:
         """
         returns the elements' children. those children also have a children property
         so you can browse through the entire tree as well.
@@ -444,7 +443,7 @@ class Element:
         """
         return self.apply(f"(e) => e['{js_method}']()")
 
-    async def apply(self, js_function, return_by_value=True, *, await_promise=False):
+    async def apply(self, js_function, return_by_value=True):
         """
         apply javascript to this element. the given js_function string should accept the js element as parameter,
         and can be a arrow function, or function declaration.
@@ -457,8 +456,6 @@ class Element:
         :type js_function: str
         :param return_by_value:
         :type return_by_value:
-        :param await_promise: when True, waits for the promise to resolve before returning
-        :type await_promise: bool
         :return:
         :rtype:
         """
@@ -476,7 +473,6 @@ class Element:
                 ],
                 return_by_value=True,
                 user_gesture=True,
-                await_promise=await_promise,
             )
         )
         if result and result[0]:
@@ -694,62 +690,19 @@ class Element:
         """clears an input field"""
         return await self.apply('function (element) { element.value = "" } ')
 
-    async def clear_input_by_deleting(self):
-        """
-        clears the input of the element by simulating a series of delete key presses.
-
-        this method applies a JavaScript function that simulates pressing the delete key
-        repeatedly until the input is empty. it is useful for clearing input fields or text areas
-        when :func:`clear_input` does not work (for example, when custom input handling is implemented on the page).
-        """
-        return await self.apply(
-            """
-                async function clearByDeleting(n, d = 50) {
-                    n.focus();
-                    n.setSelectionRange(0, 0);
-                    while (n.value.length > 0) {
-                        n.dispatchEvent(
-                            new KeyboardEvent("keydown", {
-                                key: "Delete",
-                                code: "Delete",
-                                keyCode: 46,
-                                which: 46,
-                                bubbles: !0,
-                                cancelable: !0,
-                            })
-                        );
-                        n.value = n.value.slice(1);
-                        await new Promise((r) => setTimeout(r, d));
-                    }
-                    n.dispatchEvent(new Event("input", { bubbles: !0 }));
-                }
-            """,
-            await_promise=True,
-        )
-
-    async def send_keys(self, text: str, special_characters: bool = False):
+    async def send_keys(self, text: str):
         """
         send text to an input field, or any other html element.
 
         hint, if you ever get stuck where using py:meth:`~click`
         does not work, sending the keystroke \\n or \\r\\n or a spacebar work wonders!
 
-        when special_characters is True, it will use grapheme clusters to send the text:
-        if the character is in the printable ASCII range, it sends it using dispatch_key_event.
-        otherwise, it uses insertText, which handles special characters more robustly.
-
         :param text: text to send
-        :param special_characters: when True, uses grapheme clusters to send the text.
         :return: None
         """
         await self.apply("(elem) => elem.focus()")
-        for cluster in grapheme.graphemes(text) if special_characters else text:
-            if all(32 <= ord(c) <= 126 for c in cluster):
-                await self._tab.send(
-                    cdp.input_.dispatch_key_event("char", text=cluster)
-                )
-            else:
-                await self._tab.send(cdp.input_.insert_text(cluster))
+        for char in list(text):
+            await self._tab.send(cdp.input_.dispatch_key_event("char", text=char))
 
     async def send_file(self, *file_paths: PathLike):
         """
@@ -857,46 +810,6 @@ class Element:
         await self.update()
         return await self.tab.query_selector(selector, self)
 
-    async def screenshot_b64(
-        self,
-        format: str = "jpeg",
-        scale: typing.Optional[typing.Union[int, float]] = 1,
-    ) -> str:
-        """
-        Takes a screenshot of this element (only) and return the result as a base64 encoded string.
-        This is not the same as :py:obj:`Tab.screenshot_b64`, which takes a "regular" screenshot
-
-        When the element is hidden, or has no size, or is otherwise not capturable, a RuntimeError is raised
-
-        :param format: jpeg or png (defaults to jpeg)
-        :type format: str
-        :param scale: the scale of the screenshot, eg: 1 = size as is, 2 = double, 0.5 is half
-        :return: screenshot data as base64 encoded
-        :rtype: str
-        """
-        pos = await self.get_position()
-        if not pos:
-            raise RuntimeError(
-                "could not determine position of element. probably because it's not in view, or hidden"
-            )
-        viewport = pos.to_viewport(scale)
-        await self.tab.sleep()
-
-        data = await self._tab.send(
-            cdp.page.capture_screenshot(
-                format, clip=viewport, capture_beyond_viewport=True
-            )
-        )
-
-        if not data:
-            from .connection import ProtocolException
-
-            raise ProtocolException(
-                "could not take screenshot. most possible cause is the page has not finished loading yet."
-            )
-
-        return data
-
     async def save_screenshot(
         self,
         filename: typing.Optional[PathLike] = "auto",
@@ -917,8 +830,14 @@ class Element:
         :return: the path/filename of saved screenshot
         :rtype: str
         """
+        pos = await self.get_position()
+        if not pos:
+            raise RuntimeError(
+                "could not determine position of element. probably because it's not in view, or hidden"
+            )
+        viewport = pos.to_viewport(scale)
+        path = None
         await self.tab.sleep()
-
         if not filename or filename == "auto":
             parsed = urllib.parse.urlparse(self.tab.target.url)
             parts = parsed.path.split("/")
@@ -929,15 +848,26 @@ class Element:
             ext = ""
             if format.lower() in ["jpg", "jpeg"]:
                 ext = ".jpg"
+                format = "jpeg"
             elif format.lower() in ["png"]:
                 ext = ".png"
+                format = "png"
             path = pathlib.Path(candidate + ext)
         else:
             path = pathlib.Path(filename)
 
         path.parent.mkdir(parents=True, exist_ok=True)
+        data = await self._tab.send(
+            cdp.page.capture_screenshot(
+                format, clip=viewport, capture_beyond_viewport=True
+            )
+        )
+        if not data:
+            from .connection import ProtocolException
 
-        data = await self.screenshot_b64(format, scale)
+            raise ProtocolException(
+                "could not take screenshot. most possible cause is the page has not finished loading yet."
+            )
 
         data_bytes = base64.b64decode(data)
         if not path:

@@ -9,7 +9,7 @@ on:
       - "README.md"
       - "CHANGELOG.md"
       - "zendriver/cdp/**"
-  workflow_dispatch:
+    workflow_dispatch:
 permissions:
   contents: write
 jobs:
@@ -29,6 +29,7 @@ jobs:
         run: uv sync --all-extras --dev
       - name: Auto-generate docs
         run: |
+          uv run python scripts/mkdocs_generate_index.py
           uv run python scripts/mkdocs_generate_reference.py
           uv run python scripts/mkdocs_generate_release_notes.py
       - name: Deploy to GitHub Pages
