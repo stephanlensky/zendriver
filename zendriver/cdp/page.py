@@ -173,7 +173,8 @@ class GatedAPIFeatures(enum.Enum):
 class PermissionsPolicyFeature(enum.Enum):
     """
     All Permissions Policy features. This enum should match the one defined
-    in third_party/blink/renderer/core/permissions_policy/permissions_policy_features.json5.
+    in services/network/public/cpp/permissions_policy/permissions_policy_features.json5.
+    LINT.IfChange(PermissionsPolicyFeature)
     """
 
     ACCELEROMETER = "accelerometer"
@@ -197,6 +198,7 @@ class PermissionsPolicyFeature(enum.Enum):
     CH_UA = "ch-ua"
     CH_UA_ARCH = "ch-ua-arch"
     CH_UA_BITNESS = "ch-ua-bitness"
+    CH_UA_HIGH_ENTROPY_VALUES = "ch-ua-high-entropy-values"
     CH_UA_PLATFORM = "ch-ua-platform"
     CH_UA_MODEL = "ch-ua-model"
     CH_UA_MOBILE = "ch-ua-mobile"
@@ -215,6 +217,7 @@ class PermissionsPolicyFeature(enum.Enum):
     CROSS_ORIGIN_ISOLATED = "cross-origin-isolated"
     DEFERRED_FETCH = "deferred-fetch"
     DEFERRED_FETCH_MINIMAL = "deferred-fetch-minimal"
+    DEVICE_ATTRIBUTES = "device-attributes"
     DIGITAL_CREDENTIALS_GET = "digital-credentials-get"
     DIRECT_SOCKETS = "direct-sockets"
     DIRECT_SOCKETS_PRIVATE = "direct-sockets-private"
@@ -236,7 +239,9 @@ class PermissionsPolicyFeature(enum.Enum):
     INTEREST_COHORT = "interest-cohort"
     JOIN_AD_INTEREST_GROUP = "join-ad-interest-group"
     KEYBOARD_MAP = "keyboard-map"
+    LANGUAGE_DETECTOR = "language-detector"
     LOCAL_FONTS = "local-fonts"
+    LOCAL_NETWORK_ACCESS = "local-network-access"
     MAGNETOMETER = "magnetometer"
     MEDIA_PLAYBACK_WHILE_NOT_VISIBLE = "media-playback-while-not-visible"
     MICROPHONE = "microphone"
@@ -250,6 +255,8 @@ class PermissionsPolicyFeature(enum.Enum):
     PRIVATE_STATE_TOKEN_REDEMPTION = "private-state-token-redemption"
     PUBLICKEY_CREDENTIALS_CREATE = "publickey-credentials-create"
     PUBLICKEY_CREDENTIALS_GET = "publickey-credentials-get"
+    RECORD_AD_AUCTION_EVENTS = "record-ad-auction-events"
+    REWRITER = "rewriter"
     RUN_AD_AUCTION = "run-ad-auction"
     SCREEN_WAKE_LOCK = "screen-wake-lock"
     SERIAL = "serial"
@@ -260,7 +267,9 @@ class PermissionsPolicyFeature(enum.Enum):
     SPEAKER_SELECTION = "speaker-selection"
     STORAGE_ACCESS = "storage-access"
     SUB_APPS = "sub-apps"
+    SUMMARIZER = "summarizer"
     SYNC_XHR = "sync-xhr"
+    TRANSLATOR = "translator"
     UNLOAD = "unload"
     USB = "usb"
     USB_UNRESTRICTED = "usb-unrestricted"
@@ -269,6 +278,7 @@ class PermissionsPolicyFeature(enum.Enum):
     WEB_PRINTING = "web-printing"
     WEB_SHARE = "web-share"
     WINDOW_MANAGEMENT = "window-management"
+    WRITER = "writer"
     XR_SPATIAL_TRACKING = "xr-spatial-tracking"
 
     def to_json(self) -> str:
@@ -496,6 +506,29 @@ class OriginTrial:
 
 
 @dataclass
+class SecurityOriginDetails:
+    """
+    Additional information about the frame document's security origin.
+    """
+
+    #: Indicates whether the frame document's security origin is one
+    #: of the local hostnames (e.g. "localhost") or IP addresses (IPv4
+    #: 127.0.0.0/8 or IPv6 ::1).
+    is_localhost: bool
+
+    def to_json(self) -> T_JSON_DICT:
+        json: T_JSON_DICT = dict()
+        json["isLocalhost"] = self.is_localhost
+        return json
+
+    @classmethod
+    def from_json(cls, json: T_JSON_DICT) -> SecurityOriginDetails:
+        return cls(
+            is_localhost=bool(json["isLocalhost"]),
+        )
+
+
+@dataclass
 class Frame:
     """
     Information about the Frame on the page.
@@ -540,6 +573,9 @@ class Frame:
     #: Frame document's URL fragment including the '#'.
     url_fragment: typing.Optional[str] = None
 
+    #: Additional details about the frame document's security origin.
+    security_origin_details: typing.Optional[SecurityOriginDetails] = None
+
     #: If the frame failed to load, this contains the URL that could not be loaded. Note that unlike url above, this URL may contain a fragment.
     unreachable_url: typing.Optional[str] = None
 
@@ -565,6 +601,8 @@ class Frame:
             json["name"] = self.name
         if self.url_fragment is not None:
             json["urlFragment"] = self.url_fragment
+        if self.security_origin_details is not None:
+            json["securityOriginDetails"] = self.security_origin_details.to_json()
         if self.unreachable_url is not None:
             json["unreachableUrl"] = self.unreachable_url
         if self.ad_frame_status is not None:
@@ -593,6 +631,11 @@ class Frame:
             name=str(json["name"]) if json.get("name", None) is not None else None,
             url_fragment=str(json["urlFragment"])
             if json.get("urlFragment", None) is not None
+            else None,
+            security_origin_details=SecurityOriginDetails.from_json(
+                json["securityOriginDetails"]
+            )
+            if json.get("securityOriginDetails", None) is not None
             else None,
             unreachable_url=str(json["unreachableUrl"])
             if json.get("unreachableUrl", None) is not None
@@ -1981,6 +2024,15 @@ class BackForwardCacheNotRestoredReason(enum.Enum):
     )
     REQUESTED_BY_WEB_VIEW_CLIENT = "RequestedByWebViewClient"
     POST_MESSAGE_BY_WEB_VIEW_CLIENT = "PostMessageByWebViewClient"
+    CACHE_CONTROL_NO_STORE_DEVICE_BOUND_SESSION_TERMINATED = (
+        "CacheControlNoStoreDeviceBoundSessionTerminated"
+    )
+    CACHE_LIMIT_PRUNED_ON_MODERATE_MEMORY_PRESSURE = (
+        "CacheLimitPrunedOnModerateMemoryPressure"
+    )
+    CACHE_LIMIT_PRUNED_ON_CRITICAL_MEMORY_PRESSURE = (
+        "CacheLimitPrunedOnCriticalMemoryPressure"
+    )
 
     def to_json(self) -> str:
         return self.value
@@ -2261,9 +2313,9 @@ def clear_device_metrics_override() -> typing.Generator[T_JSON_DICT, T_JSON_DICT
 
 
 @deprecated(version="1.3")
-def clear_device_orientation_override() -> (
-    typing.Generator[T_JSON_DICT, T_JSON_DICT, None]
-):
+def clear_device_orientation_override() -> typing.Generator[
+    T_JSON_DICT, T_JSON_DICT, None
+]:
     """
     Clears the overridden Device Orientation.
 
@@ -2351,12 +2403,20 @@ def disable() -> typing.Generator[T_JSON_DICT, T_JSON_DICT, None]:
     json = yield cmd_dict
 
 
-def enable() -> typing.Generator[T_JSON_DICT, T_JSON_DICT, None]:
+def enable(
+    enable_file_chooser_opened_event: typing.Optional[bool] = None,
+) -> typing.Generator[T_JSON_DICT, T_JSON_DICT, None]:
     """
     Enables page domain notifications.
+
+    :param enable_file_chooser_opened_event: **(EXPERIMENTAL)** *(Optional)* If true, the ```Page.fileChooserOpened```` event will be emitted regardless of the state set by ````Page.setInterceptFileChooserDialog``` command (default: false).
     """
+    params: T_JSON_DICT = dict()
+    if enable_file_chooser_opened_event is not None:
+        params["enableFileChooserOpenedEvent"] = enable_file_chooser_opened_event
     cmd_dict: T_JSON_DICT = {
         "method": "Page.enable",
+        "params": params,
     }
     json = yield cmd_dict
 
@@ -2409,9 +2469,9 @@ def get_app_manifest(
     )
 
 
-def get_installability_errors() -> (
-    typing.Generator[T_JSON_DICT, T_JSON_DICT, typing.List[InstallabilityError]]
-):
+def get_installability_errors() -> typing.Generator[
+    T_JSON_DICT, T_JSON_DICT, typing.List[InstallabilityError]
+]:
     """
 
 
@@ -2427,9 +2487,9 @@ def get_installability_errors() -> (
 
 
 @deprecated(version="1.3")
-def get_manifest_icons() -> (
-    typing.Generator[T_JSON_DICT, T_JSON_DICT, typing.Optional[str]]
-):
+def get_manifest_icons() -> typing.Generator[
+    T_JSON_DICT, T_JSON_DICT, typing.Optional[str]
+]:
     """
     Deprecated because it's not guaranteed that the returned icon is in fact the one used for PWA installation.
 
@@ -2448,13 +2508,9 @@ def get_manifest_icons() -> (
     )
 
 
-def get_app_id() -> (
-    typing.Generator[
-        T_JSON_DICT,
-        T_JSON_DICT,
-        typing.Tuple[typing.Optional[str], typing.Optional[str]],
-    ]
-):
+def get_app_id() -> typing.Generator[
+    T_JSON_DICT, T_JSON_DICT, typing.Tuple[typing.Optional[str], typing.Optional[str]]
+]:
     """
     Returns the unique (PWA) app id.
     Only returns values if the feature flag 'WebAppEnableManifestId' is enabled
@@ -2478,29 +2534,25 @@ def get_app_id() -> (
     )
 
 
-def get_ad_script_id(
+def get_ad_script_ancestry_ids(
     frame_id: FrameId,
-) -> typing.Generator[T_JSON_DICT, T_JSON_DICT, typing.Optional[AdScriptId]]:
+) -> typing.Generator[T_JSON_DICT, T_JSON_DICT, typing.List[AdScriptId]]:
     """
 
 
     **EXPERIMENTAL**
 
     :param frame_id:
-    :returns: *(Optional)* Identifies the bottom-most script which caused the frame to be labelled as an ad. Only sent if frame is labelled as an ad and id is available.
+    :returns: The ancestry chain of ad script identifiers leading to this frame's creation, ordered from the most immediate script (in the frame creation stack) to more distant ancestors (that created the immediately preceding script). Only sent if frame is labelled as an ad and ids are available.
     """
     params: T_JSON_DICT = dict()
     params["frameId"] = frame_id.to_json()
     cmd_dict: T_JSON_DICT = {
-        "method": "Page.getAdScriptId",
+        "method": "Page.getAdScriptAncestryIds",
         "params": params,
     }
     json = yield cmd_dict
-    return (
-        AdScriptId.from_json(json["adScriptId"])
-        if json.get("adScriptId", None) is not None
-        else None
-    )
+    return [AdScriptId.from_json(i) for i in json["adScriptAncestryIds"]]
 
 
 def get_frame_tree() -> typing.Generator[T_JSON_DICT, T_JSON_DICT, FrameTree]:
@@ -2516,20 +2568,18 @@ def get_frame_tree() -> typing.Generator[T_JSON_DICT, T_JSON_DICT, FrameTree]:
     return FrameTree.from_json(json["frameTree"])
 
 
-def get_layout_metrics() -> (
-    typing.Generator[
-        T_JSON_DICT,
-        T_JSON_DICT,
-        typing.Tuple[
-            LayoutViewport,
-            VisualViewport,
-            dom.Rect,
-            LayoutViewport,
-            VisualViewport,
-            dom.Rect,
-        ],
-    ]
-):
+def get_layout_metrics() -> typing.Generator[
+    T_JSON_DICT,
+    T_JSON_DICT,
+    typing.Tuple[
+        LayoutViewport,
+        VisualViewport,
+        dom.Rect,
+        LayoutViewport,
+        VisualViewport,
+        dom.Rect,
+    ],
+]:
     """
     Returns metrics relating to the layouting of the page, such as viewport bounds/scale.
 
@@ -2556,11 +2606,9 @@ def get_layout_metrics() -> (
     )
 
 
-def get_navigation_history() -> (
-    typing.Generator[
-        T_JSON_DICT, T_JSON_DICT, typing.Tuple[int, typing.List[NavigationEntry]]
-    ]
-):
+def get_navigation_history() -> typing.Generator[
+    T_JSON_DICT, T_JSON_DICT, typing.Tuple[int, typing.List[NavigationEntry]]
+]:
     """
     Returns navigation history for the current page.
 
@@ -2615,9 +2663,9 @@ def get_resource_content(
     return (str(json["content"]), bool(json["base64Encoded"]))
 
 
-def get_resource_tree() -> (
-    typing.Generator[T_JSON_DICT, T_JSON_DICT, FrameResourceTree]
-):
+def get_resource_tree() -> typing.Generator[
+    T_JSON_DICT, T_JSON_DICT, FrameResourceTree
+]:
     """
     Returns present frame / resource tree structure.
 
@@ -3492,7 +3540,7 @@ def wait_for_debugger() -> typing.Generator[T_JSON_DICT, T_JSON_DICT, None]:
 
 
 def set_intercept_file_chooser_dialog(
-    enabled: bool,
+    enabled: bool, cancel: typing.Optional[bool] = None
 ) -> typing.Generator[T_JSON_DICT, T_JSON_DICT, None]:
     """
     Intercept file chooser requests and transfer control to protocol clients.
@@ -3500,9 +3548,12 @@ def set_intercept_file_chooser_dialog(
     Instead, a protocol event ``Page.fileChooserOpened`` is emitted.
 
     :param enabled:
+    :param cancel: **(EXPERIMENTAL)** *(Optional)* If true, cancels the dialog by emitting relevant events (if any) in addition to not showing it if the interception is enabled (default: false).
     """
     params: T_JSON_DICT = dict()
     params["enabled"] = enabled
+    if cancel is not None:
+        params["cancel"] = cancel
     cmd_dict: T_JSON_DICT = {
         "method": "Page.setInterceptFileChooserDialog",
         "params": params,
@@ -3697,6 +3748,42 @@ class FrameResized:
         return cls()
 
 
+@event_class("Page.frameStartedNavigating")
+@dataclass
+class FrameStartedNavigating:
+    """
+    **EXPERIMENTAL**
+
+    Fired when a navigation starts. This event is fired for both
+    renderer-initiated and browser-initiated navigations. For renderer-initiated
+    navigations, the event is fired after ``frameRequestedNavigation``.
+    Navigation may still be cancelled after the event is issued. Multiple events
+    can be fired for a single navigation, for example, when a same-document
+    navigation becomes a cross-document navigation (such as in the case of a
+    frameset).
+    """
+
+    #: ID of the frame that is being navigated.
+    frame_id: FrameId
+    #: The URL the navigation started with. The final URL can be different.
+    url: str
+    #: Loader identifier. Even though it is present in case of same-document
+    #: navigation, the previously committed loaderId would not change unless
+    #: the navigation changes from a same-document to a cross-document
+    #: navigation.
+    loader_id: network.LoaderId
+    navigation_type: str
+
+    @classmethod
+    def from_json(cls, json: T_JSON_DICT) -> FrameStartedNavigating:
+        return cls(
+            frame_id=FrameId.from_json(json["frameId"]),
+            url=str(json["url"]),
+            loader_id=network.LoaderId.from_json(json["loaderId"]),
+            navigation_type=str(json["navigationType"]),
+        )
+
+
 @event_class("Page.frameRequestedNavigation")
 @dataclass
 class FrameRequestedNavigation:
@@ -3880,6 +3967,8 @@ class JavascriptDialogClosed:
     closed.
     """
 
+    #: Frame id.
+    frame_id: FrameId
     #: Whether dialog was confirmed.
     result: bool
     #: User input in case of prompt.
@@ -3887,7 +3976,11 @@ class JavascriptDialogClosed:
 
     @classmethod
     def from_json(cls, json: T_JSON_DICT) -> JavascriptDialogClosed:
-        return cls(result=bool(json["result"]), user_input=str(json["userInput"]))
+        return cls(
+            frame_id=FrameId.from_json(json["frameId"]),
+            result=bool(json["result"]),
+            user_input=str(json["userInput"]),
+        )
 
 
 @event_class("Page.javascriptDialogOpening")
@@ -3900,6 +3993,8 @@ class JavascriptDialogOpening:
 
     #: Frame url.
     url: str
+    #: Frame id.
+    frame_id: FrameId
     #: Message that will be displayed by the dialog.
     message: str
     #: Dialog type.
@@ -3915,6 +4010,7 @@ class JavascriptDialogOpening:
     def from_json(cls, json: T_JSON_DICT) -> JavascriptDialogOpening:
         return cls(
             url=str(json["url"]),
+            frame_id=FrameId.from_json(json["frameId"]),
             message=str(json["message"]),
             type_=DialogType.from_json(json["type"]),
             has_browser_handler=bool(json["hasBrowserHandler"]),

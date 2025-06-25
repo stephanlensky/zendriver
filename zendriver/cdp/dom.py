@@ -86,10 +86,10 @@ class PseudoType(enum.Enum):
 
     FIRST_LINE = "first-line"
     FIRST_LETTER = "first-letter"
-    CHECK = "check"
+    CHECKMARK = "checkmark"
     BEFORE = "before"
     AFTER = "after"
-    SELECT_ARROW = "select-arrow"
+    PICKER_ICON = "picker-icon"
     MARKER = "marker"
     BACKDROP = "backdrop"
     COLUMN = "column"
@@ -102,8 +102,7 @@ class PseudoType(enum.Enum):
     FIRST_LINE_INHERITED = "first-line-inherited"
     SCROLL_MARKER = "scroll-marker"
     SCROLL_MARKER_GROUP = "scroll-marker-group"
-    SCROLL_NEXT_BUTTON = "scroll-next-button"
-    SCROLL_PREV_BUTTON = "scroll-prev-button"
+    SCROLL_BUTTON = "scroll-button"
     SCROLLBAR = "scrollbar"
     SCROLLBAR_THUMB = "scrollbar-thumb"
     SCROLLBAR_BUTTON = "scrollbar-button"
@@ -1338,9 +1337,9 @@ def query_selector_all(
     return [NodeId.from_json(i) for i in json["nodeIds"]]
 
 
-def get_top_layer_elements() -> (
-    typing.Generator[T_JSON_DICT, T_JSON_DICT, typing.List[NodeId]]
-):
+def get_top_layer_elements() -> typing.Generator[
+    T_JSON_DICT, T_JSON_DICT, typing.List[NodeId]
+]:
     """
     Returns NodeIds of current top layer elements.
     Top layer is rendered closest to the user within a viewport, therefore its elements always
@@ -1645,9 +1644,9 @@ def get_file_info(
     return str(json["path"])
 
 
-def get_detached_dom_nodes() -> (
-    typing.Generator[T_JSON_DICT, T_JSON_DICT, typing.List[DetachedElementInfo]]
-):
+def get_detached_dom_nodes() -> typing.Generator[
+    T_JSON_DICT, T_JSON_DICT, typing.List[DetachedElementInfo]
+]:
     """
     Returns list of detached nodes
 

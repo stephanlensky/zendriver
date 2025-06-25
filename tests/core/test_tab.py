@@ -93,7 +93,7 @@ async def test_add_handler_module_event(browser: zd.Browser):
 
     tab.add_handler(zd.cdp.network, request_handler)
 
-    assert len(tab.handlers) == 26
+    assert len(tab.handlers) == 27
 
 
 async def test_remove_handlers(browser: zd.Browser):
@@ -171,7 +171,7 @@ async def test_expect_request(browser: zd.Browser):
 
     async with tab.expect_request(sample_file("groceries.html")) as request_info:
         await tab.get(sample_file("groceries.html"))
-        req = await request_info.value
+        req = await asyncio.wait_for(request_info.value, timeout=3)
         assert type(req) is zd.cdp.network.RequestWillBeSent
         assert type(req.request) is zd.cdp.network.Request
         assert req.request.url == sample_file("groceries.html")
@@ -187,7 +187,7 @@ async def test_expect_response(browser: zd.Browser):
 
     async with tab.expect_response(sample_file("groceries.html")) as response_info:
         await tab.get(sample_file("groceries.html"))
-        resp = await response_info.value
+        resp = await asyncio.wait_for(response_info.value, timeout=3)
         assert type(resp) is zd.cdp.network.ResponseReceived
         assert type(resp.response) is zd.cdp.network.Response
         assert resp.request_id is not None
@@ -195,3 +195,14 @@ async def test_expect_response(browser: zd.Browser):
         response_body = await response_info.response_body
         assert response_body is not None
         assert type(response_body) is tuple
+
+
+async def test_expect_download(browser: zd.Browser):
+    tab = browser.main_tab
+
+    async with tab.expect_download() as download_ex:
+        await tab.get(sample_file("groceries.html"))
+        await (await tab.select("#download_file")).click()
+        download = await asyncio.wait_for(download_ex.value, timeout=3)
+        assert type(download) is zd.cdp.browser.DownloadWillBegin
+        assert download.url is not None

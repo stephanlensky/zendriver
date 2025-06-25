@@ -108,35 +108,42 @@ class Bounds:
 
 
 class PermissionType(enum.Enum):
-    ACCESSIBILITY_EVENTS = "accessibilityEvents"
+    AR = "ar"
     AUDIO_CAPTURE = "audioCapture"
-    BACKGROUND_SYNC = "backgroundSync"
+    AUTOMATIC_FULLSCREEN = "automaticFullscreen"
     BACKGROUND_FETCH = "backgroundFetch"
+    BACKGROUND_SYNC = "backgroundSync"
+    CAMERA_PAN_TILT_ZOOM = "cameraPanTiltZoom"
     CAPTURED_SURFACE_CONTROL = "capturedSurfaceControl"
     CLIPBOARD_READ_WRITE = "clipboardReadWrite"
     CLIPBOARD_SANITIZED_WRITE = "clipboardSanitizedWrite"
     DISPLAY_CAPTURE = "displayCapture"
     DURABLE_STORAGE = "durableStorage"
-    FLASH = "flash"
     GEOLOCATION = "geolocation"
+    HAND_TRACKING = "handTracking"
     IDLE_DETECTION = "idleDetection"
+    KEYBOARD_LOCK = "keyboardLock"
     LOCAL_FONTS = "localFonts"
+    LOCAL_NETWORK_ACCESS = "localNetworkAccess"
     MIDI = "midi"
     MIDI_SYSEX = "midiSysex"
     NFC = "nfc"
     NOTIFICATIONS = "notifications"
     PAYMENT_HANDLER = "paymentHandler"
     PERIODIC_BACKGROUND_SYNC = "periodicBackgroundSync"
+    POINTER_LOCK = "pointerLock"
     PROTECTED_MEDIA_IDENTIFIER = "protectedMediaIdentifier"
     SENSORS = "sensors"
-    STORAGE_ACCESS = "storageAccess"
+    SMART_CARD = "smartCard"
     SPEAKER_SELECTION = "speakerSelection"
+    STORAGE_ACCESS = "storageAccess"
     TOP_LEVEL_STORAGE_ACCESS = "topLevelStorageAccess"
     VIDEO_CAPTURE = "videoCapture"
-    VIDEO_CAPTURE_PAN_TILT_ZOOM = "videoCapturePanTiltZoom"
+    VR = "vr"
     WAKE_LOCK_SCREEN = "wakeLockScreen"
     WAKE_LOCK_SYSTEM = "wakeLockSystem"
     WEB_APP_INSTALLATION = "webAppInstallation"
+    WEB_PRINTING = "webPrinting"
     WINDOW_MANAGEMENT = "windowManagement"
 
     def to_json(self) -> str:
@@ -229,6 +236,7 @@ class BrowserCommandId(enum.Enum):
 
     OPEN_TAB_SEARCH = "openTabSearch"
     CLOSE_TAB_SEARCH = "closeTabSearch"
+    OPEN_GLIC = "openGlic"
 
     def to_json(self) -> str:
         return self.value
@@ -303,6 +311,18 @@ class Histogram:
             count=int(json["count"]),
             buckets=[Bucket.from_json(i) for i in json["buckets"]],
         )
+
+
+class PrivacySandboxAPI(enum.Enum):
+    BIDDING_AND_AUCTION_SERVICES = "BiddingAndAuctionServices"
+    TRUSTED_KEY_VALUE = "TrustedKeyValue"
+
+    def to_json(self) -> str:
+        return self.value
+
+    @classmethod
+    def from_json(cls, json: str) -> PrivacySandboxAPI:
+        return cls(json)
 
 
 def set_permission(
@@ -467,9 +487,9 @@ def crash_gpu_process() -> typing.Generator[T_JSON_DICT, T_JSON_DICT, None]:
     json = yield cmd_dict
 
 
-def get_version() -> (
-    typing.Generator[T_JSON_DICT, T_JSON_DICT, typing.Tuple[str, str, str, str, str]]
-):
+def get_version() -> typing.Generator[
+    T_JSON_DICT, T_JSON_DICT, typing.Tuple[str, str, str, str, str]
+]:
     """
     Returns version information.
 
@@ -494,9 +514,9 @@ def get_version() -> (
     )
 
 
-def get_browser_command_line() -> (
-    typing.Generator[T_JSON_DICT, T_JSON_DICT, typing.List[str]]
-):
+def get_browser_command_line() -> typing.Generator[
+    T_JSON_DICT, T_JSON_DICT, typing.List[str]
+]:
     """
     Returns the command line switches for the browser process if, and only if
     --enable-automation is on the commandline.
@@ -683,6 +703,36 @@ def add_privacy_sandbox_enrollment_override(
     params["url"] = url
     cmd_dict: T_JSON_DICT = {
         "method": "Browser.addPrivacySandboxEnrollmentOverride",
+        "params": params,
+    }
+    json = yield cmd_dict
+
+
+def add_privacy_sandbox_coordinator_key_config(
+    api: PrivacySandboxAPI,
+    coordinator_origin: str,
+    key_config: str,
+    browser_context_id: typing.Optional[BrowserContextID] = None,
+) -> typing.Generator[T_JSON_DICT, T_JSON_DICT, None]:
+    """
+    Configures encryption keys used with a given privacy sandbox API to talk
+    to a trusted coordinator.  Since this is intended for test automation only,
+    coordinatorOrigin must be a .test domain. No existing coordinator
+    configuration for the origin may exist.
+
+    :param api:
+    :param coordinator_origin:
+    :param key_config:
+    :param browser_context_id: *(Optional)* BrowserContext to perform the action in. When omitted, default browser context is used.
+    """
+    params: T_JSON_DICT = dict()
+    params["api"] = api.to_json()
+    params["coordinatorOrigin"] = coordinator_origin
+    params["keyConfig"] = key_config
+    if browser_context_id is not None:
+        params["browserContextId"] = browser_context_id.to_json()
+    cmd_dict: T_JSON_DICT = {
+        "method": "Browser.addPrivacySandboxCoordinatorKeyConfig",
         "params": params,
     }
     json = yield cmd_dict

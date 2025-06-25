@@ -147,9 +147,9 @@ class DOMCounter:
         )
 
 
-def get_dom_counters() -> (
-    typing.Generator[T_JSON_DICT, T_JSON_DICT, typing.Tuple[int, int, int]]
-):
+def get_dom_counters() -> typing.Generator[
+    T_JSON_DICT, T_JSON_DICT, typing.Tuple[int, int, int]
+]:
     """
     Retruns current DOM object counters.
 
@@ -166,9 +166,9 @@ def get_dom_counters() -> (
     return (int(json["documents"]), int(json["nodes"]), int(json["jsEventListeners"]))
 
 
-def get_dom_counters_for_leak_detection() -> (
-    typing.Generator[T_JSON_DICT, T_JSON_DICT, typing.List[DOMCounter]]
-):
+def get_dom_counters_for_leak_detection() -> typing.Generator[
+    T_JSON_DICT, T_JSON_DICT, typing.List[DOMCounter]
+]:
     """
     Retruns DOM object counters after preparing renderer for leak detection.
 
@@ -192,9 +192,9 @@ def prepare_for_leak_detection() -> typing.Generator[T_JSON_DICT, T_JSON_DICT, N
     json = yield cmd_dict
 
 
-def forcibly_purge_java_script_memory() -> (
-    typing.Generator[T_JSON_DICT, T_JSON_DICT, None]
-):
+def forcibly_purge_java_script_memory() -> typing.Generator[
+    T_JSON_DICT, T_JSON_DICT, None
+]:
     """
     Simulate OomIntervention by purging V8 memory.
     """
@@ -270,9 +270,9 @@ def stop_sampling() -> typing.Generator[T_JSON_DICT, T_JSON_DICT, None]:
     json = yield cmd_dict
 
 
-def get_all_time_sampling_profile() -> (
-    typing.Generator[T_JSON_DICT, T_JSON_DICT, SamplingProfile]
-):
+def get_all_time_sampling_profile() -> typing.Generator[
+    T_JSON_DICT, T_JSON_DICT, SamplingProfile
+]:
     """
     Retrieve native memory allocations profile
     collected since renderer process startup.
@@ -286,9 +286,9 @@ def get_all_time_sampling_profile() -> (
     return SamplingProfile.from_json(json["profile"])
 
 
-def get_browser_sampling_profile() -> (
-    typing.Generator[T_JSON_DICT, T_JSON_DICT, SamplingProfile]
-):
+def get_browser_sampling_profile() -> typing.Generator[
+    T_JSON_DICT, T_JSON_DICT, SamplingProfile
+]:
     """
     Retrieve native memory allocations profile
     collected since browser process startup.
@@ -302,9 +302,9 @@ def get_browser_sampling_profile() -> (
     return SamplingProfile.from_json(json["profile"])
 
 
-def get_sampling_profile() -> (
-    typing.Generator[T_JSON_DICT, T_JSON_DICT, SamplingProfile]
-):
+def get_sampling_profile() -> typing.Generator[
+    T_JSON_DICT, T_JSON_DICT, SamplingProfile
+]:
     """
     Retrieve native memory allocations profile collected since last
     ``startSampling`` call.

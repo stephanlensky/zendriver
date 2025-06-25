@@ -11,9 +11,95 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added `speed` in `Tab.scroll_down` and `Tab.scroll_up` methods to control the scroll speed @nathanfallet
+- Allow to wait for promise in `Element.apply` method @nathanfallet
+- Added `Element.clear_input_by_deleting` to handle inputs with custom delete behavior @nathanfallet
+
 ### Changed
 
 ### Removed
+
+## [0.8.1] - 2025-06-07
+
+### Fixed
+
+- Add an optional `special_characters` flag to `Element.send_keys` to support sending special characters (e.g. emojis) @nathanfallet
+
+## [0.8.0] - 2025-06-01
+
+### Fixed
+
+- Fixed tests so that they can run on Windows (and still run on Linux like before) @nathanfallet
+- Remove usage of asyncio subprocess for better compatibility on Windows @nathanfallet
+- Added a missing Chrome Canary path for Windows @nathanfallet
+- Added a flag to re-enable `--load-extension` (disabled by default in Chrome 136+) @nathanfallet
+
+## [0.7.1] - 2025-05-08
+
+### Changed
+
+- Updated CDP models @jsuarezl
+
+## [0.7.0] - 2025-04-28
+
+### Added
+
+- Added `Tab.screenshot_b64` and `Element.screenshot_b64` methods to return screenshot as base64 string @falmar
+- Added `Tab.print_to_pdf` to print the current page to a PDF file @stephanlensky
+
+## [0.6.1] - 2025-04-25
+
+### Fixed
+
+- Fix race condition in `Browser.get` and `Tab.close` which could cause exceptions, especially when running multiple browsers in parallel @stephanlensky
+
+## [0.6.0] - 2025-04-20
+
+### Fixed
+
+- `Browser.get` and `Tab.close` will now wait for their appropiate target events before returning @ccev
+
+### Added
+
+- Added `Tab.save_snapshot` to export the current page to MHTML format.
+
+## [0.5.2] - 2025-04-09
+
+### Fixed
+
+- Fixed type annotation of `Element.children` @stephanlensky
+
+## [0.5.1] - 2025-02-16
+
+### Changed
+
+- Deprecated `zendriver.loop()` function. You should instead use `asyncio` functions directly, for example:
+
+  ```python
+  asyncio.run(your_main_method())
+  ```
+
+## [0.5.0] - 2025-02-16
+
+### Added
+
+- Add `tab.expect_download` methods to wait for download file @3mora2
+
+## [0.4.3] - 2025-02-11
+
+### Added
+
+- Add logs for Chrome process output on connection failure @stephanlensky
+
+### Changed
+
+- Default and launch changed to use `about:blank` (faster start and less bandwidth) @raycardillo
+
+## [0.4.2] - 2025-02-11
+
+### Fixed
+
+- Multiple Browsers can be created without one affecting the other @raycardillo
 
 ## [0.4.1] - 2025-02-09
 

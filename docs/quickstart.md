@@ -9,9 +9,9 @@ pip install zendriver
 # or uv add zendriver, poetry add zendriver, etc.
 ```
 
-## Usage example
+## Basic usage
 
-The aim of this project (just like undetected-chromedriver, somewhere long ago) is to keep it short and simple, so you can quickly open an editor or interactive session, type or paste a few lines and off you go.
+Open a browser, navigate to a page, and scrape the content:
 
 ```python
 import asyncio
@@ -19,10 +19,15 @@ import zendriver as zd
 
 async def main():
     browser = await zd.start()
-    page = await browser.get('https://www.nowsecure.nl')
+    page = await browser.get('https://example.com')
 
-    # ...further code...
+    # get HTML content of the page as a string
+    content = await page.get_content()
 
+    # save a screenshot
+    await page.save_screenshot()
+
+    # close the browser window
     await browser.stop()
 
 
@@ -38,11 +43,8 @@ import zendriver as zd
 
 async def main():
     browser = await zd.start()
-    page = await browser.get('https://www.nowsecure.nl')
+    page = await browser.get('https://slensky.com/zendriver/')
 
-    await page.save_screenshot()
-    await page.get_content()
-    await page.scroll_down(150)
     elems = await page.select_all('*[src]')
 
     for elem in elems:
@@ -91,7 +93,16 @@ config.user_data_dir="/path/to/existing/profile",  # by specifying it, it won't 
 config.browser_executable_path="/path/to/some/other/browser",
 config.browser_args=['--some-browser-arg=true', '--some-other-option'],
 config.lang="en-US"   # this could set iso-language-code in navigator, not recommended to change
-)
+```
+
+On Windows, we recommend using `WindowsSelectorEventLoopPolicy` for better compatibility with asyncio:
+
+```python
+import asyncio
+import sys
+
+if sys.platform == "win32":
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 ```
 
 A more concrete example, which can be found in the ./example/ folder,
