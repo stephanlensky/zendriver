@@ -380,12 +380,7 @@ class Tab(Connection):
                     if loop.time() - start_time > timeout:
                         break
         finally:
-            try:
-                await self.send(cdp.dom.disable(), True)
-            except ProtocolException:
-                # for some strange reason, the call to dom.disable
-                # sometimes raises an exception that dom is not enabled.
-                pass
+            await self.disable_dom_agent()
         return items
 
     async def get(
