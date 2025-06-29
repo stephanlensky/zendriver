@@ -60,6 +60,19 @@ async def test_select(browser: zd.Browser):
     assert result.text == "Apples"
 
 
+async def test_xpath(browser: zd.Browser):
+    tab = await browser.get(sample_file("groceries.html"))
+
+    results = await tab.xpath('//li[@aria-label="Apples (42)"]')
+
+    assert len(results) == 1
+    result = results[0]
+
+    assert result is not None
+    assert result.tag == "li"
+    assert result.text == "Apples"
+
+
 async def test_add_handler_type_event(browser: zd.Browser):
     tab = await browser.get(sample_file("groceries.html"))
 
