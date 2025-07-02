@@ -1,6 +1,6 @@
 from enum import Enum, IntEnum, StrEnum
 from dataclasses import dataclass, asdict
-from typing import Union, Dict, Tuple, List, Optional, TypedDict
+from typing import Union, Dict, Tuple, Optional
 
 
 class KeyModifiers(IntEnum):
@@ -14,7 +14,7 @@ class KeyModifiers(IntEnum):
 
 class SpecialKeys(Enum):
     ENTER = ("Enter", 13)
-    TAB=  ("Tab", 9)
+    TAB = ("Tab", 9)
     BACKSPACE = ("Backspace", 8)
     ESCAPE = ("Escape", 27)
     DELETE = ("Delete", 46)
@@ -22,13 +22,14 @@ class SpecialKeys(Enum):
     ARROW_UP = ("ArrowUp", 38)
     ARROW_RIGHT = ("ArrowRight", 39)
     ARROW_DOWN = ("ArrowDown", 40)
-    
+
     __SHIFT__ = ("Shift", 16)
     "internal use only"
     __ALT__ = ("Alt", 18)
     "internal use only"
     __CTRL__ = ("Control", 17)
     "internal use only"
+
 
 class KeyEventType(StrEnum):
     KEY_DOWN = "keyDown"
@@ -40,38 +41,37 @@ class KeyEventType(StrEnum):
 
     DOWN_AND_UP = "downAndUp"
     """Way to give both key down and up events in one go for non-ASCII characters, 
-    
-    `not standard implementation`"""
+    **not standard implementation**"""
 
 
 num_shift = ")!@#$%^&*("
 
-special_char_1 = {
-    ";": "Semicolon",
-    ":": "Semicolon",
-    "=": "Equal",
-    "+": "Equal",
-    ",": "Comma",
-    "<": "Comma",
-    "-": "Minus",
-    "_": "Minus",
-    ".": "Period",
-    ">": "Period",
-    "/": "Slash",
-    "?": "Slash",
-    "`": "Backquote",
-    "~": "Backquote",
+special_char_map = {
+    ";": ("Semicolon", 186),
+    "=": ("Equal", 187),
+    ",": ("Comma", 188),
+    "-": ("Minus", 189),
+    ".": ("Period", 190),
+    "/": ("Slash", 191),
+    "`": ("Backquote", 192),
+    "[": ("BracketLeft", 219),
+    "\\": ("Backslash", 220),
+    "]": ("BracketRight", 221),
+    "'": ("Quote", 222),
 }
 
-special_char_2 = {
-    "[": "BracketLeft",
-    "{": "BracketLeft",
-    "\\": "Backslash",
-    "|": "Backslash",
-    "]": "BracketRight",
-    "}": "BracketRight",
-    "'": "Quote",
-    '"': "Quote",
+special_char_shift_map = {
+    ":": ";",
+    "=": "+",
+    "<": ",",
+    "_": "-",
+    ">": ".",
+    "?": "/",
+    "~": "`",
+    "{": "[",
+    "|": "\\",
+    "}": "]",
+    '"': "'",
 }
 
 
@@ -89,48 +89,34 @@ class KeyEvents:
     """
 
     @staticmethod
-    def get_key_code_and_keyCode(key: Union[str, SpecialKeys]) -> Tuple[str, str, int]:
-        if key is None or (isinstance(key, str) and len(key) != 1):
-            raise ValueError("Key must be a single ASCII character.")
+    def code_keyCode_lookup(key: Union[str, SpecialKeys]) -> Tuple[str, int]:
 
-        if isinstance(key, SpecialKeys):
-            return key.value[0], key.value[0], key.value[1]
-        elif key.isalpha():
-            return key, "Key" + key.upper(), ord(key.upper())
-        elif key.isdigit() or key in num_shift:
-            if key in num_shift:
-                key = str(num_shift.index(key))
-            return key, "Digit" + key, ord(key)
-        elif key in "\n\r":
-            enter = SpecialKeys.ENTER
-            return enter.value[0], enter.value[0], enter.value[1]
-        elif key == "\t":
-            tab = SpecialKeys.TAB
-            return tab.value[0], tab.value[0], tab.value[1]
+        if isinstance(key, str):
+            if len(key) != 1:
+                raise ValueError("Key must be a single ASCII character.")
 
-        lookup_dict: Optional[Dict[str, str]] = None
-        startIndex: Optional[int] = None
-        
-        if key in special_char_1.keys():
-            lookup_dict = special_char_1
-            startIndex = 186
+            if key.isalpha():
+                key = key.upper()
+                return "Key" + key, ord(key)
+            elif key.isdigit() or key in num_shift:
+                if key in num_shift:
+                    key = str(num_shift.index(key))
+                return "Digit" + key, ord(key)
+            elif key in "\n\r":
+                return SpecialKeys.ENTER.value
+            elif key == "\t":
+                return SpecialKeys.TAB.value
+            elif key in special_char_map.keys():
+                return special_char_map[key]
             
-        elif key in special_char_2.keys():
-            lookup_dict = special_char_2
-            startIndex = 219
-        else:
-            raise ValueError(f"Key '{key}' is not a key event")
+            return special_char_map[special_char_shift_map[key]]
 
-        data = get_special_char_code_and_keyCode(
-            key, lookup_dict, startIndex
-        )
-
-        return data[0], data[0], data[1]
+        return key.value
 
     @dataclass
     class Action:
         """Represents a key action with all necessary properties."""
-        
+
         @dataclass
         class BaseAction:
             type_: KeyEventType
@@ -147,7 +133,6 @@ class KeyEvents:
             windows_virtual_key_code: int
             native_virtual_key_code: int
             text: Optional[str] = None
-            
 
         payload: Union[CharAction, OtherAction]
 
@@ -157,6 +142,29 @@ class KeyEvents:
                 cls.CharAction(type_=KeyEventType.CHAR, modifiers=modifiers, text=key)
             )
 
+        @staticmethod
+        def get_otherAction_data(key: Union[str, SpecialKeys], modifiers: KeyModifiers) :
+
+            code, keyCode = KeyEvents.code_keyCode_lookup(key)
+            if isinstance(key, str) and not key in "\n\r\t":   
+                if modifiers != KeyModifiers.Shift:
+                    return key, code, keyCode, keyCode, key
+                else:  
+                    if key.isalpha():
+                        key = key.upper()
+                    elif key.isdigit():
+                        key = num_shift[int(key)] 
+                    else:
+                        for shift_key, _key in special_char_shift_map.items():
+                            if key != _key:
+                                continue
+                            key = shift_key
+                            break
+
+                return key, code, keyCode, keyCode, key
+            else:
+                return code, code, keyCode, keyCode, code
+
         @classmethod
         def get_non_char_action(
             cls,
@@ -164,41 +172,31 @@ class KeyEvents:
             modifiers: KeyModifiers,
             event_type: KeyEventType,
         ):
-            key_, code, keyCode = KeyEvents.get_key_code_and_keyCode(key)
             return KeyEvents.Action(
                 cls.OtherAction(
-                    type_=event_type,
-                    modifiers=modifiers,
-                    key=key_,
-                    code=code,
-                    windows_virtual_key_code=keyCode,
-                    native_virtual_key_code=keyCode,
-                    text=key_ if len(key_) == 1 else None,
+                    event_type,
+                    modifiers,
+                    *cls.get_otherAction_data(key, modifiers)
                 )
             )
 
-        def to_dict(self) :
+        def to_dict(self):
             """Convert the action to a dictionary for CDP."""
-            if isinstance(self.payload, self.OtherAction) and self.payload.type_ == KeyEventType.DOWN_AND_UP:
+            if (
+                isinstance(self.payload, self.OtherAction)
+                and self.payload.type_ == KeyEventType.DOWN_AND_UP
+            ):
+                base_dict = {
+                    "modifiers": self.payload.modifiers,
+                    "key": self.payload.key,
+                    "code": self.payload.code,
+                    "windowsVirtualKeyCode": self.payload.windows_virtual_key_code,
+                    "nativeVirtualKeyCode": self.payload.native_virtual_key_code,
+                    "text": self.payload.text,
+                }
                 return [
-                    asdict(self.OtherAction(
-                        type_=KeyEventType.KEY_DOWN,
-                        modifiers=self.payload.modifiers,
-                        key=self.payload.key,
-                        code=self.payload.code,
-                        windows_virtual_key_code=self.payload.windows_virtual_key_code,
-                        native_virtual_key_code=self.payload.native_virtual_key_code,
-                        text=self.payload.text,
-                    )),
-                    asdict(self.OtherAction(
-                        type_=KeyEventType.KEY_UP,
-                        modifiers=self.payload.modifiers,
-                        key=self.payload.key,
-                        code=self.payload.code,
-                        windows_virtual_key_code=self.payload.windows_virtual_key_code,
-                        native_virtual_key_code=self.payload.native_virtual_key_code,
-                        text=self.payload.text,
-                    ))
+                    asdict(self.OtherAction(type_=KeyEventType.KEY_DOWN, **base_dict)),
+                    asdict(self.OtherAction(type_=KeyEventType.KEY_UP, **base_dict)),
                 ]
             else:
                 return [asdict(self.payload)]
@@ -206,8 +204,8 @@ class KeyEvents:
     @staticmethod
     def get_key_action(
         key: Union[str, SpecialKeys],
+        event_type: KeyEventType,
         modifiers: KeyModifiers = KeyModifiers.Default,
-        event_type: KeyEventType = KeyEventType.CHAR,
     ) -> Action:
 
         if event_type == KeyEventType.CHAR and isinstance(key, str):
