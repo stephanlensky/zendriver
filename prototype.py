@@ -14,6 +14,7 @@ class KeyModifiers(IntEnum):
 
 class SpecialKeys(Enum):
     ENTER = ("Enter", 13)
+    TAB=  ("Tab", 9)
     BACKSPACE = ("Backspace", 8)
     ESCAPE = ("Escape", 27)
     DELETE = ("Delete", 46)
@@ -21,7 +22,13 @@ class SpecialKeys(Enum):
     ARROW_UP = ("ArrowUp", 38)
     ARROW_RIGHT = ("ArrowRight", 39)
     ARROW_DOWN = ("ArrowDown", 40)
-
+    
+    __SHIFT__ = ("Shift", 16)
+    "internal use only"
+    __ALT__ = ("Alt", 18)
+    "internal use only"
+    __CTRL__ = ("Control", 17)
+    "internal use only"
 
 class KeyEventType(StrEnum):
     KEY_DOWN = "keyDown"
@@ -89,13 +96,18 @@ class KeyEvents:
         if isinstance(key, SpecialKeys):
             return key.value[0], key.value[0], key.value[1]
         elif key.isalpha():
-            return key.lower(), "Key" + key.upper(), ord(key.upper())
+            return key, "Key" + key.upper(), ord(key.upper())
         elif key.isdigit() or key in num_shift:
             if key in num_shift:
                 key = str(num_shift.index(key))
             return key, "Digit" + key, ord(key)
-        
-        
+        elif key in "\n\r":
+            enter = SpecialKeys.ENTER
+            return enter.value[0], enter.value[0], enter.value[1]
+        elif key == "\t":
+            tab = SpecialKeys.TAB
+            return tab.value[0], tab.value[0], tab.value[1]
+
         lookup_dict: Optional[Dict[str, str]] = None
         startIndex: Optional[int] = None
         
@@ -134,6 +146,7 @@ class KeyEvents:
             code: str
             windows_virtual_key_code: int
             native_virtual_key_code: int
+            text: Optional[str] = None
             
 
         payload: Union[CharAction, OtherAction]
@@ -160,6 +173,7 @@ class KeyEvents:
                     code=code,
                     windows_virtual_key_code=keyCode,
                     native_virtual_key_code=keyCode,
+                    text=key_ if len(key_) == 1 else None,
                 )
             )
 
@@ -174,6 +188,7 @@ class KeyEvents:
                         code=self.payload.code,
                         windows_virtual_key_code=self.payload.windows_virtual_key_code,
                         native_virtual_key_code=self.payload.native_virtual_key_code,
+                        text=self.payload.text,
                     )),
                     asdict(self.OtherAction(
                         type_=KeyEventType.KEY_UP,
@@ -182,6 +197,7 @@ class KeyEvents:
                         code=self.payload.code,
                         windows_virtual_key_code=self.payload.windows_virtual_key_code,
                         native_virtual_key_code=self.payload.native_virtual_key_code,
+                        text=self.payload.text,
                     ))
                 ]
             else:
@@ -192,7 +208,7 @@ class KeyEvents:
         key: Union[str, SpecialKeys],
         modifiers: KeyModifiers = KeyModifiers.Default,
         event_type: KeyEventType = KeyEventType.CHAR,
-    ) -> Optional[Action]:
+    ) -> Action:
 
         if event_type == KeyEventType.CHAR and isinstance(key, str):
             return KeyEvents.Action.get_char_action(key, modifiers)
