@@ -28,7 +28,7 @@ class SpecialKeys(Enum):
     META = ("Meta", 91)  # internal use only
 
 
-class KeyEventType(StrEnum):
+class KeyPressEvent(StrEnum):
     KEY_DOWN = "keyDown"
     KEY_UP = "keyUp"
     RAW_KEY_DOWN = "rawKeyDown"
@@ -45,42 +45,41 @@ class KeyEventType(StrEnum):
     **not standard implementation**"""
 
 
-num_shift = ")!@#$%^&*("
-
-special_char_map = {
-    ";": ("Semicolon", 186),
-    "=": ("Equal", 187),
-    ",": ("Comma", 188),
-    "-": ("Minus", 189),
-    ".": ("Period", 190),
-    "/": ("Slash", 191),
-    "`": ("Backquote", 192),
-    "[": ("BracketLeft", 219),
-    "\\": ("Backslash", 220),
-    "]": ("BracketRight", 221),
-    "'": ("Quote", 222),
-}
-
-special_char_shift_map = {
-    ":": ";",
-    "=": "+",
-    "<": ",",
-    "_": "-",
-    ">": ".",
-    "?": "/",
-    "~": "`",
-    "{": "[",
-    "|": "\\",
-    "}": "]",
-    '"': "'",
-}
-
-
 class KeyEvents:
     """
     Enum for key modifiers.
     https://stackoverflow.com/a/79194672
     """
+
+    num_shift = ")!@#$%^&*("
+
+    special_char_map = {
+        ";": ("Semicolon", 186),
+        "=": ("Equal", 187),
+        ",": ("Comma", 188),
+        "-": ("Minus", 189),
+        ".": ("Period", 190),
+        "/": ("Slash", 191),
+        "`": ("Backquote", 192),
+        "[": ("BracketLeft", 219),
+        "\\": ("Backslash", 220),
+        "]": ("BracketRight", 221),
+        "'": ("Quote", 222),
+    }
+
+    special_char_shift_map = {
+        ":": ";",
+        "=": "+",
+        "<": ",",
+        "_": "-",
+        ">": ".",
+        "?": "/",
+        "~": "`",
+        "{": "[",
+        "|": "\\",
+        "}": "]",
+        '"': "'",
+    }
 
     @staticmethod
     def code_keyCode_lookup(key: Union[str, SpecialKeys]) -> Tuple[str, int]:
@@ -92,18 +91,18 @@ class KeyEvents:
             if key.isalpha():
                 key = key.upper()
                 return "Key" + key, ord(key)
-            elif key.isdigit() or key in num_shift:
-                if key in num_shift:
-                    key = str(num_shift.index(key))
+            elif key.isdigit() or key in KeyEvents.num_shift:
+                if key in KeyEvents.num_shift:
+                    key = str(KeyEvents.num_shift.index(key))
                 return "Digit" + key, ord(key)
             elif key in "\n\r":
                 return SpecialKeys.ENTER.value
             elif key == "\t":
                 return SpecialKeys.TAB.value
-            elif key in special_char_map.keys():
-                return special_char_map[key]
+            elif key in KeyEvents.special_char_map.keys():
+                return KeyEvents.special_char_map[key]
 
-            return special_char_map[special_char_shift_map[key]]
+            return KeyEvents.special_char_map[KeyEvents.special_char_shift_map[key]]
 
         if key in [
             SpecialKeys.SHIFT,
@@ -120,7 +119,7 @@ class KeyEvents:
     class Action:
         """Represents a key action with all necessary properties."""
 
-        type_: KeyEventType
+        type_: KeyPressEvent
         text: str
         modifiers: Optional[KeyModifiers] = None
         key: Optional[str] = None
@@ -130,14 +129,14 @@ class KeyEvents:
 
         @classmethod
         def get_char_action(cls, key: str):
-            return cls(KeyEventType.CHAR, key)
+            return cls(KeyPressEvent.CHAR, key)
 
         @classmethod
         def get_non_char_action(
             cls,
             key: Union[str, SpecialKeys],
             modifiers: KeyModifiers,
-            event_type: KeyEventType,
+            event_type: KeyPressEvent,
         ):
             return cls(event_type, *cls.get_keyPress_action_data(key, modifiers))
 
@@ -146,7 +145,6 @@ class KeyEvents:
             key: Union[str, SpecialKeys], modifiers: KeyModifiers
         ) -> Tuple[str, KeyModifiers, str, str, int, int]:
             # text, modifiers, key, code, keyCode, keyCode
-
             code, keyCode = KeyEvents.code_keyCode_lookup(key)
             if isinstance(key, str) and not key in "\n\r\t":
                 if modifiers != KeyModifiers.Shift:
@@ -155,9 +153,9 @@ class KeyEvents:
                     if key.isalpha():
                         key = key.upper()
                     elif key.isdigit():
-                        key = num_shift[int(key)]
+                        key = KeyEvents.num_shift[int(key)]
                     else:
-                        for shift_key, _key in special_char_shift_map.items():
+                        for shift_key, _key in KeyEvents.special_char_shift_map.items():
                             if key != _key:
                                 continue
                             key = shift_key
@@ -175,50 +173,61 @@ class KeyEvents:
 
             return code, modifiers, code, code, keyCode, keyCode
 
-        def to_dict(self) -> List[Dict[str, Union[str, int]]]:
+        def to_dict_basic(self) -> List[Dict[str, Union[str, int]]]:
             """Convert the action to a dictionary for CDP."""
             # Handle simple character actions
             if self.modifiers == KeyModifiers.Default:
                 return [asdict(self)]
 
-            if self.type_ in (
-                KeyEventType.KEY_DOWN,
-                KeyEventType.RAW_KEY_DOWN,
-                KeyEventType.KEY_UP,
-            ):
-                return [{**asdict(self), "type_": self.type_.value}]
+            return [{**asdict(self), "type_": self.type_.value}]
 
-            return self._create_key_sequence()
-
-        def _create_key_sequence(self) -> List[Dict[str, Union[str, int]]]:
-            """Create key down/up sequence with optional modifier keys."""
+        def to_dict_DOWN_UP(self, original_key: Union[str, SpecialKeys]) -> List[Dict[str, Union[str, int]]]:
+            """Create key down/up sequence"""
             events: List[Dict[str, Union[str, int]]] = []
+            if (
+                self.modifiers is None
+                or self.key is None
+                or self.code is None
+                or self.windows_virtual_key_code is None
+                or self.native_virtual_key_code is None
+            ):
+                raise ValueError("Key action must have all properties set.")
 
             # Add modifier key down if needed
-            if self.modifiers != KeyModifiers.Default:
+            if (
+                self.modifiers != KeyModifiers.Default
+                and not self.key in KeyModifiers._member_names_
+            ):
                 modifier_key = self._get_modifier_key(KeyModifiers(self.modifiers))
                 modifier_down = self.get_non_char_action(
                     modifier_key,
-                    self.modifiers if self.modifiers else KeyModifiers.Default,
-                    KeyEventType.KEY_DOWN,
-                ).to_dict()
+                    self.modifiers,
+                    KeyPressEvent.KEY_DOWN,
+                ).to_dict_basic()
                 events.extend(modifier_down)
 
             # Add main key down
-            events.append({"type_": KeyEventType.KEY_DOWN.value, **asdict(self)})
+            events.append({"type_": KeyPressEvent.KEY_DOWN.value, **asdict(self)})
 
             # Add modifier key up if needed
-            if self.modifiers != KeyModifiers.Default:
+            if (
+                self.modifiers != KeyModifiers.Default
+                and not self.key in KeyModifiers._member_names_
+            ):
                 modifier_key = self._get_modifier_key(KeyModifiers(self.modifiers))
                 modifier_up = self.get_non_char_action(
                     modifier_key,
                     KeyModifiers.Default,
-                    KeyEventType.KEY_UP,
-                ).to_dict()
+                    KeyPressEvent.KEY_UP,
+                ).to_dict_basic()
                 events.extend(modifier_up)
 
             # Add main key up
-            events.append({"type_": KeyEventType.KEY_UP.value, **asdict(self)})
+            events.extend(
+                self.get_non_char_action(
+                    original_key, KeyModifiers.Default, KeyPressEvent.KEY_UP
+                ).to_dict_basic()
+            )
 
             return events
 
@@ -234,14 +243,42 @@ class KeyEvents:
                 raise ValueError(f"Invalid key modifier: {modifier}")
             return modifier_map[modifier]
 
-    @staticmethod
-    def get_key_action(
+    def __init__(
+        self,
+        action: Action,
         key: Union[str, SpecialKeys],
-        event_type: KeyEventType,
-        modifiers: KeyModifiers = KeyModifiers.Default,
-    ) -> Action:
+        event_type: KeyPressEvent,
+        modifiers: KeyModifiers,
+    ) -> None:
+        self.action = action
+        self.key = key
+        self.event_type = event_type
+        self.modifiers = modifiers
 
-        if event_type == KeyEventType.CHAR and isinstance(key, str):
-            return KeyEvents.Action.get_char_action(key)
+    @classmethod
+    def get_keyEvent(
+        cls,
+        key: Union[str, SpecialKeys],
+        event_type: KeyPressEvent,
+        modifiers: KeyModifiers = KeyModifiers.Default,
+    ) -> "KeyEvents":
+
+        if event_type == KeyPressEvent.CHAR and isinstance(key, str):
+            return cls(
+                KeyEvents.Action.get_char_action(key), key, event_type, modifiers
+            )
         else:
-            return KeyEvents.Action.get_non_char_action(key, modifiers, event_type)
+            return cls(
+                KeyEvents.Action.get_non_char_action(key, modifiers, event_type),
+                key,
+                event_type,
+                modifiers,
+            )
+
+
+    def to_dict(self) -> List[Dict[str, Union[str, int]]]:
+        """Convert the key event to a dictionary for CDP."""
+        if self.event_type != KeyPressEvent.DOWN_AND_UP:
+            return self.action.to_dict_basic()
+        
+        return self.action.to_dict_DOWN_UP(self.key)
