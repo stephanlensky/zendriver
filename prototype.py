@@ -267,13 +267,13 @@ class KeyEvents:
             return cls(
                 KeyEvents.Action.get_char_action(key), key, event_type, modifiers
             )
-        else:
-            return cls(
-                KeyEvents.Action.get_non_char_action(key, modifiers, event_type),
-                key,
-                event_type,
-                modifiers,
-            )
+            
+        return cls(
+            KeyEvents.Action.get_non_char_action(key, modifiers, event_type),
+            key,
+            event_type,
+            modifiers,
+        )
 
 
     def to_dict(self) -> List[Dict[str, Union[str, int]]]:
