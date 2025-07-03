@@ -4,7 +4,6 @@ from typing import Union, Dict, Tuple, Optional, List
 
 
 class KeyModifiers(IntEnum):
-
     Default = 0
     Alt = 1
     Ctrl = 2
@@ -106,39 +105,52 @@ class KeyEvents:
 
             return special_char_map[special_char_shift_map[key]]
 
+        if key in [
+            SpecialKeys.SHIFT,
+            SpecialKeys.ALT,
+            SpecialKeys.CTRL,
+            SpecialKeys.META,
+        ]:
+            values = key.value
+            return key.value[0] + "Left", values[1]
+
         return key.value
 
     @dataclass
     class Action:
         """Represents a key action with all necessary properties."""
 
-        @dataclass
-        class CharAction:
-            text: str
-
-        @dataclass
-        class OtherAction:
-            modifiers: int
-            key: str
-            code: str
-            windows_virtual_key_code: int
-            native_virtual_key_code: int
-            text: str
-
         type_: KeyEventType
-        payload: Union[CharAction, OtherAction]
+        text: str
+        modifiers: Optional[KeyModifiers] = None
+        key: Optional[str] = None
+        code: Optional[str] = None
+        windows_virtual_key_code: Optional[int] = None
+        native_virtual_key_code: Optional[int] = None
 
         @classmethod
         def get_char_action(cls, key: str):
-            return KeyEvents.Action(KeyEventType.CHAR, cls.CharAction(text=key))
+            return cls(KeyEventType.CHAR, key)
+
+        @classmethod
+        def get_non_char_action(
+            cls,
+            key: Union[str, SpecialKeys],
+            modifiers: KeyModifiers,
+            event_type: KeyEventType,
+        ):
+            return cls(event_type, *cls.get_keyPress_action_data(key, modifiers))
 
         @staticmethod
-        def get_otherAction_data(key: Union[str, SpecialKeys], modifiers: KeyModifiers) -> Tuple[int, str, str, int, int, str]:
+        def get_keyPress_action_data(
+            key: Union[str, SpecialKeys], modifiers: KeyModifiers
+        ) -> Tuple[str, KeyModifiers, str, str, int, int]:
+            # text, modifiers, key, code, keyCode, keyCode
 
             code, keyCode = KeyEvents.code_keyCode_lookup(key)
             if isinstance(key, str) and not key in "\n\r\t":
                 if modifiers != KeyModifiers.Shift:
-                    return modifiers.value, key, code, keyCode, keyCode, key
+                    return key, modifiers, key, code, keyCode, keyCode
                 else:
                     if key.isalpha():
                         key = key.upper()
@@ -150,62 +162,64 @@ class KeyEvents:
                                 continue
                             key = shift_key
                             break
+                return key, modifiers, key, code, keyCode, keyCode
 
-                return modifiers.value, key, code, keyCode, keyCode, key
-            else:
-                return modifiers.value, code, code, keyCode, keyCode, code
+            if key in [
+                SpecialKeys.SHIFT,
+                SpecialKeys.ALT,
+                SpecialKeys.CTRL,
+                SpecialKeys.META,
+            ]:
+                key_vals = key.value
+                return key_vals[0], modifiers, key_vals[0], code, keyCode, keyCode
 
-        @classmethod
-        def get_non_char_action(
-            cls,
-            key: Union[str, SpecialKeys],
-            modifiers: KeyModifiers,
-            event_type: KeyEventType,
-        ):
-            return KeyEvents.Action(
-                event_type, cls.OtherAction(*cls.get_otherAction_data(key, modifiers))
-            )
+            return code, modifiers, code, code, keyCode, keyCode
 
-        def to_dict(self):
+        def to_dict(self) -> List[Dict[str, Union[str, int]]]:
             """Convert the action to a dictionary for CDP."""
             # Handle simple character actions
-            if isinstance(self.payload, self.CharAction):
-                return [asdict(self.payload)]
+            if self.modifiers == KeyModifiers.Default:
+                return [asdict(self)]
 
-            if self.type_ in (KeyEventType.KEY_DOWN, KeyEventType.RAW_KEY_DOWN, KeyEventType.KEY_UP):
-                raise NotImplementedError()
+            if self.type_ in (
+                KeyEventType.KEY_DOWN,
+                KeyEventType.RAW_KEY_DOWN,
+                KeyEventType.KEY_UP,
+            ):
+                return [{**asdict(self), "type_": self.type_.value}]
 
             return self._create_key_sequence()
 
-        def _create_key_sequence(self) -> List[Dict]:
+        def _create_key_sequence(self) -> List[Dict[str, Union[str, int]]]:
             """Create key down/up sequence with optional modifier keys."""
-            events = []
-            
-            # Type guard - this method should only be called with OtherAction
-            if not isinstance(self.payload, self.OtherAction):
-                raise ValueError("_create_key_sequence can only be called with OtherAction payload")
-            
-            other_payload = self.payload  # Now type checker knows this is OtherAction
-            
+            events: List[Dict[str, Union[str, int]]] = []
+
             # Add modifier key down if needed
-            if other_payload.modifiers != KeyModifiers.Default:
-                modifier_key = self._get_modifier_key(KeyModifiers(other_payload.modifiers))
-                modifier_down = self._create_modifier_action(modifier_key, True)
-                events.append({"type_": KeyEventType.KEY_DOWN.value, **asdict(modifier_down)})
-            
+            if self.modifiers != KeyModifiers.Default:
+                modifier_key = self._get_modifier_key(KeyModifiers(self.modifiers))
+                modifier_down = self.get_non_char_action(
+                    modifier_key,
+                    self.modifiers if self.modifiers else KeyModifiers.Default,
+                    KeyEventType.KEY_DOWN,
+                ).to_dict()
+                events.extend(modifier_down)
+
             # Add main key down
-            events.append({"type_": KeyEventType.KEY_DOWN.value, **asdict(other_payload)})
-            
-            
+            events.append({"type_": KeyEventType.KEY_DOWN.value, **asdict(self)})
+
             # Add modifier key up if needed
-            if other_payload.modifiers != KeyModifiers.Default:
-                modifier_key = self._get_modifier_key(KeyModifiers(other_payload.modifiers))
-                modifier_up = self._create_modifier_action(modifier_key, False)
-                events.append({"type_": KeyEventType.KEY_UP.value, **asdict(modifier_up)})
+            if self.modifiers != KeyModifiers.Default:
+                modifier_key = self._get_modifier_key(KeyModifiers(self.modifiers))
+                modifier_up = self.get_non_char_action(
+                    modifier_key,
+                    KeyModifiers.Default,
+                    KeyEventType.KEY_UP,
+                ).to_dict()
+                events.extend(modifier_up)
 
             # Add main key up
-            events.append({"type_": KeyEventType.KEY_UP.value, **asdict(other_payload)})
-            
+            events.append({"type_": KeyEventType.KEY_UP.value, **asdict(self)})
+
             return events
 
         def _get_modifier_key(self, modifier: KeyModifiers) -> SpecialKeys:
@@ -219,21 +233,6 @@ class KeyEvents:
             if modifier not in modifier_map:
                 raise ValueError(f"Invalid key modifier: {modifier}")
             return modifier_map[modifier]
-
-        def _create_modifier_action(self, modifier_key: SpecialKeys, is_pressed: bool) -> 'OtherAction':
-            """Create a modifier key action."""
-            modifier_value = KeyModifiers.Default if not is_pressed else self._get_modifier_enum_from_key(modifier_key)
-            return self.OtherAction(*self.get_otherAction_data(modifier_key, modifier_value))
-
-        def _get_modifier_enum_from_key(self, modifier_key: SpecialKeys) -> KeyModifiers:
-            """Get KeyModifiers enum from SpecialKeys."""
-            key_to_modifier = {
-                SpecialKeys.ALT: KeyModifiers.Alt,
-                SpecialKeys.CTRL: KeyModifiers.Ctrl,
-                SpecialKeys.SHIFT: KeyModifiers.Shift,
-                SpecialKeys.META: KeyModifiers.Meta,
-            }
-            return key_to_modifier[modifier_key]
 
     @staticmethod
     def get_key_action(
