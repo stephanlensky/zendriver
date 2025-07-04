@@ -112,9 +112,9 @@ If this is your first time making a contribution on GitHub, please review the [o
 When submitting a pull request, please stick to the following guidelines:
 
 1. Describe your change in the body of your pull request, ideally linking to an existing GitHub issue for the bug/enhancement you are addressing. Note, if you use the word "closes", "fixes", or "resolves" before linking your issue, the issue will be automatically closed when the pull request is merged (see [GitHub docs](https://docs.github.com/en/issues/tracking-your-work-with-issues/using-issues/linking-a-pull-request-to-an-issue#linking-a-pull-request-to-an-issue-using-a-keyword)).
-2. Ensure that any newly added/modified code is autoformatted and free of lint errors. To verify this, use the [`scripts/lint.sh`](blob/main/scripts/lint.sh) script to run `ruff` and `mypy` against your code.
+2. Ensure that any newly added/modified code is autoformatted and free of lint errors. To verify this, use the [`scripts/lint.sh`](scripts/lint.sh) script to run `ruff` and `mypy` against your code.
    - Note, at the time of writing there are still many, many `mypy` errors left over from the `nodriver` fork. Please disregard these and consider only errors related to the code you have changed.
-3. Get credit for your work! Add your changes to [`CHANGELOG.md`](blob/main/CHANGELOG.md) under the `[UNRELEASED]` section and optionally include your GitHub handle at the end of the line.
+3. Get credit for your work! Add your changes to [`CHANGELOG.md`](CHANGELOG.md) under the `[UNRELEASED]` section and optionally include your GitHub handle at the end of the line.
 
 ### Improving The Documentation
 
