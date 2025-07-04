@@ -15,6 +15,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
+## [0.10.0] - 2025-07-04
+
+### Fixed
+
+- Refactor element waiting loops in `find_*` and `select*` methods. @H1steria
+- Improve `query_selector` error handling to consistently return `None` when a node is not found. @H1steria
+
+### Added
+
+- Added `mouse_move` and `mouse_click` methods from nodriver. @H1steria
+
 ## [0.9.0] - 2025-07-01
 
 ### Added
