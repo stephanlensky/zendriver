@@ -15,6 +15,7 @@ from .. import cdp
 from . import util
 from ._contradict import ContraDict
 from .config import PathLike
+from .keys import KeyEvents, KeyPressEvent, KeyModifiers
 
 logger = logging.getLogger(__name__)
 
@@ -727,7 +728,7 @@ class Element:
             await_promise=True,
         )
 
-    async def send_keys(self, text: str, special_characters: bool = False):
+    async def send_keys(self, text: typing.Union[str, typing.List[typing.Union[str, KeyEvents]]], special_characters: bool = False):
         """
         send text to an input field, or any other html element.
 
@@ -743,13 +744,31 @@ class Element:
         :return: None
         """
         await self.apply("(elem) => elem.focus()")
-        for cluster in grapheme.graphemes(text) if special_characters else text:
-            if all(32 <= ord(c) <= 126 for c in cluster):
-                await self._tab.send(
-                    cdp.input_.dispatch_key_event("char", text=cluster)
-                )
+        cluster_list = []
+        if isinstance(text, str):
+            cluster_list  = grapheme.graphemes(text)
+        else:
+            cluster_list = [item 
+                for single_req in text 
+                for item in (grapheme.graphemes(single_req) if isinstance(single_req, str) 
+                             else [single_req])]
+        
+        for cluster in cluster_list:
+            key_event = None
+            if isinstance(cluster, str):
+                key_event = KeyEvents(cluster, KeyPressEvent.CHAR)
+            elif isinstance(cluster, KeyEvents):
+                key_event = cluster
             else:
-                await self._tab.send(cdp.input_.insert_text(cluster))
+                continue
+            
+            for single_key_event in key_event.to_cdp_events():
+                await self._tab.send(
+                    cdp.input_.dispatch_key_event(
+                        **single_key_event # type: ignore
+                    )
+                )
+            
 
     async def send_file(self, *file_paths: PathLike):
         """
