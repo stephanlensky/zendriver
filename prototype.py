@@ -46,8 +46,7 @@ class KeyPressEvent(StrEnum):
 
 
 class KeyEvents:
-    """
-    Enum for key modifiers.
+    """Key events handling.
     https://stackoverflow.com/a/79194672
     """
 
@@ -101,8 +100,10 @@ class KeyEvents:
                 return SpecialKeys.TAB.value
             elif key in KeyEvents.special_char_map.keys():
                 return KeyEvents.special_char_map[key]
+            elif key in KeyEvents.special_char_shift_map.values():
+                return KeyEvents.special_char_map[KeyEvents.special_char_shift_map[key]]
 
-            return KeyEvents.special_char_map[KeyEvents.special_char_shift_map[key]]
+            raise ValueError(f"Unsupported key: '{key}'")
 
         if key in [
             SpecialKeys.SHIFT,
@@ -124,10 +125,6 @@ class KeyEvents:
         code: Optional[str] = None
         windows_virtual_key_code: Optional[int] = None
         native_virtual_key_code: Optional[int] = None
-
-        @classmethod
-        def get_char_action(cls, key: str):
-            return cls(key)
 
         @classmethod
         def get_non_char_action(
@@ -182,7 +179,7 @@ class KeyEvents:
                 payload_dict["key"] = key
                 payload_dict["text"] = key
             payload_dict["modifiers"] = modifiers
-            
+
             return [payload_dict]
 
         def to_dict_DOWN_UP(
@@ -201,10 +198,7 @@ class KeyEvents:
                 raise ValueError("Key action must have all properties set.")
 
             modifier_keys = self._get_modifier_key(modifiers)
-            modifier_is_key = any(
-                modifier_key in [SpecialKeys.SHIFT, SpecialKeys.ALT, SpecialKeys.CTRL, SpecialKeys.META]
-                for modifier_key, _ in modifier_keys
-            )
+            modifier_is_key = self.key in [key.value[0] for key, _ in modifier_keys]
 
             # Add modifier key down if needed
             prev_modifier = 0
@@ -217,7 +211,7 @@ class KeyEvents:
 
             # Add main key down
             if not modifier_is_key:
-                events.extend(self.to_dict_basic(KeyPressEvent.KEY_DOWN, prev_modifier, original_key))
+                events.extend(self.to_dict_basic(KeyPressEvent.KEY_DOWN, prev_modifier))
 
             # Add modifier key up if needed
             for modifier_key, modifier in modifier_keys:
@@ -230,10 +224,7 @@ class KeyEvents:
             if modifier_is_key:
                 return events
             # Add main key up
-            if modifiers == KeyModifiers.Shift:
-                events.extend(self.to_dict_basic(KeyPressEvent.KEY_UP,  prev_modifier, original_key))
-            else:
-                events.extend(self.to_dict_basic(KeyPressEvent.KEY_UP,  prev_modifier))
+            events.extend(self.to_dict_basic(KeyPressEvent.KEY_UP, prev_modifier, original_key))
 
             return events
 
@@ -261,44 +252,36 @@ class KeyEvents:
 
     def __init__(
         self,
-        action: Action,
         key: Union[str, SpecialKeys],
         key_press_event: KeyPressEvent,
-        modifiers: Union[KeyModifiers, int] = KeyModifiers.Default,
-    ) -> None:
-        self.action = action
+        modifiers: Union[KeyModifiers, int],
+    ):
         self.key = key
         self.key_press_event = key_press_event
         self.modifiers = modifiers
+        self.action: KeyEvents.Action = self._get_action(key, modifiers)
 
-    @staticmethod
-    def get_non_shifted(key: Union[str, SpecialKeys]) -> Union[str, SpecialKeys]:
+            
+    def _get_action(self, key: Union[str, SpecialKeys], modifiers: Union[KeyModifiers, int]) -> Action:
+        if self.key_press_event == KeyPressEvent.CHAR:
+            if not isinstance(key, str) or len(key) != 1:
+                raise ValueError("Key must be a single ASCII character for CHAR event.")
+            return KeyEvents.Action(key)
+
+        key = self.get_non_shifted(key)
+        return KeyEvents.Action.get_non_char_action(key, modifiers)
+
+    def get_non_shifted(self, key: Union[str, SpecialKeys]) -> Union[str, SpecialKeys]:
         if isinstance(key, SpecialKeys):
             return key
-        elif key in KeyEvents.num_shift:
-            return str(KeyEvents.num_shift.index(key))
-        elif key in KeyEvents.special_char_shift_map:
-            return KeyEvents.special_char_shift_map[key]
+        elif key in self.num_shift:
+            return str(self.num_shift.index(key))
+        elif key in self.special_char_shift_map:
+            return self.special_char_shift_map[key]
         elif key.isalpha():
             return key.lower()
         else:
             raise ValueError(f"Key '{key}' is not accounted for")
-
-    @classmethod
-    def get_keyEvent(
-        cls,
-        key: Union[str, SpecialKeys],
-        event_type: KeyPressEvent,
-        modifiers: Union[KeyModifiers, int] = KeyModifiers.Default,
-    ) -> "KeyEvents":
-
-        if event_type == KeyPressEvent.CHAR and isinstance(key, str):
-            return cls(KeyEvents.Action.get_char_action(key), key, event_type)
-
-        key = cls.get_non_shifted(key)
-        return cls(
-            KeyEvents.Action.get_non_char_action(key, modifiers), key, event_type, modifiers
-        )
 
     def to_dict(self) -> List[Dict[str, Union[str, int]]]:
         """Convert the key event to a dictionary for CDP."""
