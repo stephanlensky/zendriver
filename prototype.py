@@ -1,7 +1,8 @@
 from enum import Enum, IntEnum, StrEnum
 from dataclasses import dataclass, asdict
 from typing import Union, Dict, Tuple, Optional, List
-
+import emoji
+import emoji.unicode_codes
 
 class KeyModifiers(IntEnum):
     """Enumeration of keyboard modifiers used in key events.
@@ -21,6 +22,7 @@ class KeyModifiers(IntEnum):
 class SpecialKeys(Enum):
     """Enumeration of special keys with their corresponding names and key codes."""
 
+    SPACE = (" ", 32)  # space key
     ENTER = ("Enter", 13)
     TAB = ("Tab", 9)
     BACKSPACE = ("Backspace", 8)
@@ -43,8 +45,7 @@ class KeyPressEvent(StrEnum):
     KEY_DOWN = "keyDown"
     KEY_UP = "keyUp"
     RAW_KEY_DOWN = "rawKeyDown"
-    
-    
+
     CHAR = "char"
     """Directly sends ASCII character to the element. Cannot send non-ASCII characters and commands (Ctrl+A, etc.)"""
     DOWN_AND_UP = "downAndUp"
@@ -113,10 +114,27 @@ class KeyEvents:
             key_press_event: The type of key press event to generate (Currently supported are `DOWN_AND_UP` and `CHAR`)
             modifiers: Modifier keys to be applied (can be combined with bitwise OR)
         """
-        self.key = self._normalise_key(key) # converted to non-shifted to avoid complex handling
+        if isinstance(key, str) and emoji.is_emoji(key):
+            key_press_event = KeyPressEvent.CHAR
+        
         self.key_press_event = key_press_event
         self.modifiers = modifiers
+        self.key = (
+            key if key_press_event == KeyPressEvent.CHAR else self._normalise_key(key)
+        )
+
         self.action: KeyEvents.Action = self._create_action()
+
+    def conv_to_str(self, specialKey_key: SpecialKeys) -> str:
+        if specialKey_key == SpecialKeys.SPACE:
+            return " "
+        elif specialKey_key == SpecialKeys.ENTER:
+            return "\n"
+        elif specialKey_key == SpecialKeys.TAB:
+            return "\t"
+        raise ValueError(
+            f"Cannot convert {specialKey_key} to string, only SPACE, ENTER and TAB are supported."
+        )
 
     def _create_action(self) -> "Action":
         """
@@ -129,8 +147,8 @@ class KeyEvents:
             ValueError: If key is invalid for CHAR event type
         """
         if self.key_press_event == KeyPressEvent.CHAR:
-            if not isinstance(self.key, str) or len(self.key) != 1:
-                raise ValueError("Key must be a single ASCII character for CHAR event.")
+            if isinstance(self.key, SpecialKeys):
+                self.key = self.conv_to_str(self.key)
             return KeyEvents.Action(self.key)
 
         return KeyEvents.Action.from_key_and_modifiers(self.key, self.modifiers)
@@ -150,14 +168,26 @@ class KeyEvents:
         """
         if isinstance(key, SpecialKeys):
             return key  # all the special keys dont have shifted variants
-        elif key in self.NUM_SHIFT:
+        
+        self.modifiers |= KeyModifiers.Shift  # apply shift modifier for non-special keys
+        
+        if key in self.NUM_SHIFT:
             return str(self.NUM_SHIFT.index(key))
         elif key in self.SPECIAL_CHAR_SHIFT_MAP:
             return self.SPECIAL_CHAR_SHIFT_MAP[key]
-        elif key.isalpha():
+        elif key.isalpha() and key.isupper():
             return key.lower()
-        else:
-            raise ValueError(f"Key '{key}' is not supported")
+
+        self.modifiers &= ~KeyModifiers.Shift  # remove shift modifier if not applicable        
+
+        if key in "\n\r":
+            return SpecialKeys.ENTER
+        elif key == "\t":
+            return SpecialKeys.TAB
+        elif key == " ":
+            return SpecialKeys.SPACE
+        
+        return key
 
     def to_cdp_events(self) -> List[Dict[str, Union[str, int]]]:
         """
@@ -406,7 +436,7 @@ class KeyEvents:
             # 1: Add modifier key down events
             current_modifiers = 0
             for modifier_key, modifier_flag in modifier_keys:
-                current_modifiers |= modifier_flag # done like this since all the keys are not pressed or processed at once
+                current_modifiers |= modifier_flag  # done like this since all the keys are not pressed or processed at once
                 modifier_action = KeyEvents.Action.from_key_and_modifiers(
                     modifier_key, current_modifiers
                 )
@@ -424,7 +454,9 @@ class KeyEvents:
 
             # 3: Add modifier key up events (in reverse order)
             for modifier_key, modifier_flag in modifier_keys:
-                current_modifiers &= ~modifier_flag # remove the modifier from current modifiers (the same idea)
+                current_modifiers &= (
+                    ~modifier_flag
+                )  # remove the modifier from current modifiers (the same idea)
                 modifier_action = KeyEvents.Action.from_key_and_modifiers(
                     modifier_key, current_modifiers
                 )
@@ -436,8 +468,13 @@ class KeyEvents:
 
             # 4: Add main key up (if itself is not a modifier key)
             if not is_modifier_key:
-                events.extend(
-                    self.to_basic_event(KeyPressEvent.KEY_UP, 0, str(original_key))
-                )
+                if isinstance(original_key, SpecialKeys):
+                    events.extend(
+                        self.to_basic_event(KeyPressEvent.KEY_UP, current_modifiers)
+                    )
+                else:
+                    events.extend(
+                        self.to_basic_event(KeyPressEvent.KEY_UP, 0, str(original_key))
+                    )
 
             return events
