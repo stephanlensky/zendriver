@@ -92,6 +92,7 @@ class KeyEvents:
         "}": "]",
         '"': "'",
     }
+    SPECIAL_CHAR_REVERSE_MAP = {v: k for k, v in SPECIAL_CHAR_SHIFT_MAP.items()}
 
     MODIFIER_KEYS = [
         SpecialKeys.SHIFT,
@@ -382,11 +383,7 @@ class KeyEvents:
         elif key.isdigit():
             shifted_key = KeyEvents.NUM_SHIFT[int(key)]
         else:
-            shifted_key = key
-            for shift_char, orig_char in KeyEvents.SPECIAL_CHAR_SHIFT_MAP.items():
-                if key == orig_char:
-                    shifted_key = shift_char
-                    break
+            shifted_key = self.SPECIAL_CHAR_REVERSE_MAP[key]
 
         return shifted_key, shifted_key
 

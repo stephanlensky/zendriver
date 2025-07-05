@@ -744,31 +744,17 @@ class Element:
         :return: None
         """
         await self.apply("(elem) => elem.focus()")
-        cluster_list = []
+        cluster_list: typing.List[KeyEvents.Payload]
         if isinstance(text, str):
-            cluster_list = grapheme.graphemes(text)
-        else:
             cluster_list = [
-                item
-                for single_req in text
-                for item in (
-                    grapheme.graphemes(single_req)
-                    if isinstance(single_req, str)
-                    else [single_req]
-                )
+                payload
+                for _grapheme in grapheme.graphemes(text)
+                if _grapheme is not None
+                for payload in KeyEvents(_grapheme).to_cdp_events(KeyPressEvent.CHAR)
             ]
 
         for cluster in cluster_list:
-            key_event = None
-            if isinstance(cluster, str):
-                key_event = KeyEvents(cluster, KeyPressEvent.CHAR)
-            elif isinstance(cluster, KeyEvents):
-                key_event = cluster
-            else:
-                continue
-
-            for single_key_event in key_event.to_cdp_events():
-                await self._tab.send(cdp.input_.dispatch_key_event(**single_key_event))
+            await self._tab.send(cdp.input_.dispatch_key_event(**cluster))
 
     async def send_file(self, *file_paths: PathLike):
         """
