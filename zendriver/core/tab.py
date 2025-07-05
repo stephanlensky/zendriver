@@ -342,6 +342,47 @@ class Tab(Connection):
             await self.sleep(0.5)
         return items
 
+    async def xpath(self, xpath: str, timeout: float = 2.5) -> List[Element]:  # noqa
+        """
+        find elements by xpath string.
+        if not immediately found, retries are attempted until :ref:`timeout` is reached (default 2.5 seconds).
+        in case nothing is found, it returns an empty list. It will not raise.
+        this timeout mechanism helps when relying on some element to appear before continuing your script.
+
+
+        .. code-block:: python
+
+             # find all the inline scripts (script elements without src attribute)
+             await tab.xpath('//script[not(@src)]')
+
+             # or here, more complex, but my personal favorite to case-insensitive text search
+
+             await tab.xpath('//text()[ contains( translate(., "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz"),"test")]')
+
+
+        :param xpath:
+        :type xpath: str
+        :param timeout: 2.5
+        :type timeout: float
+        :return:List[Element] or []
+        :rtype:
+        """
+        items: List[Element] = []
+        try:
+            await self.send(cdp.dom.enable(), True)
+            items = await self.find_all(xpath, timeout=0)
+            if not items:
+                loop = asyncio.get_running_loop()
+                start_time = loop.time()
+                while not items:
+                    items = await self.find_all(xpath, timeout=0)
+                    await self.sleep(0.1)
+                    if loop.time() - start_time > timeout:
+                        break
+        finally:
+            await self.disable_dom_agent()
+        return items
+
     async def get(
         self, url="about:blank", new_tab: bool = False, new_window: bool = False
     ):
@@ -511,18 +552,23 @@ class Tab(Connection):
 
         await self.send(cdp.dom.discard_search_results(search_id))
 
+        if not node_ids:
+            node_ids = []
         items = []
         for nid in node_ids:
             node = util.filter_recurse(doc, lambda n: n.node_id == nid)
             if not node:
-                node = await self.send(cdp.dom.resolve_node(node_id=nid))  # type: ignore
+                try:
+                    node = await self.send(cdp.dom.resolve_node(node_id=nid))  # type: ignore
+                except ProtocolException:
+                    continue
                 if not node:
                     continue
                 # remote_object = await self.send(cdp.dom.resolve_node(backend_node_id=node.backend_node_id))
                 # node_id = await self.send(cdp.dom.request_node(object_id=remote_object.object_id))
             try:
                 elem = element.create(node, self, doc)
-            except:  # noqa
+            except Exception:
                 continue
             if elem.node_type == 3:
                 # if found element is a text node (which is plain text, and useless for our purpose),
@@ -589,67 +635,7 @@ class Tab(Connection):
         :return:
         :rtype:
         """
-        doc = await self.send(cdp.dom.get_document(-1, True))
-        text = text.strip()
-        search_id, nresult = await self.send(cdp.dom.perform_search(text, True))
-
-        if nresult:
-            node_ids = await self.send(
-                cdp.dom.get_search_results(search_id, 0, nresult)
-            )
-        else:
-            node_ids = []
-        await self.send(cdp.dom.discard_search_results(search_id))
-
-        if not node_ids:
-            node_ids = []
-        items = []
-        for nid in node_ids:
-            node = util.filter_recurse(doc, lambda n: n.node_id == nid)
-            if node is None:
-                continue
-
-            try:
-                elem = element.create(node, self, doc)
-            except:  # noqa
-                continue
-            if elem.node_type == 3:
-                # if found element is a text node (which is plain text, and useless for our purpose),
-                # we return the parent element of the node (which is often a tag which can have text between their
-                # opening and closing tags (that is most tags, except for example "img" and "video", "br")
-
-                if not elem.parent:
-                    # check if parent actually has a parent and update it to be absolutely sure
-                    await elem.update()
-
-                items.append(
-                    elem.parent or elem
-                )  # when it really has no parent, use the text node itself
-                continue
-            else:
-                # just add the element itself
-                items.append(elem)
-
-        # since we already fetched the entire doc, including shadow and frames
-        # let's also search through the iframes
-        iframes = util.filter_recurse_all(doc, lambda node: node.node_name == "IFRAME")
-        if iframes:
-            iframes_elems = [
-                element.create(iframe, self, iframe.content_document)
-                for iframe in iframes
-            ]
-            for iframe_elem in iframes_elems:
-                iframe_text_nodes = util.filter_recurse_all(
-                    iframe_elem,
-                    lambda node: node.node_type == 3  # noqa
-                    and text.lower() in node.node_value.lower(),
-                )
-                if iframe_text_nodes:
-                    iframe_text_elems = [
-                        element.create(text_node, self, iframe_elem.tree)
-                        for text_node in iframe_text_nodes
-                    ]
-                    items.extend(text_node.parent for text_node in iframe_text_elems)
+        items = await self.find_elements_by_text(text)
         try:
             if not items:
                 return None
@@ -666,7 +652,7 @@ class Tab(Connection):
                     if elem:
                         return elem
         finally:
-            await self.disable_dom_agent()
+            pass
 
         return None
 
