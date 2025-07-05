@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Fixed `lang` parameter never being set in `Browser.start` @nathanfallet
+
 ### Added
 
 ### Changed
