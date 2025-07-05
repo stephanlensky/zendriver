@@ -3,6 +3,8 @@ from dataclasses import dataclass, asdict
 from typing import Union, Dict, Tuple, Optional, List
 import emoji
 import emoji.unicode_codes
+import time
+import random
 
 class KeyModifiers(IntEnum):
     """Enumeration of keyboard modifiers used in key events.
@@ -93,6 +95,8 @@ class KeyEvents:
         '"': "'",
     }
 
+    SPECIAL_CHAR_REVERSE_MAP = {v: k for k, v in SPECIAL_CHAR_SHIFT_MAP.items()}
+
     MODIFIER_KEYS = [
         SpecialKeys.SHIFT,
         SpecialKeys.ALT,
@@ -104,7 +108,7 @@ class KeyEvents:
         self,
         key: Union[str, SpecialKeys],
         key_press_event: KeyPressEvent,
-        modifiers: Union[KeyModifiers, int] = KeyModifiers.Default,
+        modifiers: Union[KeyModifiers, int] = KeyModifiers.Default, timing_ms: int=0
     ):
         """
         Initialize a KeyEvents instance.
@@ -124,6 +128,7 @@ class KeyEvents:
         )
 
         self.action: KeyEvents.Action = self._create_action()
+        self.timing_ms = timing_ms
 
     def conv_to_str(self, specialKey_key: SpecialKeys) -> str:
         if specialKey_key == SpecialKeys.SPACE:
@@ -200,6 +205,19 @@ class KeyEvents:
             return self.action.to_basic_event(self.key_press_event, self.modifiers)
 
         return self.action.to_down_up_sequence(self.key, self.modifiers)
+    
+    def to_cdp_events_with_timing(self):
+        """Return events with timing for realistic typing"""
+        events = self.to_cdp_events()
+        if self.timing_ms > 0:
+            for i, event in enumerate(events):
+                event['timestamp'] = time.time() + (i * self.timing_ms / 1000)
+        return events
+
+    def add_human_variation(self):
+        """Add slight random variations to appear more human"""
+        if self.timing_ms > 0:
+            self.timing_ms = max(0, self.timing_ms + random.randint(-10, 10))
 
     @staticmethod
     def get_key_code_info(key: Union[str, SpecialKeys]) -> Tuple[str, int]:
@@ -358,11 +376,7 @@ class KeyEvents:
             elif key.isdigit():
                 shifted_key = KeyEvents.NUM_SHIFT[int(key)]
             else:
-                shifted_key = key
-                for shift_char, orig_char in KeyEvents.SPECIAL_CHAR_SHIFT_MAP.items():
-                    if key == orig_char:
-                        shifted_key = shift_char
-                        break
+                shifted_key = KeyEvents.SPECIAL_CHAR_REVERSE_MAP.get(key, key)
 
             return shifted_key, shifted_key, code, key_code, key_code
 
