@@ -82,18 +82,6 @@ class Browser:
         entry point for creating an instance
         """
         if not config:
-            if headless and not user_agent:
-                import latest_user_agents
-                import random
-
-                # Get a random up-to-date Chrome user agent string.
-                chrome_user_agents = [
-                    ua
-                    for ua in latest_user_agents.get_latest_user_agents()
-                    if "Chrome" in ua and "Edg" not in ua
-                ]
-                user_agent = random.choice(chrome_user_agents)
-
             config = Config(
                 user_data_dir=user_data_dir,
                 headless=headless,
