@@ -36,7 +36,7 @@ class Config:
         browser_executable_path: Optional[PathLike] = AUTO,
         browser_args: Optional[List[str]] = AUTO,
         sandbox: Optional[bool] = True,
-        lang: Optional[str] = "en-US",
+        lang: Optional[str] = None,
         host: str | None = AUTO,
         port: int | None = AUTO,
         expert: bool | None = AUTO,
