@@ -15,7 +15,7 @@ from .. import cdp
 from . import util
 from ._contradict import ContraDict
 from .config import PathLike
-from .keys import KeyEvents, KeyPressEvent, KeyModifiers
+from .keys import KeyEvents, KeyPressEvent
 
 logger = logging.getLogger(__name__)
 
@@ -728,7 +728,7 @@ class Element:
             await_promise=True,
         )
 
-    async def send_keys(self, text: typing.Union[str, typing.List[typing.Union[str, KeyEvents]]], special_characters: bool = False):
+    async def send_keys(self, text: typing.Union[str, typing.List[KeyEvents.Payload]]):
         """
         send text to an input field, or any other html element.
 
@@ -746,13 +746,18 @@ class Element:
         await self.apply("(elem) => elem.focus()")
         cluster_list = []
         if isinstance(text, str):
-            cluster_list  = grapheme.graphemes(text)
+            cluster_list = grapheme.graphemes(text)
         else:
-            cluster_list = [item 
-                for single_req in text 
-                for item in (grapheme.graphemes(single_req) if isinstance(single_req, str) 
-                             else [single_req])]
-        
+            cluster_list = [
+                item
+                for single_req in text
+                for item in (
+                    grapheme.graphemes(single_req)
+                    if isinstance(single_req, str)
+                    else [single_req]
+                )
+            ]
+
         for cluster in cluster_list:
             key_event = None
             if isinstance(cluster, str):
@@ -761,14 +766,9 @@ class Element:
                 key_event = cluster
             else:
                 continue
-            
+
             for single_key_event in key_event.to_cdp_events():
-                await self._tab.send(
-                    cdp.input_.dispatch_key_event(
-                        **single_key_event # type: ignore
-                    )
-                )
-            
+                await self._tab.send(cdp.input_.dispatch_key_event(**single_key_event))
 
     async def send_file(self, *file_paths: PathLike):
         """

@@ -1,7 +1,8 @@
 from enum import Enum, IntEnum, StrEnum
-from dataclasses import dataclass, asdict
 import emoji
-from typing import Union, List, Dict, Tuple, Optional
+from typing import Union, List, Tuple, Optional
+from typing_extensions import TypedDict
+
 
 class KeyModifiers(IntEnum):
     """Enumeration of keyboard modifiers used in key events.
@@ -24,6 +25,7 @@ class SpecialKeys(Enum):
     SPACE = (" ", 32)  # space key
     ENTER = ("Enter", 13)
     TAB = ("Tab", 9)
+
     BACKSPACE = ("Backspace", 8)
     ESCAPE = ("Escape", 27)
     DELETE = ("Delete", 46)
@@ -31,7 +33,6 @@ class SpecialKeys(Enum):
     ARROW_UP = ("ArrowUp", 38)
     ARROW_RIGHT = ("ArrowRight", 39)
     ARROW_DOWN = ("ArrowDown", 40)
-
     SHIFT = ("Shift", 16)  # internal use only
     ALT = ("Alt", 18)  # internal use only
     CTRL = ("Control", 17)  # internal use only
@@ -99,12 +100,22 @@ class KeyEvents:
         SpecialKeys.META,
     ]
 
-    def __init__(
-        self,
-        key: Union[str, SpecialKeys],
-        key_press_event: KeyPressEvent,
-        modifiers: Union[KeyModifiers, int] = KeyModifiers.Default,
-    ):
+    SPECIAL_KEY_CHAR_MAP = {
+        SpecialKeys.SPACE: " ",
+        SpecialKeys.ENTER: "\n",
+        SpecialKeys.TAB: "\t",
+    }
+
+    class Payload(TypedDict):
+        type_: str
+        modifiers: int
+        text: Optional[str]
+        key: Optional[str]
+        code: Optional[str]
+        windows_virtual_key_code: Optional[int]
+        native_virtual_key_code: Optional[int]
+
+    def __init__(self, key: Union[str, SpecialKeys]):
         """
         Initialize a KeyEvents instance.
 
@@ -113,16 +124,15 @@ class KeyEvents:
             key_press_event: The type of key press event to generate (Currently supported are `DOWN_AND_UP` and `CHAR`)
             modifiers: Modifier keys to be applied (can be combined with bitwise OR)
         """
-        if isinstance(key, str) and emoji.is_emoji(key):
-            key_press_event = KeyPressEvent.CHAR
-        
-        self.key_press_event = key_press_event
-        self.modifiers = modifiers
-        self.key = (
-            key if key_press_event == KeyPressEvent.CHAR else self._normalise_key(key)
-        )
 
-        self.action: KeyEvents.Action = self._create_action()
+        # modifiers = modifiers
+        self.key = key
+
+        self.code, self.keyCode = (
+            self._handle_string_key_lookup(self.key)
+            if isinstance(self.key, str)
+            else self._handle_special_key_lookup(self.key)
+        )
 
     def conv_to_str(self, specialKey_key: SpecialKeys) -> str:
         if specialKey_key == SpecialKeys.SPACE:
@@ -135,7 +145,9 @@ class KeyEvents:
             f"Cannot convert {specialKey_key} to string, only SPACE, ENTER and TAB are supported."
         )
 
-    def _create_action(self) -> "Action":
+    def _get_key_and_text(
+        self, key_press_event: KeyPressEvent, modifiers: Union[KeyModifiers, int]
+    ) -> Tuple[str, Optional[str]]:
         """
         Create the appropriate action for this key event.
 
@@ -145,14 +157,16 @@ class KeyEvents:
         Raises:
             ValueError: If key is invalid for CHAR event type
         """
-        if self.key_press_event == KeyPressEvent.CHAR:
+        if key_press_event == KeyPressEvent.CHAR:
             if isinstance(self.key, SpecialKeys):
                 self.key = self.conv_to_str(self.key)
-            return KeyEvents.Action(self.key)
+            return self.key, self.key
 
-        return KeyEvents.Action.from_key_and_modifiers(self.key, self.modifiers)
+        return self._build_action_data(modifiers)
 
-    def _normalise_key(self, key: Union[str, SpecialKeys]) -> Union[str, SpecialKeys]:
+    def _normalise_key(
+        self, key: Union[str, SpecialKeys], modifiers: Union[KeyModifiers, int]
+    ) -> Tuple[Union[str, SpecialKeys], Union[KeyModifiers, int]]:
         """
         Convert a shifted key to its non-shifted equivalent.
 
@@ -165,61 +179,107 @@ class KeyEvents:
         Raises:
             ValueError: If the key is not recognized or supported
         """
+        lowercase_key: Optional[str] = None
         if isinstance(key, SpecialKeys):
-            return key  # all the special keys dont have shifted variants
-        
-        self.modifiers |= KeyModifiers.Shift  # apply shift modifier for non-special keys
-        
+            return key, modifiers  # all the special keys dont have shifted variants
+
         if key in self.NUM_SHIFT:
-            return str(self.NUM_SHIFT.index(key))
+            modifiers |= KeyModifiers.Shift
+            lowercase_key = str(self.NUM_SHIFT.index(key))
         elif key in self.SPECIAL_CHAR_SHIFT_MAP:
-            return self.SPECIAL_CHAR_SHIFT_MAP[key]
+            modifiers |= KeyModifiers.Shift
+            lowercase_key = self.SPECIAL_CHAR_SHIFT_MAP[key]
         elif key.isalpha() and key.isupper():
-            return key.lower()
-
-        self.modifiers &= ~KeyModifiers.Shift  # remove shift modifier if not applicable        
-
-        if key in "\n\r":
-            return SpecialKeys.ENTER
+            modifiers |= KeyModifiers.Shift
+            lowercase_key = key.lower()
+        elif key in "\n\r":
+            return SpecialKeys.ENTER, modifiers
         elif key == "\t":
-            return SpecialKeys.TAB
+            return SpecialKeys.TAB, modifiers
         elif key == " ":
-            return SpecialKeys.SPACE
-        
-        return key
+            return SpecialKeys.SPACE, modifiers
 
-    def to_cdp_events(self) -> List[Dict[str, Union[str, int]]]:
+        if (
+            modifiers != KeyModifiers.Default | KeyModifiers.Shift
+            and lowercase_key is not None
+        ):
+            raise ValueError(
+                f"Key '{key}' is not supported with modifiers {modifiers}."
+            )
+
+        if lowercase_key is None:
+            return key, modifiers
+
+        modifiers |= KeyModifiers.Shift
+        return lowercase_key, modifiers
+
+    def _to_basic_event(
+        self,
+        key_press_event: KeyPressEvent,
+        modifiers: Union[KeyModifiers, int] = KeyModifiers.Default,
+    ):
+        key, text = self._get_key_and_text(key_press_event, modifiers)
+        if key_press_event == KeyPressEvent.CHAR:
+            if text is None:
+                raise ValueError(
+                    f"Key '{self.key}' is not supported for CHAR event type. Only single ASCII characters are allowed."
+                )
+            return self.Payload(
+                type_=key_press_event.value,
+                modifiers=modifiers,
+                text=text,
+                key=None,
+                code=None,
+                windows_virtual_key_code=None,
+                native_virtual_key_code=None,
+            )
+
+        return self.Payload(
+            type_=key_press_event.value,
+            modifiers=modifiers,
+            text=text,
+            key=key,
+            code=self.code,
+            windows_virtual_key_code=self.keyCode,
+            native_virtual_key_code=self.keyCode,
+        )
+
+    def to_cdp_events(
+        self,
+        key_press_event: KeyPressEvent,
+        modifiers: Union[KeyModifiers, int] = KeyModifiers.Default,
+    ) -> List["KeyEvents.Payload"]:
         """
         Convert the key event to CDP format.
 
         Returns:
-            List of dictionaries containing CDP payload
+            List of dictionaries containing CDP `payload`
         """
-        if self.key_press_event != KeyPressEvent.DOWN_AND_UP:
-            return self.action.to_basic_event(self.key_press_event, self.modifiers)
+        if isinstance(self.key, str) and emoji.is_emoji(self.key):
+            key_press_event = KeyPressEvent.CHAR
 
-        return self.action.to_down_up_sequence(self.key, self.modifiers)
+        match key_press_event:
+            case (
+                KeyPressEvent.KEY_DOWN
+                | KeyPressEvent.RAW_KEY_DOWN
+                | KeyPressEvent.KEY_UP
+            ):
+                raise ValueError(
+                    "Not supported by itself, use CHAR or DOWN_AND_UP instead."
+                )
+            case KeyPressEvent.CHAR:
+                if not isinstance(self.key, str) or len(self.key) != 1:
+                    raise ValueError(
+                        f"Key '{self.key}' is not supported for CHAR event type. Only single ASCII characters are allowed."
+                    )
+                return [self._to_basic_event(key_press_event)]
+            case KeyPressEvent.DOWN_AND_UP:
+                self.key, modifiers = self._normalise_key(self.key, modifiers)
+                return self.to_down_up_sequence(modifiers)
+            case _:
+                raise ValueError(f"Unsupported key press event type: {key_press_event}")
 
-    @staticmethod
-    def get_key_code_info(key: Union[str, SpecialKeys]) -> Tuple[str, int]:
-        """
-        Get the `code` and `keyCode` for a given key.
-
-        Args:
-            key: The key to look up (single character string or SpecialKeys enum)
-
-        Returns:
-            Tuple containing (`code`, `keyCode`) for the key
-
-        Raises:
-            ValueError: If the key is not supported or invalid
-        """
-        if isinstance(key, str):
-            return KeyEvents._handle_string_key_lookup(key)
-        return KeyEvents._handle_special_key_lookup(key)
-
-    @staticmethod
-    def _handle_string_key_lookup(key: str) -> Tuple[str, int]:
+    def _handle_string_key_lookup(self, key: str) -> Tuple[str, int]:
         """Handle string key lookup logic."""
         if len(key) != 1:
             raise ValueError("Key must be a single ASCII character.")
@@ -244,16 +304,14 @@ class KeyEvents:
 
         raise ValueError(f"Unsupported key: '{key}'")
 
-    @staticmethod
-    def _handle_special_key_lookup(key: SpecialKeys) -> Tuple[str, int]:
+    def _handle_special_key_lookup(self, key: SpecialKeys) -> Tuple[str, int]:
         """Handle special key lookup logic."""
         if key in KeyEvents.MODIFIER_KEYS:
             return f"{key.value[0]}Left", key.value[1]
         return key.value
 
-    @staticmethod
-    def _extract_modifier_keys(
-        modifiers: Union[KeyModifiers, int],
+    def _decompose_modifiers(
+        self, modifiers: Union[KeyModifiers, int]
     ) -> List[Tuple[SpecialKeys, KeyModifiers]]:
         """
         Extract individual modifier keys from a modifier bitmask.
@@ -282,198 +340,114 @@ class KeyEvents:
 
         return modifier_keys
 
-    @dataclass
-    class Action:
+    def _build_action_data(
+        self, modifiers: Union[KeyModifiers, int]
+    ) -> Tuple[str, Optional[str]]:
         """
-        Represents a key action with all necessary properties for CDP.
+        Build the data needed for a key press action.
 
-        This dataclass encapsulates all the information needed to send
-        a key event through the Chrome DevTools Protocol.
+        Args:
+            key: The key to process
+            modifiers: Modifier keys to apply
+
+        Returns:
+            Tuple containing (text, key, code, windowsVirtualKeyCode, nativeVirtualKeyCode)
         """
 
-        text: str
-        key: Optional[str] = None
-        code: Optional[str] = None
-        windows_virtual_key_code: Optional[int] = None
-        native_virtual_key_code: Optional[int] = None
+        # Handle printable characters with potential shift modifier
+        if isinstance(self.key, str):
+            return self._handle_printable_char(self.key, modifiers)
 
-        @classmethod
-        def from_key_and_modifiers(
-            cls, key: Union[str, SpecialKeys], modifiers: Union[KeyModifiers, int]
-        ) -> "KeyEvents.Action":
-            """
-            Create an Action instance from a key and modifiers.
+        # Handle modifier keys
+        if self.key in KeyEvents.SPECIAL_KEY_CHAR_MAP:
+            # Special keys that are not modifiers
+            return (
+                self.SPECIAL_KEY_CHAR_MAP[self.key],
+                self.SPECIAL_KEY_CHAR_MAP[self.key],
+            )
 
-            Args:
-                key: The key to create an action for
-                modifiers: Modifier keys to apply
+        # Handle other special keys
+        return self.key.value[0], None
 
-            Returns:
-                Action instance with appropriate properties set
-            """
-            return cls(*cls._build_action_data(key, modifiers))
+    def _handle_printable_char(
+        self, key: str, modifiers: Union[KeyModifiers, int]
+    ) -> Tuple[str, str]:
+        """Handle printable character with potential shift modifier."""
+        if modifiers != KeyModifiers.Shift:
+            return key, key
 
-        @staticmethod
-        def _build_action_data(
-            key: Union[str, SpecialKeys], modifiers: Union[KeyModifiers, int]
-        ) -> Tuple[str, str, str, int, int]:
-            """
-            Build the data needed for a key press action.
+        # Apply shift transformation
+        if key.isalpha():
+            shifted_key = key.upper()
+        elif key.isdigit():
+            shifted_key = KeyEvents.NUM_SHIFT[int(key)]
+        else:
+            shifted_key = key
+            for shift_char, orig_char in KeyEvents.SPECIAL_CHAR_SHIFT_MAP.items():
+                if key == orig_char:
+                    shifted_key = shift_char
+                    break
 
-            Args:
-                key: The key to process
-                modifiers: Modifier keys to apply
+        return shifted_key, shifted_key
 
-            Returns:
-                Tuple containing (text, key, code, windowsVirtualKeyCode, nativeVirtualKeyCode)
-            """
-            code, key_code = KeyEvents.get_key_code_info(key)
+    def to_down_up_sequence(
+        self, modifiers: Union[KeyModifiers, int]
+    ) -> List["KeyEvents.Payload"]:
+        """
+        Create a complete key down/up sequence with modifiers.
 
-            # Handle printable characters with potential shift modifier
-            if isinstance(key, str) and key not in "\n\r\t":
-                return KeyEvents.Action._handle_printable_char(
-                    key, modifiers, code, key_code
-                )
+        This method generates a sequence of key events that properly handles
+        modifier keys by sending modifier key down events before the main key,
+        and modifier key up events after the main key.
 
-            # Handle modifier keys
-            if isinstance(key, SpecialKeys) and key in KeyEvents.MODIFIER_KEYS:
-                key_name = key.value[0]
-                return key_name, key_name, code, key_code, key_code
+        Args:
+            original_key: The original key that was requested
+            modifiers: Modifier keys to apply
 
-            # Handle other special keys
-            return code, code, code, key_code, key_code
+        Returns:
+            List of dictionaries containing the complete key event sequence
 
-        @staticmethod
-        def _handle_printable_char(
-            key: str, modifiers: Union[KeyModifiers, int], code: str, key_code: int
-        ) -> Tuple[str, str, str, int, int]:
-            """Handle printable character with potential shift modifier."""
-            if modifiers != KeyModifiers.Shift:
-                return key, key, code, key_code, key_code
+        Raises:
+            ValueError: If the action doesn't have all required properties
+        """
+        # Validate that all required properties are set
+        events: List[KeyEvents.Payload] = []
+        modifier_events = [
+            (KeyEvents(key), _modifier)
+            for key, _modifier in self._decompose_modifiers(modifiers)
+        ]
+        is_modifier_key = any(key.key == self.key for key, _ in modifier_events)
 
-            # Apply shift transformation
-            if key.isalpha():
-                shifted_key = key.upper()
-            elif key.isdigit():
-                shifted_key = KeyEvents.NUM_SHIFT[int(key)]
-            else:
-                shifted_key = key
-                for shift_char, orig_char in KeyEvents.SPECIAL_CHAR_SHIFT_MAP.items():
-                    if key == orig_char:
-                        shifted_key = shift_char
-                        break
+        # 1: Add modifier key down events
+        current_modifiers = 0
+        for modifier_key, modifier_flag in modifier_events:
+            current_modifiers |= modifier_flag  # done like this since all the keys are not pressed or processed at once
+            modifier_payload = modifier_key._to_basic_event(
+                KeyPressEvent.KEY_DOWN, current_modifiers
+            )
+            events.append(modifier_payload)
 
-            return shifted_key, shifted_key, code, key_code, key_code
+        # 2: Add main key down (if itself is not a modifier key)
+        if not is_modifier_key:
+            events.append(
+                self._to_basic_event(KeyPressEvent.KEY_DOWN, current_modifiers)
+            )
 
-        def to_basic_event(
-            self,
-            key_press_event: KeyPressEvent,
-            modifiers: Union[KeyModifiers, int],
-            key_override: Optional[str] = None,
-        ) -> List[Dict[str, Union[str, int]]]:
-            """
-            Convert the action to a basic CDP event.
+        # 3: Add modifier key up events (in reverse order)
+        for modifier_key, modifier_flag in modifier_events:
+            current_modifiers &= (
+                ~modifier_flag
+            )  # remove the modifier from current modifiers (the same idea)
+            modifier_payload = modifier_key._to_basic_event(
+                KeyPressEvent.KEY_UP, current_modifiers
+            )
+            events.append(modifier_payload)
 
-            Args:
-                key_press_event: The type of key press event
-                modifiers: Modifier keys to apply
-                key_override: Optional key override for the event
+        # 4: Add main key up (if itself is not a modifier key)
+        if not is_modifier_key:
+            events.append(self._to_basic_event(KeyPressEvent.KEY_UP, current_modifiers))
 
-            Returns:
-                List containing a single dictionary with CDP event data
-            """
-            event_dict = asdict(self)
-            event_dict["type_"] = key_press_event.value
-            event_dict["modifiers"] = modifiers
+        return events
 
-            if key_override:
-                event_dict["key"] = key_override
-                event_dict["text"] = key_override
-
-            return [event_dict]
-
-        def to_down_up_sequence(
-            self,
-            original_key: Union[str, SpecialKeys],
-            modifiers: Union[KeyModifiers, int],
-        ) -> List[Dict[str, Union[str, int]]]:
-            """
-            Create a complete key down/up sequence with modifiers.
-
-            This method generates a sequence of key events that properly handles
-            modifier keys by sending modifier key down events before the main key,
-            and modifier key up events after the main key.
-
-            Args:
-                original_key: The original key that was requested
-                modifiers: Modifier keys to apply
-
-            Returns:
-                List of dictionaries containing the complete key event sequence
-
-            Raises:
-                ValueError: If the action doesn't have all required properties
-            """
-            # Validate that all required properties are set
-            if not all(
-                [
-                    self.key,
-                    self.code,
-                    self.windows_virtual_key_code,
-                    self.native_virtual_key_code,
-                ]
-            ):
-                raise ValueError(
-                    "Action must have all properties set for DOWN_AND_UP event."
-                )
-
-            events = []
-            modifier_keys = KeyEvents._extract_modifier_keys(modifiers)
-            modifier_key_names = [key.value[0] for key, _ in modifier_keys]
-            is_modifier_key = self.key in modifier_key_names
-
-            # 1: Add modifier key down events
-            current_modifiers = 0
-            for modifier_key, modifier_flag in modifier_keys:
-                current_modifiers |= modifier_flag  # done like this since all the keys are not pressed or processed at once
-                modifier_action = KeyEvents.Action.from_key_and_modifiers(
-                    modifier_key, current_modifiers
-                )
-                events.extend(
-                    modifier_action.to_basic_event(
-                        KeyPressEvent.KEY_DOWN, current_modifiers
-                    )
-                )
-
-            # 2: Add main key down (if itself is not a modifier key)
-            if not is_modifier_key:
-                events.extend(
-                    self.to_basic_event(KeyPressEvent.KEY_DOWN, current_modifiers)
-                )
-
-            # 3: Add modifier key up events (in reverse order)
-            for modifier_key, modifier_flag in modifier_keys:
-                current_modifiers &= (
-                    ~modifier_flag
-                )  # remove the modifier from current modifiers (the same idea)
-                modifier_action = KeyEvents.Action.from_key_and_modifiers(
-                    modifier_key, current_modifiers
-                )
-                events.extend(
-                    modifier_action.to_basic_event(
-                        KeyPressEvent.KEY_UP, current_modifiers
-                    )
-                )
-
-            # 4: Add main key up (if itself is not a modifier key)
-            if not is_modifier_key:
-                if isinstance(original_key, SpecialKeys):
-                    events.extend(
-                        self.to_basic_event(KeyPressEvent.KEY_UP, current_modifiers)
-                    )
-                else:
-                    events.extend(
-                        self.to_basic_event(KeyPressEvent.KEY_UP, 0, str(original_key))
-                    )
-
-            return events
+    # @classmethod
+    # def from_string(cls, text:str) -> List["KeyEvents"]:

@@ -11,6 +11,7 @@ from zendriver.core.connection import Connection
 from zendriver.core.element import Element
 from zendriver.core.tab import Tab
 from zendriver.core.util import loop, start
+from zendriver.core.keys import KeyEvents, SpecialKeys, KeyPressEvent, KeyModifiers
 
 __all__ = [
     "__version__",
@@ -25,4 +26,8 @@ __all__ = [
     "ContraDict",
     "cdict",
     "Connection",
+    "KeyEvents",
+    "SpecialKeys",
+    "KeyPressEvent",
+    "KeyModifiers",
 ]
