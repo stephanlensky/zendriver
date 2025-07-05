@@ -33,6 +33,7 @@ class Config:
         self,
         user_data_dir: Optional[PathLike] = AUTO,
         headless: Optional[bool] = False,
+        user_agent: Optional[str] = None,
         browser_executable_path: Optional[PathLike] = AUTO,
         browser_args: Optional[List[str]] = AUTO,
         sandbox: Optional[bool] = True,
@@ -62,6 +63,7 @@ class Config:
         :param sandbox: disables sandbox
         :param autodiscover_targets: use autodiscovery of targets
         :param lang: language string to use other than the default "en-US,en;q=0.9"
+        :param user_agent: custom user-agent string
         :param expert: when set to True, enabled "expert" mode.
                This conveys, the inclusion of parameters: --disable-web-security ----disable-site-isolation-trials,
                as well as some scripts and patching useful for debugging (for example, ensuring shadow-root is always in "open" mode)
@@ -74,6 +76,7 @@ class Config:
         :type browser_args: list[str]
         :type sandbox: bool
         :type lang: str
+        :type user_agent: str
         :type kwargs: dict
         """
 
@@ -91,9 +94,9 @@ class Config:
             browser_executable_path = find_chrome_executable()
 
         self._browser_args = browser_args
-
         self.browser_executable_path = browser_executable_path
         self.headless = headless
+        self.user_agent = user_agent
         self.sandbox = sandbox
         self.host = host
         self.port = port
@@ -210,6 +213,8 @@ class Config:
             args.extend([arg for arg in self._browser_args if arg not in args])
         if self.headless:
             args.append("--headless=new")
+        if self.user_agent:
+            args.append(f"--user-agent={self.user_agent}")
         if not self.sandbox:
             args.append("--no-sandbox")
         if self.host:

@@ -21,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Refactor element waiting loops in `find_*` and `select*` methods. @H1steria
 - Improve `query_selector` error handling to consistently return `None` when a node is not found. @H1steria
+- add user agent option and auto-generate for headless to bypass cloudflare javascript challenge. @H1steria
 
 ### Added
 

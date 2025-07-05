@@ -70,6 +70,7 @@ class Browser:
         *,
         user_data_dir: PathLike | None = None,
         headless: bool = False,
+        user_agent: str | None = None,
         browser_executable_path: PathLike | None = None,
         browser_args: List[str] | None = None,
         sandbox: bool = True,
@@ -81,9 +82,22 @@ class Browser:
         entry point for creating an instance
         """
         if not config:
+            if headless and not user_agent:
+                import latest_user_agents
+                import random
+
+                # Get a random up-to-date Chrome user agent string.
+                chrome_user_agents = [
+                    ua
+                    for ua in latest_user_agents.get_latest_user_agents()
+                    if "Chrome" in ua and "Edg" not in ua
+                ]
+                user_agent = random.choice(chrome_user_agents)
+
             config = Config(
                 user_data_dir=user_data_dir,
                 headless=headless,
+                user_agent=user_agent,
                 browser_executable_path=browser_executable_path,
                 browser_args=browser_args or [],
                 sandbox=sandbox,
