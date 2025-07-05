@@ -73,6 +73,7 @@ class Browser:
         browser_executable_path: PathLike | None = None,
         browser_args: List[str] | None = None,
         sandbox: bool = True,
+        lang: str | None = None,
         host: str | None = None,
         port: int | None = None,
         **kwargs,
@@ -87,6 +88,7 @@ class Browser:
                 browser_executable_path=browser_executable_path,
                 browser_args=browser_args or [],
                 sandbox=sandbox,
+                lang=lang,
                 host=host,
                 port=port,
                 **kwargs,
@@ -346,6 +348,9 @@ class Browser:
                 "--load-extension=%s"
                 % ",".join(str(_) for _ in self.config._extensions)
             )  # noqa
+
+        if self.config.lang is not None:
+            self.config.add_argument(f"--lang={self.config.lang}")
 
         exe = self.config.browser_executable_path
         params = self.config()
