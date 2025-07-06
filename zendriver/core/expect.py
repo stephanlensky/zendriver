@@ -60,6 +60,7 @@ class BaseRequestExpectation:
         :type event: cdp.network.LoadingFinished
         """
         if event.request_id == self.request_id:
+            self._remove_loading_finished_handler()
             self.loading_finished_future.set_result(event)
 
     def _remove_request_handler(self):
