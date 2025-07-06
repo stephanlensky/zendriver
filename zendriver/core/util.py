@@ -172,8 +172,8 @@ def filter_recurse_all(
 
 
 def filter_recurse(
-    doc: T, predicate: Union[Callable[[cdp.dom.Node], bool], Callable[[Element], bool]]
-) -> T | None:
+    doc: cdp.dom.Node, predicate: Callable[[cdp.dom.Node], bool]
+) -> cdp.dom.Node | None:
     """
     test each child using predicate(child), and return the first child of which predicate(child) == True
 

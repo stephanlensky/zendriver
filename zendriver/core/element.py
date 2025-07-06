@@ -245,8 +245,12 @@ class Element:
     async def remove_from_dom(self):
         """removes the element from dom"""
         await self.update()  # ensure we have latest node_id
+        if not self.tree:
+            raise RuntimeError(
+                "could not remove from dom since the element has no tree set"
+            )
         node = util.filter_recurse(
-            self._tree, lambda node: node.backend_node_id == self.backend_node_id
+            self.tree, lambda node: node.backend_node_id == self.backend_node_id
         )
         if node:
             await self.tab.send(cdp.dom.remove_node(node.node_id))
