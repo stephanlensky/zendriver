@@ -227,20 +227,19 @@ class Tab(Connection):
 
         text = text.strip()
 
-        item = await self.find_element_by_text(
-            text, best_match, return_enclosing_element
-        )
-        while not item:
-            await self.wait()
+        while True:
             item = await self.find_element_by_text(
                 text, best_match, return_enclosing_element
             )
+            if item:
+                return item
+
             if loop.time() - start_time > timeout:
                 raise asyncio.TimeoutError(
-                    "time ran out while waiting for text: %s" % text
+                    f"Timeout ({timeout}s) waiting for element with text: '{text}'"
                 )
+
             await self.sleep(0.5)
-        return item
 
     async def select(
         self,
@@ -262,17 +261,21 @@ class Tab(Connection):
         start_time = loop.time()
 
         selector = selector.strip()
-        item = await self.query_selector(selector)
 
-        while not item:
-            await self.wait()
+        while True:
             item = await self.query_selector(selector)
+            if isinstance(item, list):
+                if item:
+                    return item[0]
+            elif item:
+                return item
+
             if loop.time() - start_time > timeout:
                 raise asyncio.TimeoutError(
-                    "time ran out while waiting for: %s" % selector
+                    f"Timeout ({timeout}s) waiting for element with selector: '{selector}'"
                 )
+
             await self.sleep(0.5)
-        return item
 
     async def find_all(
         self,
@@ -293,17 +296,18 @@ class Tab(Connection):
         now = loop.time()
 
         text = text.strip()
-        items = await self.find_elements_by_text(text)
 
-        while not items:
-            await self.wait()
+        while True:
             items = await self.find_elements_by_text(text)
+            if items:
+                return items
+
             if loop.time() - now > timeout:
                 raise asyncio.TimeoutError(
-                    "time ran out while waiting for text: %s" % text
+                    f"Timeout ({timeout}s) waiting for any element with text: '{text}'"
                 )
+
             await self.sleep(0.5)
-        return items
 
     async def select_all(
         self, selector: str, timeout: Union[int, float] = 10, include_frames=False
@@ -324,22 +328,65 @@ class Tab(Connection):
         loop = asyncio.get_running_loop()
         now = loop.time()
         selector = selector.strip()
-        items = []
-        if include_frames:
-            frames = await self.query_selector_all("iframe")
-            # unfortunately, asyncio.gather here is not an option
-            for fr in frames:
-                items.extend(await fr.query_selector_all(selector))
 
-        items.extend(await self.query_selector_all(selector))
-        while not items:
-            await self.wait()
-            items = await self.query_selector_all(selector)
+        while True:
+            items = []
+            if include_frames:
+                frames = await self.query_selector_all("iframe")
+                for fr in frames:
+                    items.extend(await fr.query_selector_all(selector))
+
+            items.extend(await self.query_selector_all(selector))
+
+            if items:
+                return items
+
             if loop.time() - now > timeout:
                 raise asyncio.TimeoutError(
-                    "time ran out while waiting for: %s" % selector
+                    f"Timeout ({timeout}s) waiting for any element with selector: '{selector}'"
                 )
+
             await self.sleep(0.5)
+
+    async def xpath(self, xpath: str, timeout: float = 2.5) -> List[Element]:  # noqa
+        """
+        find elements by xpath string.
+        if not immediately found, retries are attempted until :ref:`timeout` is reached (default 2.5 seconds).
+        in case nothing is found, it returns an empty list. It will not raise.
+        this timeout mechanism helps when relying on some element to appear before continuing your script.
+
+
+        .. code-block:: python
+
+             # find all the inline scripts (script elements without src attribute)
+             await tab.xpath('//script[not(@src)]')
+
+             # or here, more complex, but my personal favorite to case-insensitive text search
+
+             await tab.xpath('//text()[ contains( translate(., "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz"),"test")]')
+
+
+        :param xpath:
+        :type xpath: str
+        :param timeout: 2.5
+        :type timeout: float
+        :return:List[Element] or []
+        :rtype:
+        """
+        items: List[Element] = []
+        try:
+            await self.send(cdp.dom.enable(), True)
+            items = await self.find_all(xpath, timeout=0)
+            if not items:
+                loop = asyncio.get_running_loop()
+                start_time = loop.time()
+                while not items:
+                    items = await self.find_all(xpath, timeout=0)
+                    await self.sleep(0.1)
+                    if loop.time() - start_time > timeout:
+                        break
+        finally:
+            await self.disable_dom_agent()
         return items
 
     async def get(
@@ -464,7 +511,7 @@ class Tab(Connection):
                 if e.message is not None and "could not find node" in e.message.lower():
                     if getattr(_node, "__last", None):
                         delattr(_node, "__last")
-                        return []
+                        return None
                     # if supplied node is not found, the dom has changed since acquiring the element
                     # therefore we need to update our passed node and try again
                     if isinstance(_node, Element):
@@ -472,14 +519,20 @@ class Tab(Connection):
                     # make sure this isn't turned into infinite loop
                     setattr(_node, "__last", True)
                     return await self.query_selector(selector, _node)
+            elif (
+                e.message is not None
+                and "could not find node" in e.message.lower()
+                and doc
+            ):
+                return None
             else:
                 await self.disable_dom_agent()
                 raise
         if not node_id:
-            return
+            return None
         node = util.filter_recurse(doc, lambda n: n.node_id == node_id)
         if not node:
-            return
+            return None
         return element.create(node, self, doc)
 
     async def find_elements_by_text(
@@ -511,18 +564,23 @@ class Tab(Connection):
 
         await self.send(cdp.dom.discard_search_results(search_id))
 
+        if not node_ids:
+            node_ids = []
         items = []
         for nid in node_ids:
             node = util.filter_recurse(doc, lambda n: n.node_id == nid)
             if not node:
-                node = await self.send(cdp.dom.resolve_node(node_id=nid))  # type: ignore
+                try:
+                    node = await self.send(cdp.dom.resolve_node(node_id=nid))  # type: ignore
+                except ProtocolException:
+                    continue
                 if not node:
                     continue
                 # remote_object = await self.send(cdp.dom.resolve_node(backend_node_id=node.backend_node_id))
                 # node_id = await self.send(cdp.dom.request_node(object_id=remote_object.object_id))
             try:
                 elem = element.create(node, self, doc)
-            except:  # noqa
+            except Exception:
                 continue
             if elem.node_type == 3:
                 # if found element is a text node (which is plain text, and useless for our purpose),
@@ -589,67 +647,7 @@ class Tab(Connection):
         :return:
         :rtype:
         """
-        doc = await self.send(cdp.dom.get_document(-1, True))
-        text = text.strip()
-        search_id, nresult = await self.send(cdp.dom.perform_search(text, True))
-
-        if nresult:
-            node_ids = await self.send(
-                cdp.dom.get_search_results(search_id, 0, nresult)
-            )
-        else:
-            node_ids = []
-        await self.send(cdp.dom.discard_search_results(search_id))
-
-        if not node_ids:
-            node_ids = []
-        items = []
-        for nid in node_ids:
-            node = util.filter_recurse(doc, lambda n: n.node_id == nid)
-            if node is None:
-                continue
-
-            try:
-                elem = element.create(node, self, doc)
-            except:  # noqa
-                continue
-            if elem.node_type == 3:
-                # if found element is a text node (which is plain text, and useless for our purpose),
-                # we return the parent element of the node (which is often a tag which can have text between their
-                # opening and closing tags (that is most tags, except for example "img" and "video", "br")
-
-                if not elem.parent:
-                    # check if parent actually has a parent and update it to be absolutely sure
-                    await elem.update()
-
-                items.append(
-                    elem.parent or elem
-                )  # when it really has no parent, use the text node itself
-                continue
-            else:
-                # just add the element itself
-                items.append(elem)
-
-        # since we already fetched the entire doc, including shadow and frames
-        # let's also search through the iframes
-        iframes = util.filter_recurse_all(doc, lambda node: node.node_name == "IFRAME")
-        if iframes:
-            iframes_elems = [
-                element.create(iframe, self, iframe.content_document)
-                for iframe in iframes
-            ]
-            for iframe_elem in iframes_elems:
-                iframe_text_nodes = util.filter_recurse_all(
-                    iframe_elem,
-                    lambda node: node.node_type == 3  # noqa
-                    and text.lower() in node.node_value.lower(),
-                )
-                if iframe_text_nodes:
-                    iframe_text_elems = [
-                        element.create(text_node, self, iframe_elem.tree)
-                        for text_node in iframe_text_nodes
-                    ]
-                    items.extend(text_node.parent for text_node in iframe_text_elems)
+        items = await self.find_elements_by_text(text)
         try:
             if not items:
                 return None
@@ -666,7 +664,7 @@ class Tab(Connection):
                     if elem:
                         return elem
         finally:
-            await self.disable_dom_agent()
+            pass
 
         return None
 
@@ -1488,6 +1486,77 @@ class Tab(Connection):
         await checkbox.mouse_move()
         await checkbox.mouse_click()
 
+    async def mouse_move(self, x: float, y: float, steps=10, flash=False):
+        steps = 1 if (not steps or steps < 1) else steps
+        # probably the worst waay of calculating this. but couldn't think of a better solution today.
+        if steps > 1:
+            step_size_x = x // steps
+            step_size_y = y // steps
+            pathway = [(step_size_x * i, step_size_y * i) for i in range(steps + 1)]
+            for point in pathway:
+                if flash:
+                    await self.flash_point(point[0], point[1])
+                await self.send(
+                    cdp.input_.dispatch_mouse_event(
+                        "mouseMoved", x=point[0], y=point[1]
+                    )
+                )
+        else:
+            await self.send(cdp.input_.dispatch_mouse_event("mouseMoved", x=x, y=y))
+        if flash:
+            await self.flash_point(x, y)
+        else:
+            await self.sleep(0.05)
+        await self.send(cdp.input_.dispatch_mouse_event("mouseReleased", x=x, y=y))
+        if flash:
+            await self.flash_point(x, y)
+
+    async def mouse_click(
+        self,
+        x: float,
+        y: float,
+        button: str = "left",
+        buttons: typing.Optional[int] = 1,
+        modifiers: typing.Optional[int] = 0,
+        _until_event: typing.Optional[type] = None,
+    ):
+        """native click on position x,y
+        :param y:
+        :type y:
+        :param x:
+        :type x:
+        :param button: str (default = "left")
+        :param buttons: which button (default 1 = left)
+        :param modifiers: *(Optional)* Bit field representing pressed modifier keys.
+                Alt=1, Ctrl=2, Meta/Command=4, Shift=8 (default: 0).
+        :param _until_event: internal. event to wait for before returning
+        :return:
+        """
+
+        await self.send(
+            cdp.input_.dispatch_mouse_event(
+                "mousePressed",
+                x=x,
+                y=y,
+                modifiers=modifiers,
+                button=cdp.input_.MouseButton(button),
+                buttons=buttons,
+                click_count=1,
+            )
+        )
+
+        await self.send(
+            cdp.input_.dispatch_mouse_event(
+                "mouseReleased",
+                x=x,
+                y=y,
+                modifiers=modifiers,
+                button=cdp.input_.MouseButton(button),
+                buttons=buttons,
+                click_count=1,
+            )
+        )
+
     async def get_local_storage(self):
         """
         get local storage items as dict of strings (careful!, proper deserialization needs to be done if needed)
@@ -1554,6 +1623,10 @@ class Tab(Connection):
             - navigator.userAgent
             - navigator.language
             - navigator.platform
+
+        Note: In most cases, you should instead pass the user_agent option to zendriver.start().
+        This ensures that the user agent is set before the browser starts and correctly applies to
+        all pages and requests.
 
         :param user_agent: user agent string
         :type user_agent: str

@@ -112,9 +112,9 @@ If this is your first time making a contribution on GitHub, please review the [o
 When submitting a pull request, please stick to the following guidelines:
 
 1. Describe your change in the body of your pull request, ideally linking to an existing GitHub issue for the bug/enhancement you are addressing. Note, if you use the word "closes", "fixes", or "resolves" before linking your issue, the issue will be automatically closed when the pull request is merged (see [GitHub docs](https://docs.github.com/en/issues/tracking-your-work-with-issues/using-issues/linking-a-pull-request-to-an-issue#linking-a-pull-request-to-an-issue-using-a-keyword)).
-2. Ensure that any newly added/modified code is autoformatted and free of lint errors. To verify this, use the [`scripts/lint.sh`](blob/main/scripts/lint.sh) script to run `ruff` and `mypy` against your code.
+2. Ensure that any newly added/modified code is autoformatted and free of lint errors. To verify this, use the [`scripts/lint.sh`](scripts/lint.sh) script to run `ruff` and `mypy` against your code.
    - Note, at the time of writing there are still many, many `mypy` errors left over from the `nodriver` fork. Please disregard these and consider only errors related to the code you have changed.
-3. Get credit for your work! Add your changes to [`CHANGELOG.md`](blob/main/CHANGELOG.md) under the `[UNRELEASED]` section and optionally include your GitHub handle at the end of the line.
+3. Get credit for your work! Add your changes to [`CHANGELOG.md`](CHANGELOG.md) under the `[UNRELEASED]` section and optionally include your GitHub handle at the end of the line.
 
 ### Improving The Documentation
 
@@ -126,9 +126,9 @@ After you get in touch, feel free to submit a pull request just like you would f
 
 ### Code formatting and linting
 
-This repository is formatted and linted with [`ruff`](https://docs.astral.sh/ruff/) and type-checked with [`mypy`](https://mypy-lang.org/). Currently, not all existing code passes the `mypy` checks, but all net-new contributions should be 100% error-free in order to be merged.
+This repository is formatted and linted with [`ruff`](https://docs.astral.sh/ruff/) and type-checked with [`mypy`](https://mypy-lang.org/). All contributions should be 100% error-free in order to be merged.
 
-For convenience, `ruff` and `mypy` can be run against the entire codebase with the [`scripts/lint.sh`](blob/main/scripts/lint.sh) helper script.
+For convenience, `ruff` and `mypy` can be run against the entire codebase with the [`scripts/lint.sh`](scripts/lint.sh) helper script.
 
 ## Attribution
 

@@ -64,7 +64,7 @@ With these changes in place, we hope to further development of state-of-the-art 
 
 ## Contributing
 
-Contributions of all types are always welcome! Please see [CONTRIBUTING.md](https://github.com/stephanlensky/zendriver/blob/main/CONTRIBUTING.md) for details on how to contribute.
+Contributions of all types are always welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for details on how to contribute.
 
 ### Getting additional help
 

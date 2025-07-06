@@ -11,13 +11,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Added `speed` in `Tab.scroll_down` and `Tab.scroll_up` methods to control the scroll speed @nathanfallet
-- Allow to wait for promise in `Element.apply` method @nathanfallet
-- Added `Element.clear_input_by_deleting` to handle inputs with custom delete behavior @nathanfallet
-
 ### Changed
 
 ### Removed
+
+## [0.10.0] - 2025-07-05
+
+### Fixed
+
+- Refactor element waiting loops in `find_*` and `select*` methods. @H1steria
+- Improve `query_selector` error handling to consistently return `None` when a node is not found. @H1steria
+- Add user_agent option to allow bypassing cloudflare javascript challenge in headless mode. @H1steria
+- Fixed `lang` parameter never being set in `Browser.start` @nathanfallet
+
+### Added
+
+- Added `mouse_move` and `mouse_click` methods from nodriver. @H1steria
+
+## [0.9.0] - 2025-07-01
+
+### Added
+
+- Added `speed` in `Tab.scroll_down` and `Tab.scroll_up` methods to control the scroll speed @nathanfallet
+- Allow to wait for promise in `Element.apply` method @nathanfallet
+- Added `Element.clear_input_by_deleting` to handle inputs with custom delete behavior @nathanfallet
+- Added `Tab.xpath` from nodriver @nathanfallet
 
 ## [0.8.1] - 2025-06-07
 
