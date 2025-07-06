@@ -2,7 +2,6 @@ from enum import Enum, IntEnum, StrEnum
 from dataclasses import dataclass, asdict
 from typing import Union, Dict, Tuple, Optional, List
 import emoji
-import emoji.unicode_codes
 import time
 import random
 

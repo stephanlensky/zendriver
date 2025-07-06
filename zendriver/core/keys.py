@@ -116,7 +116,11 @@ class KeyEvents:
         windows_virtual_key_code: Optional[int]
         native_virtual_key_code: Optional[int]
 
-    def __init__(self, key: Union[str, SpecialKeys]):
+    def __init__(
+        self,
+        key: Union[str, SpecialKeys],
+        modifiers: Union[KeyModifiers, int] = KeyModifiers.Default,
+    ):
         """
         Initialize a KeyEvents instance.
 
@@ -128,6 +132,7 @@ class KeyEvents:
 
         # modifiers = modifiers
         self.key = key
+        self.modifiers = modifiers
 
         self.code, self.keyCode = (
             self._handle_string_key_lookup(self.key)
@@ -248,7 +253,7 @@ class KeyEvents:
     def to_cdp_events(
         self,
         key_press_event: KeyPressEvent,
-        modifiers: Union[KeyModifiers, int] = KeyModifiers.Default,
+        override_modifiers: Optional[Union[KeyModifiers, int]] = None,
     ) -> List["KeyEvents.Payload"]:
         """
         Convert the key event to CDP format.
@@ -275,8 +280,13 @@ class KeyEvents:
                     )
                 return [self._to_basic_event(key_press_event)]
             case KeyPressEvent.DOWN_AND_UP:
-                self.key, modifiers = self._normalise_key(self.key, modifiers)
-                return self.to_down_up_sequence(modifiers)
+                cur_modifier = (
+                    self.modifiers if override_modifiers is None else override_modifiers
+                )
+                self.key, override_modifiers = self._normalise_key(
+                    self.key, cur_modifier
+                )
+                return self.to_down_up_sequence(override_modifiers)
             case _:
                 raise ValueError(f"Unsupported key press event type: {key_press_event}")
 
@@ -298,6 +308,8 @@ class KeyEvents:
             return SpecialKeys.ENTER.value
         elif key == "\t":
             return SpecialKeys.TAB.value
+        elif key == " ":
+            return SpecialKeys.SPACE.value
         elif key in KeyEvents.SPECIAL_CHAR_MAP:
             return KeyEvents.SPECIAL_CHAR_MAP[key]
         elif key in KeyEvents.SPECIAL_CHAR_SHIFT_MAP.keys():
@@ -446,5 +458,99 @@ class KeyEvents:
 
         return events
 
-    # @classmethod
-    # def from_string(cls, text:str) -> List["KeyEvents"]:
+    @classmethod
+    def from_text(
+        cls, text: str, use_special_keys: bool = True
+    ) -> List["KeyEvents.Payload"]:
+        """
+        Create KeyEvents payloads from a text string, automatically handling special characters and graphemes.
+
+        Args:
+            text: The text to convert to key events
+            use_special_keys: Whether to convert newlines/tabs to special keys or keep as characters
+
+        Returns:
+            List of KeyEvents.Payload objects ready for CDP
+        """
+        import grapheme
+
+        all_payload: List[KeyEvents.Payload] = []
+
+        for grapheme_char in grapheme.graphemes(text):
+            if grapheme_char is None or grapheme_char == "":
+                continue
+
+            # Handle special characters
+            if use_special_keys:
+                if grapheme_char in ["\n", "\r"]:
+                    key_events = cls(SpecialKeys.ENTER)
+                    all_payload.extend(
+                        key_events.to_cdp_events(KeyPressEvent.DOWN_AND_UP)
+                    )
+                    continue
+                elif grapheme_char == "\t":
+                    key_events = cls(SpecialKeys.TAB)
+                    all_payload.extend(
+                        key_events.to_cdp_events(KeyPressEvent.DOWN_AND_UP)
+                    )
+                    continue
+                elif grapheme_char == " ":
+                    key_events = cls(SpecialKeys.SPACE)
+                    all_payload.extend(
+                        key_events.to_cdp_events(KeyPressEvent.DOWN_AND_UP)
+                    )
+                    continue
+
+            # Handle regular characters (including emojis)
+            key_events = cls(grapheme_char)
+            all_payload.extend(key_events.to_cdp_events(KeyPressEvent.CHAR))
+
+        return all_payload
+
+    @classmethod
+    def from_mixed_input(
+        cls,
+        input_sequence: List[
+            Union[str, SpecialKeys, Tuple[Union[str, SpecialKeys], KeyModifiers]]
+        ],
+    ) -> List["KeyEvents.Payload"]:
+        """
+        Create KeyEvents payloads from a mixed sequence of strings, special keys, and key+modifier combinations.
+
+        Args:
+            input_sequence: List containing:
+                - str: Regular text (will be processed character by character)
+                - SpecialKeys: Special keys (will use DOWN_AND_UP)
+                - Tuple[key, modifiers]: Key with modifiers (will use DOWN_AND_UP)
+
+        Returns:
+            List of KeyEvents.Payload objects ready for CDP
+
+        Example:
+            >>> KeyEvents.from_mixed_input([
+            ...     "Hello ",
+            ...     SpecialKeys.ENTER,
+            ...     "World",
+            ...     ("a", KeyModifiers.Ctrl),  # Ctrl+A
+            ...     ("c", KeyModifiers.Ctrl),  # Ctrl+C
+            ... ])
+        """
+        all_payload: List[KeyEvents.Payload] = []
+
+        for item in input_sequence:
+            if isinstance(item, str):
+                # Process string character by character
+                all_payload.extend(cls.from_text(item))
+            elif isinstance(item, SpecialKeys):
+                # Process special key
+                key_events = cls(item)
+                all_payload.extend(key_events.to_cdp_events(KeyPressEvent.DOWN_AND_UP))
+            elif isinstance(item, tuple) and len(item) == 2:
+                # Process key with modifiers
+                key, modifiers = item
+                key_events = cls(key, modifiers)
+                all_payload.extend(key_events.to_cdp_events(KeyPressEvent.DOWN_AND_UP))
+            else:
+                raise ValueError(f"Unsupported input type: {type(item)}")
+
+        return all_payload
