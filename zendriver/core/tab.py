@@ -130,11 +130,12 @@ class Tab(Connection):
     def __init__(
         self,
         websocket_url: str,
+        events_buffer_size: int,
         target: cdp.target.TargetInfo,
         browser: Browser | None = None,
         **kwargs,
     ):
-        super().__init__(websocket_url, target, browser, **kwargs)
+        super().__init__(websocket_url, events_buffer_size, target, browser, **kwargs)
         self.browser = browser
         self._dom = None
         self._window_id = None

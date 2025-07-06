@@ -43,6 +43,7 @@ class Config:
         browser_connection_timeout: float = 0.25,
         browser_connection_max_tries: int = 10,
         user_agent: Optional[str] = None,
+        events_buffer_size: int = 64,
         **kwargs: Any,
     ):
         """
@@ -114,6 +115,7 @@ class Config:
 
         self.browser_connection_timeout = browser_connection_timeout
         self.browser_connection_max_tries = browser_connection_max_tries
+        self.events_buffer_size = events_buffer_size
 
         # other keyword args will be accessible by attribute
         self.__dict__.update(kwargs)

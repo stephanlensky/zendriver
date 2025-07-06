@@ -192,6 +192,7 @@ class Connection(metaclass=CantTouchThis):
     def __init__(
         self,
         websocket_url: str,
+        events_buffer_size: int,
         target: cdp.target.TargetInfo | None = None,
         _owner: Browser | None = None,
         **kwargs,
@@ -200,6 +201,7 @@ class Connection(metaclass=CantTouchThis):
         self._target = target
         self.__count__ = itertools.count(0)
         self._owner = _owner
+        self.events_buffer_size = events_buffer_size
         self.websocket_url: str = websocket_url
         self.websocket = None
         self.mapper: dict[int, Transaction] = {}
@@ -595,8 +597,9 @@ class Listener:
     def __init__(self, connection: Connection):
         self.connection = connection
         self.history: collections.deque = collections.deque()
-        self.max_history = 1000
-        self.task: asyncio.Future | None = None
+        self.event_flow = SharedFlow(buffer_size=connection.events_buffer_size)
+        self.listening_task: asyncio.Future | None = None
+        self.consuming_task: asyncio.Future | None = None
 
         # when in interactive mode, the loop is paused after each return
         # and when the next call is made, it might still have to process some events
@@ -616,7 +619,8 @@ class Listener:
         self.run()
 
     def run(self):
-        self.task = asyncio.create_task(self.listener_loop())
+        self.listening_task = asyncio.create_task(self.listener_loop())
+        self.consuming_task = asyncio.create_task(self.consumer_loop())
 
     @property
     def time_before_considered_idle(self):
@@ -627,14 +631,14 @@ class Listener:
         self._time_before_considered_idle = seconds
 
     def cancel(self):
-        if self.task and not self.task.cancelled():
-            self.task.cancel()
+        if self.listening_task and not self.listening_task.cancelled():
+            self.listening_task.cancel()
 
     @property
     def running(self):
-        if not self.task:
+        if not self.listening_task:
             return False
-        if self.task.done():
+        if self.listening_task.done():
             return False
         return True
 
@@ -702,6 +706,7 @@ class Listener:
                         self.connection.__count__ = itertools.count(0)
                     event_tx.id = next(self.connection.__count__)
                     self.connection.mapper[event_tx.id] = event_tx
+                    await self.event_flow.emit(event)
                 except Exception as e:
                     logger.info(
                         "%s: %s  during parsing of json from event : %s"
@@ -712,6 +717,12 @@ class Listener:
                 except KeyError as e:
                     logger.info("some lousy KeyError %s" % e, exc_info=True)
                     continue
+
+    async def consumer_loop(self):
+        q = self.event_flow.subscribe()
+        try:
+            while True:
+                event = await q.get()
                 try:
                     if type(event) in self.connection.handlers:
                         callbacks = self.connection.handlers[type(event)]
@@ -746,6 +757,8 @@ class Listener:
                 except Exception:
                     raise
                 continue
+        finally:
+            self.event_flow.unsubscribe(q)
 
     def __repr__(self):
         s_idle = "[idle]" if self.idle.is_set() else "[busy]"
@@ -753,3 +766,28 @@ class Listener:
         s_running = f"[running: {self.running}]"
         s = f"{self.__class__.__name__} {s_running} {s_idle} {s_cache_length}>"
         return s
+
+
+class SharedFlow:
+    """
+    Inspired from Kotlin, this class allows for a shared flow of events so that consuming the flow does not block the producer.
+    See https://github.com/guimauvedigital/kdriver/blob/main/core/src/commonMain/kotlin/dev/kdriver/core/connection/Connection.kt
+    """
+
+    def __init__(self, buffer_size: int):
+        self.subscribers: list[asyncio.Queue] = []
+        self.buffer_size = buffer_size
+
+    async def emit(self, item):
+        for queue in self.subscribers:
+            if queue.full():
+                _ = queue.get_nowait()
+            await queue.put(item)
+
+    def subscribe(self):
+        q: asyncio.Queue = asyncio.Queue(maxsize=self.buffer_size)
+        self.subscribers.append(q)
+        return q
+
+    def unsubscribe(self, q):
+        self.subscribers.remove(q)
