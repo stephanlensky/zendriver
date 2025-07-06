@@ -226,7 +226,6 @@ class Browser:
                     f"/devtools/{target_info.type_ or 'page'}"  # all types are 'page' internally in chrome apparently
                     f"/{target_info.target_id}"
                 ),
-                self.config.events_buffer_size,
                 target=target_info,
                 browser=self,
             )
@@ -395,9 +394,7 @@ class Browser:
                 )
             )
 
-        self.connection = Connection(
-            self.info.webSocketDebuggerUrl, self.config.events_buffer_size, _owner=self
-        )
+        self.connection = Connection(self.info.webSocketDebuggerUrl, _owner=self)
 
         if self.config.autodiscover_targets:
             logger.info("enabling autodiscover targets")
@@ -560,7 +557,6 @@ class Browser:
                             f"/devtools/page"  # all types are 'page' somehow
                             f"/{t.target_id}"
                         ),
-                        self.config.events_buffer_size,
                         target=t,
                         _owner=self,
                     )
