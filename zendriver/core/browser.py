@@ -70,6 +70,7 @@ class Browser:
         *,
         user_data_dir: PathLike | None = None,
         headless: bool = False,
+        user_agent: str | None = None,
         browser_executable_path: PathLike | None = None,
         browser_args: List[str] | None = None,
         sandbox: bool = True,
@@ -85,6 +86,7 @@ class Browser:
             config = Config(
                 user_data_dir=user_data_dir,
                 headless=headless,
+                user_agent=user_agent,
                 browser_executable_path=browser_executable_path,
                 browser_args=browser_args or [],
                 sandbox=sandbox,

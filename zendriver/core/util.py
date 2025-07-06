@@ -37,6 +37,7 @@ async def start(
     host: Optional[str] = None,
     port: Optional[int] = None,
     expert: Optional[bool] = None,
+    user_agent: Optional[str] = None,
     **kwargs: Any,
 ) -> Browser:
     """
@@ -78,6 +79,9 @@ async def start(
                     as well as some scripts and patching useful for debugging (for example, ensuring shadow-root is always in "open" mode)
     :type expert: bool
 
+    :param user_agent: if set, this will be used as the user agent for the browser.
+    :type user_agent: str | None
+
     :return:
     """
     if not config:
@@ -91,6 +95,7 @@ async def start(
             host=host,
             port=port,
             expert=expert,
+            user_agent=user_agent,
             **kwargs,
         )
     from .browser import Browser
