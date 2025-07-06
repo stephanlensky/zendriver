@@ -27,6 +27,9 @@ class BaseRequestExpectation:
         self.response_future: asyncio.Future[cdp.network.ResponseReceived] = (
             asyncio.Future()
         )
+        self.loading_finished_future: asyncio.Future[cdp.network.LoadingFinished] = (
+            asyncio.Future()
+        )
         self.request_id: Union[cdp.network.RequestId, None] = None
 
     async def _request_handler(self, event: cdp.network.RequestWillBeSent):
@@ -50,6 +53,15 @@ class BaseRequestExpectation:
             self._remove_response_handler()
             self.response_future.set_result(event)
 
+    async def _loading_finished_handler(self, event: cdp.network.LoadingFinished):
+        """
+        Internal handler for loading finished events.
+        :param event: The loading finished event.
+        :type event: cdp.network.LoadingFinished
+        """
+        if event.request_id == self.request_id:
+            self.loading_finished_future.set_result(event)
+
     def _remove_request_handler(self):
         """
         Remove the request event handler.
@@ -62,12 +74,23 @@ class BaseRequestExpectation:
         """
         self.tab.remove_handlers(cdp.network.ResponseReceived, self._response_handler)
 
+    def _remove_loading_finished_handler(self):
+        """
+        Remove the loading finished event handler.
+        """
+        self.tab.remove_handlers(
+            cdp.network.LoadingFinished, self._loading_finished_handler
+        )
+
     async def __aenter__(self):
         """
         Enter the context manager, adding request and response handlers.
         """
         self.tab.add_handler(cdp.network.RequestWillBeSent, self._request_handler)
         self.tab.add_handler(cdp.network.ResponseReceived, self._response_handler)
+        self.tab.add_handler(
+            cdp.network.LoadingFinished, self._loading_finished_handler
+        )
         return self
 
     async def __aexit__(self, *args):
@@ -76,6 +99,7 @@ class BaseRequestExpectation:
         """
         self._remove_request_handler()
         self._remove_response_handler()
+        self._remove_loading_finished_handler()
 
     @property
     async def request(self):
@@ -103,6 +127,9 @@ class BaseRequestExpectation:
         :rtype: str
         """
         request_id = (await self.request_future).request_id
+        await (
+            self.loading_finished_future
+        )  # Ensure the loading is finished before fetching the body
         body = await self.tab.send(cdp.network.get_response_body(request_id=request_id))
         return body
 
