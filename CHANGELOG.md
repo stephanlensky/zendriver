@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Refactor to a Kotlin-like flow to avoid blocking the listening loop @nathanfallet
+
 ### Added
 
 ### Changed
