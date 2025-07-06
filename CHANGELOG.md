@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Added `Tab.flash_point` from nodriver @nathanfallet
+- Ensured loading is finished in expect @nathanfallet
 
 ### Added
 
