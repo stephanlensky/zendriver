@@ -60,7 +60,6 @@ class Element:
         # else:
         self._node = node
         self._tree = tree
-        self._parent = None
         self._remote_object: cdp.runtime.RemoteObject | None = None
         self._attrs = ContraDict(silent=True)
         self._make_attrs()
@@ -283,10 +282,8 @@ class Element:
             doc = _node
             # self._node = _node
             # self._children.clear()
-            self._parent = None
         else:
             doc = await self._tab.send(cdp.dom.get_document(-1, True))
-            self._parent = None
         # if self.node_name != "IFRAME":
         updated_node = util.filter_recurse(
             doc, lambda n: n.backend_node_id == self._node.backend_node_id
@@ -301,14 +298,13 @@ class Element:
         )
         self.attrs.clear()
         self._make_attrs()
-        if self.node_name != "IFRAME":
-            parent_node = util.filter_recurse(
-                doc, lambda n: n.node_id == self.node.parent_id
-            )
-            if not parent_node:
-                # could happen if node is for example <html>
-                return self
-            self._parent = create(parent_node, tab=self._tab, tree=self._tree)
+        # if self.node_name != "IFRAME":
+        #    parent_node = util.filter_recurse(
+        #        doc, lambda n: n.node_id == self.node.parent_id
+        #    )
+        #    if not parent_node:
+        #        # could happen if node is for example <html>
+        #        return self
         return self
 
     @property
