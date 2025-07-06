@@ -2,6 +2,8 @@
 
 > This package is a fork of [`ultrafunkamsterdam/nodriver`](https://github.com/ultrafunkamsterdam/nodriver/), created to add new features, compile unmerged bugfixes, and increase community engagement.
 
+> Want to do the same in Kotlin? Check out [kdriver, zendriver's Kotlin counterpart](https://github.com/guimauvedigital/kdriver).
+
 **Documentation:** [https://slensky.com/zendriver](https://slensky.com/zendriver)
 
 Zendriver is a blazing fast, async-first, undetectable webscraping/web automation framework implemented using the Chrome Devtools Protocol. Visit websites, scrape content, and run JavaScript using a real browser (no Selenium/Webdriver) all with just a few lines of Python.
