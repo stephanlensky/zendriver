@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Added `Tab.flash_point` from nodriver @nathanfallet
 - Refactor to a Kotlin-like flow to avoid blocking the listening loop @nathanfallet
 
 ### Added
