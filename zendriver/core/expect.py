@@ -127,7 +127,7 @@ class BaseRequestExpectation:
         :return: The response body.
         :rtype: str
         """
-        request_id = (await self.request_future).request_id
+        request_id = (await self.response_future).request_id
         await (
             self.loading_finished_future
         )  # Ensure the loading is finished before fetching the body
