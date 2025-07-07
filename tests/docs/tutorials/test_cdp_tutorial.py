@@ -20,6 +20,4 @@ async def test_cdp_tutorial_2(
 
     await module.main()
 
-    mock_print.assert_any_call(
-        "Console message: log - Button clicked!"
-    )
+    mock_print.assert_any_call("Console message: log - Button clicked!")
