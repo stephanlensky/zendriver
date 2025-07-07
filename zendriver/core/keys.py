@@ -2,6 +2,7 @@ from enum import Enum, IntEnum, StrEnum
 import emoji
 from typing import Union, List, Tuple, Optional
 from typing_extensions import TypedDict
+import grapheme  # type: ignore
 
 
 class KeyModifiers(IntEnum):
@@ -472,7 +473,6 @@ class KeyEvents:
         Returns:
             List of KeyEvents.Payload objects ready for CDP
         """
-        import grapheme
 
         all_payload: List[KeyEvents.Payload] = []
 

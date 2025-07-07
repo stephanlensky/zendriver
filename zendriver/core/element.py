@@ -728,7 +728,9 @@ class Element:
             await_promise=True,
         )
 
-    async def send_keys(self, text: typing.Union[str, SpecialKeys, typing.List[KeyEvents.Payload]]):
+    async def send_keys(
+        self, text: typing.Union[str, SpecialKeys, typing.List[KeyEvents.Payload]]
+    ):
         """
         send text to an input field, or any other html element.
 
