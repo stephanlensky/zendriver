@@ -2,6 +2,7 @@ import asyncio
 
 import zendriver as zd
 from zendriver import cdp
+from zendriver.cdp import runtime
 
 
 async def main() -> None:
@@ -10,6 +11,8 @@ async def main() -> None:
         "https://slensky.com/zendriver-examples/console.html",
     )
 
+    # Those 2 lines are equivalent and do the same thing
+    await page.send(runtime.enable())
     await page.send(cdp.runtime.enable())
 
     await browser.stop()
