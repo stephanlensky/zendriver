@@ -16,7 +16,8 @@ async def main() -> None:
     await page.send(cdp.runtime.enable())
 
     def console_handler(event: cdp.runtime.ConsoleAPICalled) -> None:
-        print(f"Console message: {event.type_} - {event.args}")
+        joined_args = ", ".join([str(it.value) for it in event.args])
+        print(f"Console message: {event.type_} - {joined_args}")
 
     # Those 2 lines are equivalent and do the same thing
     page.add_handler(runtime.ConsoleAPICalled, console_handler)
