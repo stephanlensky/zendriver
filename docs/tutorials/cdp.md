@@ -1,6 +1,6 @@
 **Target page:** [https://slensky.com/zendriver-examples/console.html](https://slensky.com/zendriver-examples/console.html)
 
-In this tutorial, we will explore how to use the Chrome DevTools Protocol (CDP) directly, when kdriver does not provide
+In this tutorial, we will explore how to use the Chrome DevTools Protocol (CDP) directly, when Zendriver does not provide
 a specific API for the functionality you need.
 
 ## Sending CDP commands
