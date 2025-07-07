@@ -20,6 +20,7 @@ nav:
           - Infinitely scrolling feed: tutorials/infinite-scrolling.md
           - Creating accounts: tutorials/account-creation.md
           - Reading API responses: tutorials/api-responses.md
+          - Playing with CDP: tutorials/cdp.md
   - Reference:
       - cdp:
           - accessibility: reference/cdp/accessibility.md
