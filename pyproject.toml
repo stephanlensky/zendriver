@@ -35,6 +35,7 @@ dev-dependencies = [
     "mkdocstrings[python]>=0.26.2",
     "mypy>=1.12.0",
     "pytest-asyncio>=0.24.0",
+    "pytest-cov>=6.1.1",
     "pytest>=8.3.3",
     "pyyaml>=6.0.2",
     "ruff>=0.7.4",

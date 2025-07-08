@@ -1,0 +1,2 @@
+ignore:
+  - "zendriver/cdp" # automatically generated code
