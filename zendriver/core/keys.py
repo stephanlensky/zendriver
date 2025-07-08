@@ -53,6 +53,7 @@ class KeyPressEvent(StrEnum):
     """Way to give both key down and up events in one go for non-ASCII characters, **not standard implementation**"""
 
 
+
 class KeyEvents:
     """
     Key events handling class for processing keyboard input and converting to CDP format.
@@ -62,6 +63,24 @@ class KeyEvents:
 
     Reference: https://stackoverflow.com/a/79194672
     """
+
+    @staticmethod
+    def is_english_alphabet(char: str) -> bool:
+        """
+        Check if a character is an English alphabet letter (A-Z, a-z).
+
+        Args:
+            char: The character to check.
+
+        Returns:
+            True if the character is an English alphabet letter, False otherwise.
+        """
+        if char.isalpha() and char.isascii():
+            if len(char) != 1:
+                raise ValueError("Key must be a single ASCII character. If you want to send multiple characters, try using `KeyEvents.from_text` or `KeyEvents.from_mixed_input`.")
+            
+            return True
+        return False
 
     # Class constants for character mappings
     NUM_SHIFT = ")!@#$%^&*("
@@ -157,6 +176,10 @@ class KeyEvents:
     ) -> Tuple[str, Optional[str]]:
         """
         Create the appropriate action for this key event.
+        
+        Args:
+            key_press_event: The type of key press event to generate (Currently supported are `DOWN_AND_UP` and `CHAR`)
+            modifiers: Modifier keys to apply
 
         Returns:
             Action object containing the processed key information
@@ -179,6 +202,7 @@ class KeyEvents:
 
         Args:
             key: The key to convert (may be shifted)
+            modifiers: Current modifier keys to apply
 
         Returns:
             The non-shifted equivalent of the key
@@ -196,7 +220,7 @@ class KeyEvents:
         elif key in self.SPECIAL_CHAR_SHIFT_MAP:
             modifiers |= KeyModifiers.Shift
             lowercase_key = self.SPECIAL_CHAR_SHIFT_MAP[key]
-        elif key.isalpha() and key.isupper():
+        elif KeyEvents.is_english_alphabet(key) and key.isupper():
             modifiers |= KeyModifiers.Shift
             lowercase_key = key.lower()
         elif key in "\n\r":
@@ -225,6 +249,15 @@ class KeyEvents:
         key_press_event: KeyPressEvent,
         modifiers: Union[KeyModifiers, int] = KeyModifiers.Default,
     ):
+        """
+        Convert the key event to a basic event format.
+        Args:
+            key_press_event: The type of key press event to generate (Currently supported are `DOWN_AND_UP` and `CHAR`)
+            modifiers: Modifier keys to apply
+        Returns:
+            A dictionary containing the basic event payload
+        """
+        
         key, text = self._get_key_and_text(key_press_event, modifiers)
         if key_press_event == KeyPressEvent.CHAR:
             if text is None:
@@ -258,12 +291,17 @@ class KeyEvents:
     ) -> List["KeyEvents.Payload"]:
         """
         Convert the key event to CDP format.
+        
+        Args:
+            key_press_event: The type of key press event to generate (Currently supported are `DOWN_AND_UP` and `CHAR`)
+            override_modifiers: Optional modifiers to override the current ones
 
         Returns:
             List of dictionaries containing CDP `payload`
         """
-        if isinstance(self.key, str) and emoji.is_emoji(self.key):
-            key_press_event = KeyPressEvent.CHAR
+        if isinstance(self.key, str):
+            if emoji.is_emoji(self.key) or (self.key is not None and self.keyCode is None):
+                key_press_event = KeyPressEvent.CHAR
 
         match key_press_event:
             case (
@@ -275,9 +313,9 @@ class KeyEvents:
                     "Not supported by itself, use CHAR or DOWN_AND_UP instead."
                 )
             case KeyPressEvent.CHAR:
-                if not isinstance(self.key, str) or len(self.key) != 1:
+                if not isinstance(self.key, str):
                     raise ValueError(
-                        f"Key '{self.key}' is not supported for CHAR event type. Only single ASCII characters are allowed."
+                        f"Key '{self.key}' is not supported for CHAR event type. Only str characters are allowed"
                     )
                 return [self._to_basic_event(key_press_event)]
             case KeyPressEvent.DOWN_AND_UP:
@@ -291,12 +329,10 @@ class KeyEvents:
             case _:
                 raise ValueError(f"Unsupported key press event type: {key_press_event}")
 
-    def _handle_string_key_lookup(self, key: str) -> Tuple[str, int]:
+    def _handle_string_key_lookup(self, key: str) -> Tuple[Optional[str], Optional[int]]:
         """Handle string key lookup logic."""
-        if len(key) != 1:
-            raise ValueError("Key must be a single ASCII character.")
 
-        if key.isalpha():
+        if KeyEvents.is_english_alphabet(key):
             return f"Key{key.upper()}", ord(key.upper())
         elif key.isdigit() or key in KeyEvents.NUM_SHIFT:
             digit = (
@@ -316,7 +352,7 @@ class KeyEvents:
         elif key in KeyEvents.SPECIAL_CHAR_SHIFT_MAP.keys():
             return KeyEvents.SPECIAL_CHAR_MAP[KeyEvents.SPECIAL_CHAR_SHIFT_MAP[key]]
 
-        raise ValueError(f"Unsupported key: '{key}'")
+        return None, None # non english characters
 
     def _handle_special_key_lookup(self, key: SpecialKeys) -> Tuple[str, int]:
         """Handle special key lookup logic."""
@@ -391,7 +427,7 @@ class KeyEvents:
             return key, key
 
         # Apply shift transformation
-        if key.isalpha():
+        if KeyEvents.is_english_alphabet(key):
             shifted_key = key.upper()
         elif key.isdigit():
             shifted_key = KeyEvents.NUM_SHIFT[int(key)]
@@ -411,14 +447,10 @@ class KeyEvents:
         and modifier key up events after the main key.
 
         Args:
-            original_key: The original key that was requested
             modifiers: Modifier keys to apply
 
         Returns:
-            List of dictionaries containing the complete key event sequence
-
-        Raises:
-            ValueError: If the action doesn't have all required properties
+            List of `KeyEvents.Payload` containing the complete key event sequence
         """
         # Validate that all required properties are set
         events: List[KeyEvents.Payload] = []
@@ -461,14 +493,14 @@ class KeyEvents:
 
     @classmethod
     def from_text(
-        cls, text: str, use_special_keys: bool = True
+        cls, text: str, ascii_keypress: KeyPressEvent
     ) -> List["KeyEvents.Payload"]:
         """
         Create KeyEvents payloads from a text string, automatically handling special characters and graphemes.
 
         Args:
             text: The text to convert to key events
-            use_special_keys: Whether to convert newlines/tabs to special keys or keep as characters
+            ascii_keypress: The key press event to use for the ASCII characters (default is DOWN_AND_UP)
 
         Returns:
             List of KeyEvents.Payload objects ready for CDP
@@ -481,29 +513,23 @@ class KeyEvents:
                 continue
 
             # Handle special characters
-            if use_special_keys:
-                if grapheme_char in ["\n", "\r"]:
-                    key_events = cls(SpecialKeys.ENTER)
-                    all_payload.extend(
-                        key_events.to_cdp_events(KeyPressEvent.DOWN_AND_UP)
-                    )
-                    continue
-                elif grapheme_char == "\t":
-                    key_events = cls(SpecialKeys.TAB)
-                    all_payload.extend(
-                        key_events.to_cdp_events(KeyPressEvent.DOWN_AND_UP)
-                    )
-                    continue
-                elif grapheme_char == " ":
-                    key_events = cls(SpecialKeys.SPACE)
-                    all_payload.extend(
-                        key_events.to_cdp_events(KeyPressEvent.DOWN_AND_UP)
-                    )
-                    continue
+            key_events: KeyEvents
+            if grapheme_char in ["\n", "\r"]:
+                key_events = cls(SpecialKeys.ENTER)
+            elif grapheme_char == "\t":
+                key_events = cls(SpecialKeys.TAB)
+            elif grapheme_char == " ":
+                key_events = cls(SpecialKeys.SPACE)
+            else:
+                key_events = cls(grapheme_char)
 
-            # Handle regular characters (including emojis)
-            key_events = cls(grapheme_char)
-            all_payload.extend(key_events.to_cdp_events(KeyPressEvent.CHAR))
+            all_payload.extend(
+                key_events.to_cdp_events(
+                    KeyPressEvent.CHAR
+                    if emoji.is_emoji(grapheme_char)
+                    else ascii_keypress
+                )
+            )
 
         return all_payload
 
@@ -513,6 +539,7 @@ class KeyEvents:
         input_sequence: List[
             Union[str, SpecialKeys, Tuple[Union[str, SpecialKeys], KeyModifiers]]
         ],
+        ascii_keypress: KeyPressEvent = KeyPressEvent.DOWN_AND_UP,
     ) -> List["KeyEvents.Payload"]:
         """
         Create KeyEvents payloads from a mixed sequence of strings, special keys, and key+modifier combinations.
@@ -522,6 +549,7 @@ class KeyEvents:
                 - str: Regular text (will be processed character by character)
                 - SpecialKeys: Special keys (will use DOWN_AND_UP)
                 - Tuple[key, modifiers]: Key with modifiers (will use DOWN_AND_UP)
+            - priority_keypress: The key press event to use for the ascii characters (default is DOWN_AND_UP)
 
         Returns:
             List of KeyEvents.Payload objects ready for CDP
@@ -531,16 +559,18 @@ class KeyEvents:
             ...     "Hello ",
             ...     SpecialKeys.ENTER,
             ...     "World",
+            ...     SpecialKeys.ARROW_DOWN,
             ...     ("a", KeyModifiers.Ctrl),  # Ctrl+A
             ...     ("c", KeyModifiers.Ctrl),  # Ctrl+C
-            ... ])
+            ... ],
+            ... ascii_keypress=KeyPressEvent.DOWN_AND_UP)
         """
         all_payload: List[KeyEvents.Payload] = []
 
         for item in input_sequence:
             if isinstance(item, str):
                 # Process string character by character
-                all_payload.extend(cls.from_text(item))
+                all_payload.extend(cls.from_text(item, ascii_keypress))
             elif isinstance(item, SpecialKeys):
                 # Process special key
                 key_events = cls(item)
