@@ -6,6 +6,7 @@ import datetime
 import logging
 import pathlib
 import re
+import secrets
 import typing
 import urllib.parse
 import warnings
@@ -1554,6 +1555,49 @@ class Tab(Connection):
                 button=cdp.input_.MouseButton(button),
                 buttons=buttons,
                 click_count=1,
+            )
+        )
+
+    async def flash_point(self, x, y, duration=0.5, size=10):
+        style = (
+            "position:absolute;z-index:99999999;padding:0;margin:0;"
+            "left:{:.1f}px; top: {:.1f}px;"
+            "opacity:1;"
+            "width:{:d}px;height:{:d}px;border-radius:50%;background:red;"
+            "animation:show-pointer-ani {:.2f}s ease 1;"
+        ).format(x - 8, y - 8, size, size, duration)
+        script = (
+            """
+                var css = document.styleSheets[0];
+                for( let css of [...document.styleSheets]) {{
+                    try {{
+                        css.insertRule(`
+                        @keyframes show-pointer-ani {{
+                              0% {{ opacity: 1; transform: scale(1, 1);}}
+                              50% {{ transform: scale(3, 3);}}
+                              100% {{ transform: scale(1, 1); opacity: 0;}}
+                        }}`,css.cssRules.length);
+                        break;
+                    }} catch (e) {{
+                        console.log(e)
+                    }}
+                }};
+                var _d = document.createElement('div');
+                _d.style = `{0:s}`;
+                _d.id = `{1:s}`;
+                document.body.insertAdjacentElement('afterBegin', _d);
+
+                setTimeout( () => document.getElementById('{1:s}').remove(), {2:d});
+
+            """.format(style, secrets.token_hex(8), int(duration * 1000))
+            .replace("  ", "")
+            .replace("\n", "")
+        )
+        await self.send(
+            cdp.runtime.evaluate(
+                script,
+                await_promise=True,
+                user_gesture=True,
             )
         )
 

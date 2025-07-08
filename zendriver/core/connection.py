@@ -723,15 +723,21 @@ class Listener:
                         try:
                             if iscoroutinefunction(callback):
                                 try:
-                                    await callback(event, self.connection)
+                                    asyncio.create_task(
+                                        callback(event, self.connection)
+                                    )
                                 except TypeError:
-                                    await callback(event)
+                                    asyncio.create_task(callback(event))
                             else:
                                 callback = typing.cast(Callable, callback)
-                                try:
-                                    callback(event, self.connection)
-                                except TypeError:
-                                    callback(event)
+
+                                def run_callback():
+                                    try:
+                                        callback(event, self.connection)
+                                    except TypeError:
+                                        callback(event)
+
+                                asyncio.create_task(asyncio.to_thread(run_callback))
                         except Exception as e:
                             logger.warning(
                                 "exception in callback %s for event %s => %s",
