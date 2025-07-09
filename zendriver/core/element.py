@@ -15,6 +15,7 @@ from .. import cdp
 from . import util
 from ._contradict import ContraDict
 from .config import PathLike
+from .keys import KeyEvents, KeyPressEvent, SpecialKeys
 
 logger = logging.getLogger(__name__)
 
@@ -727,7 +728,9 @@ class Element:
             await_promise=True,
         )
 
-    async def send_keys(self, text: str, special_characters: bool = False):
+    async def send_keys(
+        self, text: typing.Union[str, SpecialKeys, typing.List[KeyEvents.Payload]]
+    ):
         """
         send text to an input field, or any other html element.
 
@@ -743,13 +746,21 @@ class Element:
         :return: None
         """
         await self.apply("(elem) => elem.focus()")
-        for cluster in grapheme.graphemes(text) if special_characters else text:
-            if all(32 <= ord(c) <= 126 for c in cluster):
-                await self._tab.send(
-                    cdp.input_.dispatch_key_event("char", text=cluster)
-                )
-            else:
-                await self._tab.send(cdp.input_.insert_text(cluster))
+        cluster_list: typing.List[KeyEvents.Payload]
+        if isinstance(text, str):
+            cluster_list = [
+                payload
+                for _grapheme in grapheme.graphemes(text)
+                if _grapheme is not None
+                for payload in KeyEvents(_grapheme).to_cdp_events(KeyPressEvent.CHAR)
+            ]
+        elif isinstance(text, SpecialKeys):
+            cluster_list = KeyEvents(text).to_cdp_events(KeyPressEvent.DOWN_AND_UP)
+        else:
+            cluster_list = text
+
+        for cluster in cluster_list:
+            await self._tab.send(cdp.input_.dispatch_key_event(**cluster))
 
     async def send_file(self, *file_paths: PathLike):
         """
