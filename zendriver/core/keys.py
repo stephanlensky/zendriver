@@ -53,7 +53,6 @@ class KeyPressEvent(StrEnum):
     """Way to give both key down and up events in one go for non-ASCII characters, **not standard implementation**"""
 
 
-
 class KeyEvents:
     """
     Key events handling class for processing keyboard input and converting to CDP format.
@@ -77,8 +76,10 @@ class KeyEvents:
         """
         if char.isalpha() and char.isascii():
             if len(char) != 1:
-                raise ValueError("Key must be a single ASCII character. If you want to send multiple characters, try using `KeyEvents.from_text` or `KeyEvents.from_mixed_input`.")
-            
+                raise ValueError(
+                    "Key must be a single ASCII character. If you want to send multiple characters, try using `KeyEvents.from_text` or `KeyEvents.from_mixed_input`."
+                )
+
             return True
         return False
 
@@ -146,7 +147,6 @@ class KeyEvents:
 
         Args:
             key: The key to be processed (single character string or SpecialKeys enum)
-            key_press_event: The type of key press event to generate (Currently supported are `DOWN_AND_UP` and `CHAR`)
             modifiers: Modifier keys to be applied (can be combined with bitwise OR)
         """
 
@@ -176,7 +176,7 @@ class KeyEvents:
     ) -> Tuple[str, Optional[str]]:
         """
         Create the appropriate action for this key event.
-        
+
         Args:
             key_press_event: The type of key press event to generate (Currently supported are `DOWN_AND_UP` and `CHAR`)
             modifiers: Modifier keys to apply
@@ -252,12 +252,12 @@ class KeyEvents:
         """
         Convert the key event to a basic event format.
         Args:
-            key_press_event: The type of key press event to generate (Currently supported are `DOWN_AND_UP` and `CHAR`)
+            key_press_event: The type of key press event to generate
             modifiers: Modifier keys to apply
         Returns:
             A dictionary containing the basic event payload
         """
-        
+
         key, text = self._get_key_and_text(key_press_event, modifiers)
         if key_press_event == KeyPressEvent.CHAR:
             if text is None:
@@ -291,7 +291,7 @@ class KeyEvents:
     ) -> List["KeyEvents.Payload"]:
         """
         Convert the key event to CDP format.
-        
+
         Args:
             key_press_event: The type of key press event to generate (Currently supported are `DOWN_AND_UP` and `CHAR`)
             override_modifiers: Optional modifiers to override the current ones
@@ -300,7 +300,9 @@ class KeyEvents:
             List of dictionaries containing CDP `payload`
         """
         if isinstance(self.key, str):
-            if emoji.is_emoji(self.key) or (self.key is not None and self.keyCode is None):
+            if emoji.is_emoji(self.key) or (
+                self.key is not None and self.keyCode is None
+            ):
                 key_press_event = KeyPressEvent.CHAR
 
         match key_press_event:
@@ -309,15 +311,17 @@ class KeyEvents:
                 | KeyPressEvent.RAW_KEY_DOWN
                 | KeyPressEvent.KEY_UP
             ):
-                raise ValueError(
+                raise NotImplementedError(
                     "Not supported by itself, use CHAR or DOWN_AND_UP instead."
                 )
+
             case KeyPressEvent.CHAR:
                 if not isinstance(self.key, str):
                     raise ValueError(
                         f"Key '{self.key}' is not supported for CHAR event type. Only str characters are allowed"
                     )
                 return [self._to_basic_event(key_press_event)]
+
             case KeyPressEvent.DOWN_AND_UP:
                 cur_modifier = (
                     self.modifiers if override_modifiers is None else override_modifiers
@@ -326,10 +330,13 @@ class KeyEvents:
                     self.key, cur_modifier
                 )
                 return self.to_down_up_sequence(override_modifiers)
+
             case _:
                 raise ValueError(f"Unsupported key press event type: {key_press_event}")
 
-    def _handle_string_key_lookup(self, key: str) -> Tuple[Optional[str], Optional[int]]:
+    def _handle_string_key_lookup(
+        self, key: str
+    ) -> Tuple[Optional[str], Optional[int]]:
         """Handle string key lookup logic."""
 
         if KeyEvents.is_english_alphabet(key):
@@ -352,7 +359,7 @@ class KeyEvents:
         elif key in KeyEvents.SPECIAL_CHAR_SHIFT_MAP.keys():
             return KeyEvents.SPECIAL_CHAR_MAP[KeyEvents.SPECIAL_CHAR_SHIFT_MAP[key]]
 
-        return None, None # non english characters
+        return None, None  # non english characters
 
     def _handle_special_key_lookup(self, key: SpecialKeys) -> Tuple[str, int]:
         """Handle special key lookup logic."""
@@ -477,9 +484,8 @@ class KeyEvents:
 
         # 3: Add modifier key up events (in reverse order)
         for modifier_key, modifier_flag in modifier_events:
-            current_modifiers &= (
-                ~modifier_flag
-            )  # remove the modifier from current modifiers (the same idea)
+            current_modifiers &= ~modifier_flag
+            # remove the modifier from current modifiers (the same idea)
             modifier_payload = modifier_key._to_basic_event(
                 KeyPressEvent.KEY_UP, current_modifiers
             )
