@@ -1209,9 +1209,9 @@ def get_isolate_id() -> typing.Generator[T_JSON_DICT, T_JSON_DICT, str]:
     return str(json["id"])
 
 
-def get_heap_usage() -> typing.Generator[
-    T_JSON_DICT, T_JSON_DICT, typing.Tuple[float, float, float, float]
-]:
+def get_heap_usage() -> (
+    typing.Generator[T_JSON_DICT, T_JSON_DICT, typing.Tuple[float, float, float, float]]
+):
     """
     Returns the JavaScript heap usage.
     It is the total usage of the corresponding isolate not scoped to a particular Runtime.

@@ -2256,9 +2256,9 @@ def get_matched_styles_for_node(
     )
 
 
-def get_media_queries() -> typing.Generator[
-    T_JSON_DICT, T_JSON_DICT, typing.List[CSSMedia]
-]:
+def get_media_queries() -> (
+    typing.Generator[T_JSON_DICT, T_JSON_DICT, typing.List[CSSMedia]]
+):
     """
     Returns all media queries parsed by the rendering engine.
 
@@ -2407,9 +2407,9 @@ def track_computed_style_updates(
     json = yield cmd_dict
 
 
-def take_computed_style_updates() -> typing.Generator[
-    T_JSON_DICT, T_JSON_DICT, typing.List[dom.NodeId]
-]:
+def take_computed_style_updates() -> (
+    typing.Generator[T_JSON_DICT, T_JSON_DICT, typing.List[dom.NodeId]]
+):
     """
     Polls the next batch of computed style updates.
 
@@ -2673,9 +2673,9 @@ def start_rule_usage_tracking() -> typing.Generator[T_JSON_DICT, T_JSON_DICT, No
     json = yield cmd_dict
 
 
-def stop_rule_usage_tracking() -> typing.Generator[
-    T_JSON_DICT, T_JSON_DICT, typing.List[RuleUsage]
-]:
+def stop_rule_usage_tracking() -> (
+    typing.Generator[T_JSON_DICT, T_JSON_DICT, typing.List[RuleUsage]]
+):
     """
     Stop tracking rule usage and return the list of rules that were used since last call to
     ``takeCoverageDelta`` (or since start of coverage instrumentation).
@@ -2689,9 +2689,11 @@ def stop_rule_usage_tracking() -> typing.Generator[
     return [RuleUsage.from_json(i) for i in json["ruleUsage"]]
 
 
-def take_coverage_delta() -> typing.Generator[
-    T_JSON_DICT, T_JSON_DICT, typing.Tuple[typing.List[RuleUsage], float]
-]:
+def take_coverage_delta() -> (
+    typing.Generator[
+        T_JSON_DICT, T_JSON_DICT, typing.Tuple[typing.List[RuleUsage], float]
+    ]
+):
     """
     Obtain list of rules that became used since last call to this method (or since start of coverage
     instrumentation).
