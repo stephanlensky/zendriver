@@ -96,15 +96,15 @@ class AdFrameStatus:
 @dataclass
 class AdScriptId:
     """
-    Identifies the bottom-most script which caused the frame to be labelled
-    as an ad.
+    Identifies the script which caused a script or frame to be labelled as an
+    ad.
     """
 
-    #: Script Id of the bottom-most script which caused the frame to be labelled
-    #: as an ad.
+    #: Script Id of the script which caused a script or frame to be labelled as
+    #: an ad.
     script_id: runtime.ScriptId
 
-    #: Id of adScriptId's debugger.
+    #: Id of scriptId's debugger.
     debugger_id: runtime.UniqueDebuggerId
 
     def to_json(self) -> T_JSON_DICT:
@@ -118,6 +118,42 @@ class AdScriptId:
         return cls(
             script_id=runtime.ScriptId.from_json(json["scriptId"]),
             debugger_id=runtime.UniqueDebuggerId.from_json(json["debuggerId"]),
+        )
+
+
+@dataclass
+class AdScriptAncestry:
+    """
+    Encapsulates the script ancestry and the root script filterlist rule that
+    caused the frame to be labelled as an ad. Only created when ``ancestryChain``
+    is not empty.
+    """
+
+    #: A chain of ``AdScriptId``'s representing the ancestry of an ad script that
+    #: led to the creation of a frame. The chain is ordered from the script
+    #: itself (lower level) up to its root ancestor that was flagged by
+    #: filterlist.
+    ancestry_chain: typing.List[AdScriptId]
+
+    #: The filterlist rule that caused the root (last) script in
+    #: ``ancestryChain`` to be ad-tagged. Only populated if the rule is
+    #: available.
+    root_script_filterlist_rule: typing.Optional[str] = None
+
+    def to_json(self) -> T_JSON_DICT:
+        json: T_JSON_DICT = dict()
+        json["ancestryChain"] = [i.to_json() for i in self.ancestry_chain]
+        if self.root_script_filterlist_rule is not None:
+            json["rootScriptFilterlistRule"] = self.root_script_filterlist_rule
+        return json
+
+    @classmethod
+    def from_json(cls, json: T_JSON_DICT) -> AdScriptAncestry:
+        return cls(
+            ancestry_chain=[AdScriptId.from_json(i) for i in json["ancestryChain"]],
+            root_script_filterlist_rule=str(json["rootScriptFilterlistRule"])
+            if json.get("rootScriptFilterlistRule", None) is not None
+            else None,
         )
 
 
@@ -180,6 +216,7 @@ class PermissionsPolicyFeature(enum.Enum):
     ACCELEROMETER = "accelerometer"
     ALL_SCREENS_CAPTURE = "all-screens-capture"
     AMBIENT_LIGHT_SENSOR = "ambient-light-sensor"
+    ARIA_NOTIFY = "aria-notify"
     ATTRIBUTION_REPORTING = "attribution-reporting"
     AUTOPLAY = "autoplay"
     BLUETOOTH = "bluetooth"
@@ -240,12 +277,14 @@ class PermissionsPolicyFeature(enum.Enum):
     JOIN_AD_INTEREST_GROUP = "join-ad-interest-group"
     KEYBOARD_MAP = "keyboard-map"
     LANGUAGE_DETECTOR = "language-detector"
+    LANGUAGE_MODEL = "language-model"
     LOCAL_FONTS = "local-fonts"
     LOCAL_NETWORK_ACCESS = "local-network-access"
     MAGNETOMETER = "magnetometer"
     MEDIA_PLAYBACK_WHILE_NOT_VISIBLE = "media-playback-while-not-visible"
     MICROPHONE = "microphone"
     MIDI = "midi"
+    ON_DEVICE_SPEECH_RECOGNITION = "on-device-speech-recognition"
     OTP_CREDENTIALS = "otp-credentials"
     PAYMENT = "payment"
     PICTURE_IN_PICTURE = "picture-in-picture"
@@ -1824,24 +1863,6 @@ class WebAppManifest:
         )
 
 
-class AutoResponseMode(enum.Enum):
-    """
-    Enum of possible auto-response for permission / prompt dialogs.
-    """
-
-    NONE = "none"
-    AUTO_ACCEPT = "autoAccept"
-    AUTO_REJECT = "autoReject"
-    AUTO_OPT_OUT = "autoOptOut"
-
-    def to_json(self) -> str:
-        return self.value
-
-    @classmethod
-    def from_json(cls, json: str) -> AutoResponseMode:
-        return cls(json)
-
-
 class NavigationType(enum.Enum):
     """
     The type of a frameNavigated event.
@@ -1955,6 +1976,7 @@ class BackForwardCacheNotRestoredReason(enum.Enum):
     BROADCAST_CHANNEL = "BroadcastChannel"
     WEB_XR = "WebXR"
     SHARED_WORKER = "SharedWorker"
+    SHARED_WORKER_MESSAGE = "SharedWorkerMessage"
     WEB_LOCKS = "WebLocks"
     WEB_HID = "WebHID"
     WEB_SHARE = "WebShare"
@@ -2313,9 +2335,9 @@ def clear_device_metrics_override() -> typing.Generator[T_JSON_DICT, T_JSON_DICT
 
 
 @deprecated(version="1.3")
-def clear_device_orientation_override() -> typing.Generator[
-    T_JSON_DICT, T_JSON_DICT, None
-]:
+def clear_device_orientation_override() -> (
+    typing.Generator[T_JSON_DICT, T_JSON_DICT, None]
+):
     """
     Clears the overridden Device Orientation.
 
@@ -2469,9 +2491,9 @@ def get_app_manifest(
     )
 
 
-def get_installability_errors() -> typing.Generator[
-    T_JSON_DICT, T_JSON_DICT, typing.List[InstallabilityError]
-]:
+def get_installability_errors() -> (
+    typing.Generator[T_JSON_DICT, T_JSON_DICT, typing.List[InstallabilityError]]
+):
     """
 
 
@@ -2487,9 +2509,9 @@ def get_installability_errors() -> typing.Generator[
 
 
 @deprecated(version="1.3")
-def get_manifest_icons() -> typing.Generator[
-    T_JSON_DICT, T_JSON_DICT, typing.Optional[str]
-]:
+def get_manifest_icons() -> (
+    typing.Generator[T_JSON_DICT, T_JSON_DICT, typing.Optional[str]]
+):
     """
     Deprecated because it's not guaranteed that the returned icon is in fact the one used for PWA installation.
 
@@ -2508,9 +2530,13 @@ def get_manifest_icons() -> typing.Generator[
     )
 
 
-def get_app_id() -> typing.Generator[
-    T_JSON_DICT, T_JSON_DICT, typing.Tuple[typing.Optional[str], typing.Optional[str]]
-]:
+def get_app_id() -> (
+    typing.Generator[
+        T_JSON_DICT,
+        T_JSON_DICT,
+        typing.Tuple[typing.Optional[str], typing.Optional[str]],
+    ]
+):
     """
     Returns the unique (PWA) app id.
     Only returns values if the feature flag 'WebAppEnableManifestId' is enabled
@@ -2534,25 +2560,29 @@ def get_app_id() -> typing.Generator[
     )
 
 
-def get_ad_script_ancestry_ids(
+def get_ad_script_ancestry(
     frame_id: FrameId,
-) -> typing.Generator[T_JSON_DICT, T_JSON_DICT, typing.List[AdScriptId]]:
+) -> typing.Generator[T_JSON_DICT, T_JSON_DICT, typing.Optional[AdScriptAncestry]]:
     """
 
 
     **EXPERIMENTAL**
 
     :param frame_id:
-    :returns: The ancestry chain of ad script identifiers leading to this frame's creation, ordered from the most immediate script (in the frame creation stack) to more distant ancestors (that created the immediately preceding script). Only sent if frame is labelled as an ad and ids are available.
+    :returns: *(Optional)* The ancestry chain of ad script identifiers leading to this frame's creation, along with the root script's filterlist rule. The ancestry chain is ordered from the most immediate script (in the frame creation stack) to more distant ancestors (that created the immediately preceding script). Only sent if frame is labelled as an ad and ids are available.
     """
     params: T_JSON_DICT = dict()
     params["frameId"] = frame_id.to_json()
     cmd_dict: T_JSON_DICT = {
-        "method": "Page.getAdScriptAncestryIds",
+        "method": "Page.getAdScriptAncestry",
         "params": params,
     }
     json = yield cmd_dict
-    return [AdScriptId.from_json(i) for i in json["adScriptAncestryIds"]]
+    return (
+        AdScriptAncestry.from_json(json["adScriptAncestry"])
+        if json.get("adScriptAncestry", None) is not None
+        else None
+    )
 
 
 def get_frame_tree() -> typing.Generator[T_JSON_DICT, T_JSON_DICT, FrameTree]:
@@ -2568,18 +2598,20 @@ def get_frame_tree() -> typing.Generator[T_JSON_DICT, T_JSON_DICT, FrameTree]:
     return FrameTree.from_json(json["frameTree"])
 
 
-def get_layout_metrics() -> typing.Generator[
-    T_JSON_DICT,
-    T_JSON_DICT,
-    typing.Tuple[
-        LayoutViewport,
-        VisualViewport,
-        dom.Rect,
-        LayoutViewport,
-        VisualViewport,
-        dom.Rect,
-    ],
-]:
+def get_layout_metrics() -> (
+    typing.Generator[
+        T_JSON_DICT,
+        T_JSON_DICT,
+        typing.Tuple[
+            LayoutViewport,
+            VisualViewport,
+            dom.Rect,
+            LayoutViewport,
+            VisualViewport,
+            dom.Rect,
+        ],
+    ]
+):
     """
     Returns metrics relating to the layouting of the page, such as viewport bounds/scale.
 
@@ -2606,9 +2638,11 @@ def get_layout_metrics() -> typing.Generator[
     )
 
 
-def get_navigation_history() -> typing.Generator[
-    T_JSON_DICT, T_JSON_DICT, typing.Tuple[int, typing.List[NavigationEntry]]
-]:
+def get_navigation_history() -> (
+    typing.Generator[
+        T_JSON_DICT, T_JSON_DICT, typing.Tuple[int, typing.List[NavigationEntry]]
+    ]
+):
     """
     Returns navigation history for the current page.
 
@@ -2663,9 +2697,9 @@ def get_resource_content(
     return (str(json["content"]), bool(json["base64Encoded"]))
 
 
-def get_resource_tree() -> typing.Generator[
-    T_JSON_DICT, T_JSON_DICT, FrameResourceTree
-]:
+def get_resource_tree() -> (
+    typing.Generator[T_JSON_DICT, T_JSON_DICT, FrameResourceTree]
+):
     """
     Returns present frame / resource tree structure.
 
@@ -3466,7 +3500,7 @@ def clear_compilation_cache() -> typing.Generator[T_JSON_DICT, T_JSON_DICT, None
 
 
 def set_spc_transaction_mode(
-    mode: AutoResponseMode,
+    mode: str,
 ) -> typing.Generator[T_JSON_DICT, T_JSON_DICT, None]:
     """
     Sets the Secure Payment Confirmation transaction mode.
@@ -3477,7 +3511,7 @@ def set_spc_transaction_mode(
     :param mode:
     """
     params: T_JSON_DICT = dict()
-    params["mode"] = mode.to_json()
+    params["mode"] = mode
     cmd_dict: T_JSON_DICT = {
         "method": "Page.setSPCTransactionMode",
         "params": params,
@@ -3486,7 +3520,7 @@ def set_spc_transaction_mode(
 
 
 def set_rph_registration_mode(
-    mode: AutoResponseMode,
+    mode: str,
 ) -> typing.Generator[T_JSON_DICT, T_JSON_DICT, None]:
     """
     Extensions for Custom Handlers API:
@@ -3497,7 +3531,7 @@ def set_rph_registration_mode(
     :param mode:
     """
     params: T_JSON_DICT = dict()
-    params["mode"] = mode.to_json()
+    params["mode"] = mode
     cmd_dict: T_JSON_DICT = {
         "method": "Page.setRPHRegistrationMode",
         "params": params,
