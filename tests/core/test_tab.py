@@ -4,6 +4,8 @@ import pytest
 
 import zendriver as zd
 from tests.sample_data import sample_file
+from zendriver.cdp.fetch import RequestStage
+from zendriver.cdp.network import ResourceType
 
 
 async def test_set_user_agent_sets_navigator_values(browser: zd.Browser):
@@ -219,3 +221,20 @@ async def test_expect_download(browser: zd.Browser):
         download = await asyncio.wait_for(download_ex.value, timeout=3)
         assert type(download) is zd.cdp.browser.DownloadWillBegin
         assert download.url is not None
+
+async def test_intercept(browser: zd.Browser):
+    tab = browser.main_tab
+
+    async with tab.intercept(
+        "*/todos/1",
+        RequestStage.RESPONSE,
+        ResourceType.XHR,
+    ) as interception:
+        await tab.get(sample_file("todolist.html"))
+        original_response = await interception.response_body
+        await interception.continue_request()
+
+        assert original_response["id"] == 1
+        assert original_response["userId"] == 1
+        assert original_response["title"] == "delectus aut autem"
+        assert not original_response["completed"]
