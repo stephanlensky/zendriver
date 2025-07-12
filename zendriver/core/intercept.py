@@ -62,6 +62,9 @@ class BaseFetchInterception:
                 ]
             )
         )
+        self.tab.enabled_domains.append(
+            cdp.fetch
+        )  # trick to avoid another `fetch.enable` call by _register_handlers
         self.tab.add_handler(cdp.fetch.RequestPaused, self._response_handler)
         return self
 
@@ -82,7 +85,7 @@ class BaseFetchInterception:
         return (await self.response_future).request
 
     @property
-    async def response_body(self):
+    async def response_body(self) -> tuple[str, bool]:
         """
         Get the body of the matched response.
         :return: The response body.
