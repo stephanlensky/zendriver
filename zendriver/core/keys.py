@@ -124,7 +124,7 @@ class KeyEvents:
 
     SPECIAL_KEY_CHAR_MAP = {
         SpecialKeys.SPACE: " ",
-        SpecialKeys.ENTER: "\n",
+        SpecialKeys.ENTER: "\r",
         SpecialKeys.TAB: "\t",
     }
 
