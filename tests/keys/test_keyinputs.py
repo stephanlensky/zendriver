@@ -1,8 +1,7 @@
 import pytest
 import threading
 import socket
-import os
-from pathlib import Path
+import time
 
 import zendriver as zd
 import http.server
@@ -25,11 +24,6 @@ def http_server():
     PORT = find_free_port()
     Handler = http.server.SimpleHTTPRequestHandler
 
-    # Change to the directory containing your HTML files
-    original_dir = os.getcwd()
-    test_dir = Path(__file__).parent
-    os.chdir(test_dir)  # Assuming your HTML files are in the same directory as the test
-
     try:
         # Create and start server
         httpd = socketserver.TCPServer(("", PORT), Handler)
@@ -38,9 +32,6 @@ def http_server():
         server_thread.start()
 
         print(f"Server started at http://localhost:{PORT}")
-
-        # Wait briefly to ensure server is running
-        import time
 
         time.sleep(1)
 
@@ -52,7 +43,6 @@ def http_server():
         httpd.shutdown()
         httpd.server_close()
         server_thread.join(timeout=5)
-        os.chdir(original_dir)
         print("Server shut down.")
 
 
@@ -62,7 +52,7 @@ async def test_visible_events(browser: zd.Browser, http_server):
 
     try:
         # Open the page
-        main_page = await browser.get(f"http://localhost:{PORT}/simple_editor.html")
+        main_page = await browser.get(f"http://localhost:{PORT}/tests/keys/simple_editor.html")
 
         text_part = await main_page.find('//*[@id="editor"]')
 
@@ -102,4 +92,25 @@ async def test_visible_events(browser: zd.Browser, http_server):
     except Exception as e:
         print(f"An error occurred: {e}")
         pytest.fail(f"Test failed with exception: {e}")
+        
+        
+async def test_escape_key_popup(browser: zd.Browser, http_server):
+    """Test escape key functionality to close a popup."""
+    PORT = http_server["port"]
 
+    main_page = await browser.get(f"http://localhost:{PORT}/tests/keys/special_key_detector.html")
+    
+    status_check = await main_page.find('//*[@id="status"]')
+    assert status_check.text == "Ready - Click button to open popup", "There is something wrong with the page"
+
+    button = await main_page.find('//*[@id="popUpButton"]')
+    await button.mouse_click("left")
+    
+    await status_check
+    assert status_check.text == "popUp is OPEN - Press Escape to close", "Popup did not open correctly"
+    
+    pop_up = await main_page.find('//*[@id="mainpage"]/div')
+    await pop_up.send_keys(SpecialKeys.ESCAPE)
+
+    await status_check
+    assert status_check.text == "popUp is CLOSED - Click button to open again", "Popup did not close correctly"
