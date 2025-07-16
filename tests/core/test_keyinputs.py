@@ -1,11 +1,4 @@
-import pytest
-import threading
-import socket
-import time
-
 import zendriver as zd
-import http.server
-import socketserver
 
 from tests.sample_data import sample_file
 from zendriver import SpecialKeys, KeyModifiers, KeyEvents
@@ -47,26 +40,30 @@ async def test_visible_events(browser: zd.Browser):
 
     for expected, actual_text in zip(expected_output, check_part.children):
         actual_html = await actual_text.get_html()
-        assert (
-            actual_html == expected
-        ), f"Expected '{expected}', got '{actual_html}'"
-        
-        
+        assert actual_html == expected, f"Expected '{expected}', got '{actual_html}'"
+
+
 async def test_escape_key_popup(browser: zd.Browser):
     """Test escape key functionality to close a popup."""
     main_page = await browser.get(sample_file("special_key_detector.html"))
-    
+
     status_check = await main_page.find('//*[@id="status"]')
-    assert status_check.text == "Ready - Click button to open popUp", "There is something wrong with the page"
+    assert (
+        status_check.text == "Ready - Click button to open popUp"
+    ), "There is something wrong with the page"
 
     button = await main_page.find('//*[@id="mainpageButton"]')
     await button.mouse_click("left")
-    
+
     await status_check
-    assert status_check.text == "popUp is OPEN - Press Escape to close", "Popup did not open correctly"
-    
+    assert (
+        status_check.text == "popUp is OPEN - Press Escape to close"
+    ), "Popup did not open correctly"
+
     pop_up = await main_page.find('//*[@id="mainpage"]/div')
     await pop_up.send_keys(SpecialKeys.ESCAPE)
 
     await status_check
-    assert status_check.text == "popUp is CLOSED - Click button to open again", "Popup did not close correctly"
+    assert (
+        status_check.text == "popUp is CLOSED - Click button to open again"
+    ), "Popup did not close correctly"
