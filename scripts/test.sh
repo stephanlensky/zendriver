@@ -4,7 +4,7 @@ set -e
 
 command=( "$@" )
 if [ "${#command[@]}" -eq 0 ]; then
-  command=( "pytest" )
+  command=( "pytest --cov=zendriver --cov-report=xml" )
 fi
 
 chrome_executable=$(uv run python -c "from zendriver.core.config import find_chrome_executable;print(find_chrome_executable())")
@@ -14,4 +14,4 @@ chrome_version=$(uv run python -c "import os, subprocess, sys; path = r'$chrome_
 echo "Chrome version: $chrome_version"
 
 set -x
-uv run "${command[@]}"
+uv run ${command[@]}

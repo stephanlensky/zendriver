@@ -1,6 +1,6 @@
 [project]
 name = "zendriver"
-version = "0.10.2"
+version = "0.11.0"
 description = "A blazing fast, async-first, undetectable webscraping/web automation framework"
 readme = "README.md"
 authors = [{ name = "Stephan Lensky", email = "oss@slensky.com" }]
@@ -20,6 +20,7 @@ requires-python = ">=3.10"
 dependencies = [
     "asyncio-atexit>=1.0.1",
     "deprecated>=1.2.14",
+    "emoji>=2.14.1",
     "grapheme>=0.6.0",
     "mss>=9.0.2",
     "websockets>=14.0",
@@ -35,6 +36,7 @@ dev-dependencies = [
     "mkdocstrings[python]>=0.26.2",
     "mypy>=1.12.0",
     "pytest-asyncio>=0.24.0",
+    "pytest-cov>=6.1.1",
     "pytest>=8.3.3",
     "pyyaml>=6.0.2",
     "ruff>=0.7.4",
