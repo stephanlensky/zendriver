@@ -316,7 +316,7 @@ class KeyEvents:
                 )
 
             case KeyPressEvent.CHAR:
-                if not isinstance(self.key, str):
+                if not isinstance(self.key, str) and self.key not in self.SPECIAL_KEY_CHAR_MAP.keys():
                     raise ValueError(
                         f"Key '{self.key}' is not supported for CHAR event type. Only str characters are allowed"
                     )

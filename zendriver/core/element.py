@@ -9,7 +9,6 @@ import pathlib
 import secrets
 import typing
 import urllib.parse
-import grapheme  # type: ignore
 
 from .. import cdp
 from . import util
@@ -748,12 +747,7 @@ class Element:
         await self.apply("(elem) => elem.focus()")
         cluster_list: typing.List[KeyEvents.Payload]
         if isinstance(text, str):
-            cluster_list = [
-                payload
-                for _grapheme in grapheme.graphemes(text)
-                if _grapheme is not None
-                for payload in KeyEvents(_grapheme).to_cdp_events(KeyPressEvent.CHAR)
-            ]
+            cluster_list = KeyEvents.from_text(text, KeyPressEvent.CHAR)
         elif isinstance(text, SpecialKeys):
             cluster_list = KeyEvents(text).to_cdp_events(KeyPressEvent.DOWN_AND_UP)
         else:
