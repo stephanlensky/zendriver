@@ -1,4 +1,4 @@
-**Target page:** [https://slensky.com/zendriver-examples/api-request.html](https://slensky.com/zendriver-examples/api-request.html)
+**Target page:** [https://cdpdriver.github.io/examples/api-request.html](https://cdpdriver.github.io/examples/api-request.html)
 
 In this tutorial, we will demonstrate how to read a dynamically loaded API response using response expectations.
 

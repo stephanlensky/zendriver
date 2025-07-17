@@ -32,7 +32,7 @@ class MemoryDumpConfig(dict):
 
 @dataclass
 class TraceConfig:
-    #: Controls how the trace buffer stores data.
+    #: Controls how the trace buffer stores data. The default is ``recordUntilFull``.
     record_mode: typing.Optional[str] = None
 
     #: Size of the trace buffer in kilobytes. If not specified or zero is passed, a default value

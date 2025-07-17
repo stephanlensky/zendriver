@@ -266,7 +266,6 @@ class PrerenderFinalStatus(enum.Enum):
     INVALID_SCHEME_REDIRECT = "InvalidSchemeRedirect"
     INVALID_SCHEME_NAVIGATION = "InvalidSchemeNavigation"
     NAVIGATION_REQUEST_BLOCKED_BY_CSP = "NavigationRequestBlockedByCsp"
-    MAIN_FRAME_NAVIGATION = "MainFrameNavigation"
     MOJO_BINDER_POLICY = "MojoBinderPolicy"
     RENDERER_PROCESS_CRASHED = "RendererProcessCrashed"
     RENDERER_PROCESS_KILLED = "RendererProcessKilled"

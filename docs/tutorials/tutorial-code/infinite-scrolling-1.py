@@ -6,7 +6,7 @@ import zendriver as zd
 async def main() -> None:
     browser = await zd.start()
     page = await browser.get(
-        "https://slensky.com/zendriver-examples/scrollable-cards.html",
+        "https://cdpdriver.github.io/examples/scrollable-cards.html",
     )
 
     # Not yet loaded, so empty

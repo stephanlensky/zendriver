@@ -1466,48 +1466,49 @@ class PartitioningBlobURLIssueDetails:
         )
 
 
-class SelectElementAccessibilityIssueReason(enum.Enum):
+class ElementAccessibilityIssueReason(enum.Enum):
     DISALLOWED_SELECT_CHILD = "DisallowedSelectChild"
     DISALLOWED_OPT_GROUP_CHILD = "DisallowedOptGroupChild"
     NON_PHRASING_CONTENT_OPTION_CHILD = "NonPhrasingContentOptionChild"
     INTERACTIVE_CONTENT_OPTION_CHILD = "InteractiveContentOptionChild"
     INTERACTIVE_CONTENT_LEGEND_CHILD = "InteractiveContentLegendChild"
+    INTERACTIVE_CONTENT_SUMMARY_DESCENDANT = "InteractiveContentSummaryDescendant"
 
     def to_json(self) -> str:
         return self.value
 
     @classmethod
-    def from_json(cls, json: str) -> SelectElementAccessibilityIssueReason:
+    def from_json(cls, json: str) -> ElementAccessibilityIssueReason:
         return cls(json)
 
 
 @dataclass
-class SelectElementAccessibilityIssueDetails:
+class ElementAccessibilityIssueDetails:
     """
-    This issue warns about errors in the select element content model.
+    This issue warns about errors in the select or summary element content model.
     """
 
     node_id: dom.BackendNodeId
 
-    select_element_accessibility_issue_reason: SelectElementAccessibilityIssueReason
+    element_accessibility_issue_reason: ElementAccessibilityIssueReason
 
     has_disallowed_attributes: bool
 
     def to_json(self) -> T_JSON_DICT:
         json: T_JSON_DICT = dict()
         json["nodeId"] = self.node_id.to_json()
-        json["selectElementAccessibilityIssueReason"] = (
-            self.select_element_accessibility_issue_reason.to_json()
+        json["elementAccessibilityIssueReason"] = (
+            self.element_accessibility_issue_reason.to_json()
         )
         json["hasDisallowedAttributes"] = self.has_disallowed_attributes
         return json
 
     @classmethod
-    def from_json(cls, json: T_JSON_DICT) -> SelectElementAccessibilityIssueDetails:
+    def from_json(cls, json: T_JSON_DICT) -> ElementAccessibilityIssueDetails:
         return cls(
             node_id=dom.BackendNodeId.from_json(json["nodeId"]),
-            select_element_accessibility_issue_reason=SelectElementAccessibilityIssueReason.from_json(
-                json["selectElementAccessibilityIssueReason"]
+            element_accessibility_issue_reason=ElementAccessibilityIssueReason.from_json(
+                json["elementAccessibilityIssueReason"]
             ),
             has_disallowed_attributes=bool(json["hasDisallowedAttributes"]),
         )
@@ -1688,7 +1689,7 @@ class InspectorIssueCode(enum.Enum):
     FEDERATED_AUTH_USER_INFO_REQUEST_ISSUE = "FederatedAuthUserInfoRequestIssue"
     PROPERTY_RULE_ISSUE = "PropertyRuleIssue"
     SHARED_DICTIONARY_ISSUE = "SharedDictionaryIssue"
-    SELECT_ELEMENT_ACCESSIBILITY_ISSUE = "SelectElementAccessibilityIssue"
+    ELEMENT_ACCESSIBILITY_ISSUE = "ElementAccessibilityIssue"
     SRI_MESSAGE_SIGNATURE_ISSUE = "SRIMessageSignatureIssue"
     USER_REIDENTIFICATION_ISSUE = "UserReidentificationIssue"
 
@@ -1774,8 +1775,8 @@ class InspectorIssueDetails:
         None
     )
 
-    select_element_accessibility_issue_details: typing.Optional[
-        SelectElementAccessibilityIssueDetails
+    element_accessibility_issue_details: typing.Optional[
+        ElementAccessibilityIssueDetails
     ] = None
 
     sri_message_signature_issue_details: typing.Optional[
@@ -1862,9 +1863,9 @@ class InspectorIssueDetails:
             json["sharedDictionaryIssueDetails"] = (
                 self.shared_dictionary_issue_details.to_json()
             )
-        if self.select_element_accessibility_issue_details is not None:
-            json["selectElementAccessibilityIssueDetails"] = (
-                self.select_element_accessibility_issue_details.to_json()
+        if self.element_accessibility_issue_details is not None:
+            json["elementAccessibilityIssueDetails"] = (
+                self.element_accessibility_issue_details.to_json()
             )
         if self.sri_message_signature_issue_details is not None:
             json["sriMessageSignatureIssueDetails"] = (
@@ -1987,10 +1988,10 @@ class InspectorIssueDetails:
             )
             if json.get("sharedDictionaryIssueDetails", None) is not None
             else None,
-            select_element_accessibility_issue_details=SelectElementAccessibilityIssueDetails.from_json(
-                json["selectElementAccessibilityIssueDetails"]
+            element_accessibility_issue_details=ElementAccessibilityIssueDetails.from_json(
+                json["elementAccessibilityIssueDetails"]
             )
-            if json.get("selectElementAccessibilityIssueDetails", None) is not None
+            if json.get("elementAccessibilityIssueDetails", None) is not None
             else None,
             sri_message_signature_issue_details=SRIMessageSignatureIssueDetails.from_json(
                 json["sriMessageSignatureIssueDetails"]
@@ -2136,9 +2137,9 @@ def check_contrast(
     json = yield cmd_dict
 
 
-def check_forms_issues() -> typing.Generator[
-    T_JSON_DICT, T_JSON_DICT, typing.List[GenericIssueDetails]
-]:
+def check_forms_issues() -> (
+    typing.Generator[T_JSON_DICT, T_JSON_DICT, typing.List[GenericIssueDetails]]
+):
     """
     Runs the form issues check for the target page. Found issues are reported
     using Audits.issueAdded event.

@@ -348,9 +348,9 @@ def create_browser_context(
     return browser.BrowserContextID.from_json(json["browserContextId"])
 
 
-def get_browser_contexts() -> typing.Generator[
-    T_JSON_DICT, T_JSON_DICT, typing.List[browser.BrowserContextID]
-]:
+def get_browser_contexts() -> (
+    typing.Generator[T_JSON_DICT, T_JSON_DICT, typing.List[browser.BrowserContextID]]
+):
     """
     Returns all browser contexts created with ``Target.createBrowserContext`` method.
 
