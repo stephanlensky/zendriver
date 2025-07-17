@@ -14,6 +14,7 @@ from .util import event_class, T_JSON_DICT
 from . import browser
 from . import network
 from . import page
+from . import target
 
 
 class SerializedStorageKey(str):
@@ -410,6 +411,10 @@ class SharedStorageAccessParams:
     #: Present only for SharedStorageAccessMethods: run and selectURL.
     operation_name: typing.Optional[str] = None
 
+    #: ID of the operation call.
+    #: Present only for SharedStorageAccessMethods: run and selectURL.
+    operation_id: typing.Optional[str] = None
+
     #: Whether or not to keep the worket alive for future run or selectURL
     #: calls.
     #: Present only for SharedStorageAccessMethods: run and selectURL.
@@ -449,12 +454,18 @@ class SharedStorageAccessParams:
     #: Present only for SharedStorageAccessMethod: set.
     ignore_if_present: typing.Optional[bool] = None
 
-    #: If the method is called on a worklet, or as part of
-    #: a worklet script, it will have an ID for the associated worklet.
+    #: A number denoting the (0-based) order of the worklet's
+    #: creation relative to all other shared storage worklets created by
+    #: documents using the current storage partition.
+    #: Present only for SharedStorageAccessMethods: addModule, createWorklet.
+    worklet_ordinal: typing.Optional[int] = None
+
+    #: Hex representation of the DevTools token used as the TargetID for the
+    #: associated shared storage worklet.
     #: Present only for SharedStorageAccessMethods: addModule, createWorklet,
     #: run, selectURL, and any other SharedStorageAccessMethod when the
-    #: SharedStorageAccessScope is worklet.
-    worklet_id: typing.Optional[str] = None
+    #: SharedStorageAccessScope is sharedStorageWorklet.
+    worklet_target_id: typing.Optional[target.TargetID] = None
 
     #: Name of the lock to be acquired, if present.
     #: Optionally present only for SharedStorageAccessMethods: batchUpdate,
@@ -479,6 +490,8 @@ class SharedStorageAccessParams:
             json["dataOrigin"] = self.data_origin
         if self.operation_name is not None:
             json["operationName"] = self.operation_name
+        if self.operation_id is not None:
+            json["operationId"] = self.operation_id
         if self.keep_alive is not None:
             json["keepAlive"] = self.keep_alive
         if self.private_aggregation_config is not None:
@@ -495,8 +508,10 @@ class SharedStorageAccessParams:
             json["value"] = self.value
         if self.ignore_if_present is not None:
             json["ignoreIfPresent"] = self.ignore_if_present
-        if self.worklet_id is not None:
-            json["workletId"] = self.worklet_id
+        if self.worklet_ordinal is not None:
+            json["workletOrdinal"] = self.worklet_ordinal
+        if self.worklet_target_id is not None:
+            json["workletTargetId"] = self.worklet_target_id.to_json()
         if self.with_lock is not None:
             json["withLock"] = self.with_lock
         if self.batch_update_id is not None:
@@ -516,6 +531,9 @@ class SharedStorageAccessParams:
             else None,
             operation_name=str(json["operationName"])
             if json.get("operationName", None) is not None
+            else None,
+            operation_id=str(json["operationId"])
+            if json.get("operationId", None) is not None
             else None,
             keep_alive=bool(json["keepAlive"])
             if json.get("keepAlive", None) is not None
@@ -542,8 +560,11 @@ class SharedStorageAccessParams:
             ignore_if_present=bool(json["ignoreIfPresent"])
             if json.get("ignoreIfPresent", None) is not None
             else None,
-            worklet_id=str(json["workletId"])
-            if json.get("workletId", None) is not None
+            worklet_ordinal=int(json["workletOrdinal"])
+            if json.get("workletOrdinal", None) is not None
+            else None,
+            worklet_target_id=target.TargetID.from_json(json["workletTargetId"])
+            if json.get("workletTargetId", None) is not None
             else None,
             with_lock=str(json["withLock"])
             if json.get("withLock", None) is not None
@@ -790,30 +811,6 @@ class AttributionReportingEventReportWindows:
         )
 
 
-@dataclass
-class AttributionReportingTriggerSpec:
-    #: number instead of integer because not all uint32 can be represented by
-    #: int
-    trigger_data: typing.List[float]
-
-    event_report_windows: AttributionReportingEventReportWindows
-
-    def to_json(self) -> T_JSON_DICT:
-        json: T_JSON_DICT = dict()
-        json["triggerData"] = [i for i in self.trigger_data]
-        json["eventReportWindows"] = self.event_report_windows.to_json()
-        return json
-
-    @classmethod
-    def from_json(cls, json: T_JSON_DICT) -> AttributionReportingTriggerSpec:
-        return cls(
-            trigger_data=[float(i) for i in json["triggerData"]],
-            event_report_windows=AttributionReportingEventReportWindows.from_json(
-                json["eventReportWindows"]
-            ),
-        )
-
-
 class AttributionReportingTriggerDataMatching(enum.Enum):
     EXACT = "exact"
     MODULUS = "modulus"
@@ -948,7 +945,11 @@ class AttributionReportingSourceRegistration:
     #: duration in seconds
     expiry: int
 
-    trigger_specs: typing.List[AttributionReportingTriggerSpec]
+    #: number instead of integer because not all uint32 can be represented by
+    #: int
+    trigger_data: typing.List[float]
+
+    event_report_windows: AttributionReportingEventReportWindows
 
     #: duration in seconds
     aggregatable_report_window: int
@@ -993,7 +994,8 @@ class AttributionReportingSourceRegistration:
         json: T_JSON_DICT = dict()
         json["time"] = self.time.to_json()
         json["expiry"] = self.expiry
-        json["triggerSpecs"] = [i.to_json() for i in self.trigger_specs]
+        json["triggerData"] = [i for i in self.trigger_data]
+        json["eventReportWindows"] = self.event_report_windows.to_json()
         json["aggregatableReportWindow"] = self.aggregatable_report_window
         json["type"] = self.type_.to_json()
         json["sourceOrigin"] = self.source_origin
@@ -1023,10 +1025,10 @@ class AttributionReportingSourceRegistration:
         return cls(
             time=network.TimeSinceEpoch.from_json(json["time"]),
             expiry=int(json["expiry"]),
-            trigger_specs=[
-                AttributionReportingTriggerSpec.from_json(i)
-                for i in json["triggerSpecs"]
-            ],
+            trigger_data=[float(i) for i in json["triggerData"]],
+            event_report_windows=AttributionReportingEventReportWindows.from_json(
+                json["eventReportWindows"]
+            ),
             aggregatable_report_window=int(json["aggregatableReportWindow"]),
             type_=AttributionReportingSourceType.from_json(json["type"]),
             source_origin=str(json["sourceOrigin"]),
@@ -1775,9 +1777,9 @@ def untrack_indexed_db_for_storage_key(
     json = yield cmd_dict
 
 
-def get_trust_tokens() -> typing.Generator[
-    T_JSON_DICT, T_JSON_DICT, typing.List[TrustTokens]
-]:
+def get_trust_tokens() -> (
+    typing.Generator[T_JSON_DICT, T_JSON_DICT, typing.List[TrustTokens]]
+):
     """
     Returns the number of stored Trust Tokens per issuer for the
     current browsing context.
@@ -2066,9 +2068,9 @@ def delete_storage_bucket(
     json = yield cmd_dict
 
 
-def run_bounce_tracking_mitigations() -> typing.Generator[
-    T_JSON_DICT, T_JSON_DICT, typing.List[str]
-]:
+def run_bounce_tracking_mitigations() -> (
+    typing.Generator[T_JSON_DICT, T_JSON_DICT, typing.List[str]]
+):
     """
     Deletes state for sites identified as potential bounce trackers, immediately.
 
@@ -2121,9 +2123,9 @@ def set_attribution_reporting_tracking(
     json = yield cmd_dict
 
 
-def send_pending_attribution_reports() -> typing.Generator[
-    T_JSON_DICT, T_JSON_DICT, int
-]:
+def send_pending_attribution_reports() -> (
+    typing.Generator[T_JSON_DICT, T_JSON_DICT, int]
+):
     """
     Sends all pending Attribution Reports immediately, regardless of their
     scheduled report time.
@@ -2139,9 +2141,9 @@ def send_pending_attribution_reports() -> typing.Generator[
     return int(json["numSent"])
 
 
-def get_related_website_sets() -> typing.Generator[
-    T_JSON_DICT, T_JSON_DICT, typing.List[RelatedWebsiteSet]
-]:
+def get_related_website_sets() -> (
+    typing.Generator[T_JSON_DICT, T_JSON_DICT, typing.List[RelatedWebsiteSet]]
+):
     """
     Returns the effective Related Website Sets in use by this profile for the browser
     session. The effective Related Website Sets will not change during a browser session.
@@ -2437,6 +2439,46 @@ class SharedStorageAccessed:
         )
 
 
+@event_class("Storage.sharedStorageWorkletOperationExecutionFinished")
+@dataclass
+class SharedStorageWorkletOperationExecutionFinished:
+    """
+    A shared storage run or selectURL operation finished its execution.
+    The following parameters are included in all events.
+    """
+
+    #: Time that the operation finished.
+    finished_time: network.TimeSinceEpoch
+    #: Time, in microseconds, from start of shared storage JS API call until
+    #: end of operation execution in the worklet.
+    execution_time: int
+    #: Enum value indicating the Shared Storage API method invoked.
+    method: SharedStorageAccessMethod
+    #: ID of the operation call.
+    operation_id: str
+    #: Hex representation of the DevTools token used as the TargetID for the
+    #: associated shared storage worklet.
+    worklet_target_id: target.TargetID
+    #: DevTools Frame Token for the primary frame tree's root.
+    main_frame_id: page.FrameId
+    #: Serialization of the origin owning the Shared Storage data.
+    owner_origin: str
+
+    @classmethod
+    def from_json(
+        cls, json: T_JSON_DICT
+    ) -> SharedStorageWorkletOperationExecutionFinished:
+        return cls(
+            finished_time=network.TimeSinceEpoch.from_json(json["finishedTime"]),
+            execution_time=int(json["executionTime"]),
+            method=SharedStorageAccessMethod.from_json(json["method"]),
+            operation_id=str(json["operationId"]),
+            worklet_target_id=target.TargetID.from_json(json["workletTargetId"]),
+            main_frame_id=page.FrameId.from_json(json["mainFrameId"]),
+            owner_origin=str(json["ownerOrigin"]),
+        )
+
+
 @event_class("Storage.storageBucketCreatedOrUpdated")
 @dataclass
 class StorageBucketCreatedOrUpdated:
@@ -2532,6 +2574,40 @@ class AttributionReportingReportSent:
             url=str(json["url"]),
             body=dict(json["body"]),
             result=AttributionReportingReportResult.from_json(json["result"]),
+            net_error=int(json["netError"])
+            if json.get("netError", None) is not None
+            else None,
+            net_error_name=str(json["netErrorName"])
+            if json.get("netErrorName", None) is not None
+            else None,
+            http_status_code=int(json["httpStatusCode"])
+            if json.get("httpStatusCode", None) is not None
+            else None,
+        )
+
+
+@event_class("Storage.attributionReportingVerboseDebugReportSent")
+@dataclass
+class AttributionReportingVerboseDebugReportSent:
+    """
+    **EXPERIMENTAL**
+
+
+    """
+
+    url: str
+    body: typing.Optional[typing.List[dict]]
+    net_error: typing.Optional[int]
+    net_error_name: typing.Optional[str]
+    http_status_code: typing.Optional[int]
+
+    @classmethod
+    def from_json(cls, json: T_JSON_DICT) -> AttributionReportingVerboseDebugReportSent:
+        return cls(
+            url=str(json["url"]),
+            body=[dict(i) for i in json["body"]]
+            if json.get("body", None) is not None
+            else None,
             net_error=int(json["netError"])
             if json.get("netError", None) is not None
             else None,

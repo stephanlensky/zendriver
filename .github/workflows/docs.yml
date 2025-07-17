@@ -6,6 +6,7 @@ on:
     paths:
       - "docs/**"
       # Files which are used during doc generation
+      - "mkdocs.yml"
       - "README.md"
       - "CHANGELOG.md"
       - "zendriver/cdp/**"

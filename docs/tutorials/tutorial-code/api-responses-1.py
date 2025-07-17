@@ -8,7 +8,7 @@ async def main() -> None:
 
     # TODO: Read the API response
     page = await browser.get(
-        "https://slensky.com/zendriver-examples/api-request.html",
+        "https://cdpdriver.github.io/examples/api-request.html",
     )
 
     await browser.stop()

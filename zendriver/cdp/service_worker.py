@@ -275,19 +275,6 @@ def enable() -> typing.Generator[T_JSON_DICT, T_JSON_DICT, None]:
     json = yield cmd_dict
 
 
-def inspect_worker(version_id: str) -> typing.Generator[T_JSON_DICT, T_JSON_DICT, None]:
-    """
-    :param version_id:
-    """
-    params: T_JSON_DICT = dict()
-    params["versionId"] = version_id
-    cmd_dict: T_JSON_DICT = {
-        "method": "ServiceWorker.inspectWorker",
-        "params": params,
-    }
-    json = yield cmd_dict
-
-
 def set_force_update_on_page_load(
     force_update_on_page_load: bool,
 ) -> typing.Generator[T_JSON_DICT, T_JSON_DICT, None]:

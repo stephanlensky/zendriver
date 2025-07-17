@@ -201,6 +201,15 @@ wheels = [
 ]
 
 [[package]]
+name = "emoji"
+version = "2.14.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/cb/7d/01cddcbb6f5cc0ba72e00ddf9b1fa206c802d557fd0a20b18e130edf1336/emoji-2.14.1.tar.gz", hash = "sha256:f8c50043d79a2c1410ebfae833ae1868d5941a67a6cd4d18377e2eb0bd79346b", size = 597182 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/91/db/a0335710caaa6d0aebdaa65ad4df789c15d89b7babd9a30277838a7d9aac/emoji-2.14.1-py3-none-any.whl", hash = "sha256:35a8a486c1460addb1499e3bf7929d3889b2e2841a57401903699fef595e942b", size = 590617 },
+]
+
+[[package]]
 name = "exceptiongroup"
 version = "1.2.2"
 source = { registry = "https://pypi.org/simple" }
@@ -1024,11 +1033,12 @@ wheels = [
 
 [[package]]
 name = "zendriver"
-version = "0.10.2"
+version = "0.11.0"
 source = { editable = "." }
 dependencies = [
     { name = "asyncio-atexit" },
     { name = "deprecated" },
+    { name = "emoji" },
     { name = "grapheme" },
     { name = "mss" },
     { name = "websockets" },
@@ -1055,6 +1065,7 @@ dev = [
 requires-dist = [
     { name = "asyncio-atexit", specifier = ">=1.0.1" },
     { name = "deprecated", specifier = ">=1.2.14" },
+    { name = "emoji", specifier = ">=2.14.1" },
     { name = "grapheme", specifier = ">=0.6.0" },
     { name = "mss", specifier = ">=9.0.2" },
     { name = "websockets", specifier = ">=14.0" },

@@ -8,7 +8,7 @@ from zendriver.cdp import runtime
 async def main() -> None:
     browser = await zd.start()
     page = await browser.get(
-        "https://slensky.com/zendriver-examples/console.html",
+        "https://cdpdriver.github.io/examples/console.html",
     )
 
     # Those 2 lines are equivalent and do the same thing

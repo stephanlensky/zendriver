@@ -641,13 +641,13 @@ class DescriptorOperationReceived:
     """
 
     descriptor_id: str
-    type_: CharacteristicOperationType
+    type_: DescriptorOperationType
     data: typing.Optional[str]
 
     @classmethod
     def from_json(cls, json: T_JSON_DICT) -> DescriptorOperationReceived:
         return cls(
             descriptor_id=str(json["descriptorId"]),
-            type_=CharacteristicOperationType.from_json(json["type"]),
+            type_=DescriptorOperationType.from_json(json["type"]),
             data=str(json["data"]) if json.get("data", None) is not None else None,
         )
