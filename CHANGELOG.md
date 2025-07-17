@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Complete rewrite of keyboard input system with new `KeyEvents` class in `zendriver.core.keys`
+- Complete rewrite of keyboard input system with new `KeyEvents` class in `zendriver.core.keys` @hvgupta 
   - Added support for modifiers (Ctrl, Alt, Shift, Meta)
   - Added support for special keys including arrows, escape, delete and backspace
   - Added `KeyEvents.from_text()` class method for converting plain text to cdp events
