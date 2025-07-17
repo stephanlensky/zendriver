@@ -99,14 +99,14 @@ theme:
     - navigation.expand
   name: material
   palette:
-    - accent: green
-      primary: custom
+    - accent: blue
+      primary: black
       scheme: slate
       toggle:
         icon: material/toggle-switch-off-outline
         name: Switch to light mode
-    - accent: green
-      primary: custom
+    - accent: blue
+      primary: black
       scheme: default
       toggle:
         icon: material/toggle-switch
