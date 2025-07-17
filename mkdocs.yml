@@ -91,7 +91,7 @@ plugins:
             show_root_heading: false
             show_root_toc_entry: false
 site_name: Zendriver
-site_url: https://slensky.com/zendriver
+site_url: https://zendriver.dev
 theme:
   features:
     - navigation.footer

@@ -2,7 +2,7 @@
 
 > This package is a fork of [`ultrafunkamsterdam/nodriver`](https://github.com/ultrafunkamsterdam/nodriver/), created to add new features, compile unmerged bugfixes, and increase community engagement.
 
-**Documentation:** [https://slensky.com/zendriver](https://slensky.com/zendriver)
+**Documentation:** [https://zendriver.dev](https://zendriver.dev)
 
 Zendriver is a blazing fast, async-first, undetectable webscraping/web automation framework implemented using the Chrome Devtools Protocol. Visit websites, scrape content, and run JavaScript using a real browser (no Selenium/Webdriver) all with just a few lines of Python.
 
@@ -48,7 +48,7 @@ if __name__ == "__main__":
     asyncio.run(main())
 ```
 
-Check out the [Quickstart](https://slensky.com/zendriver/quickstart/) for more information and examples.
+Check out the [Quickstart](https://zendriver.dev/quickstart/) for more information and examples.
 
 ## Rationale for the fork
 
