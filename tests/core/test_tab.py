@@ -227,17 +227,14 @@ async def test_intercept(browser: zd.Browser):
     tab = browser.main_tab
 
     async with tab.intercept(
-        "*/todos/1",
+        "*/user-data.json",
         RequestStage.RESPONSE,
         ResourceType.XHR,
     ) as interception:
-        await tab.get(sample_file("todolist.html"))
+        await tab.get(sample_file("profile.html"))
         body, _ = await interception.response_body
         await interception.continue_request()
 
         assert body is not None
         # original_response = loads(body)
-        # assert original_response["id"] == 1
-        # assert original_response["userId"] == 1
-        # assert original_response["title"] == "delectus aut autem"
-        # assert not original_response["completed"]
+        # assert original_response["name"] == "Zendriver"
