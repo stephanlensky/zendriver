@@ -16,7 +16,7 @@ async def wait_for_cards(page: Tab, initial_card_count: int) -> list[Element]:
 async def main() -> None:
     browser = await zd.start()
     page = await browser.get(
-        "https://slensky.com/zendriver-examples/scrollable-cards.html",
+        "https://cdpdriver.github.io/examples/scrollable-cards.html",
     )
 
     # Wait for cards to load

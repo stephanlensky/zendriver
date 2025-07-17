@@ -1,4 +1,4 @@
-**Target page:** [https://slensky.com/zendriver-examples/scrollable-cards.html](https://slensky.com/zendriver-examples/scrollable-cards.html)
+**Target page:** [https://cdpdriver.github.io/examples/scrollable-cards.html](https://cdpdriver.github.io/examples/scrollable-cards.html)
 
 In this tutorial, we will demonstrate how to scrape a page with an infinitely scrolling feed. Before we get started, check out the live website to get an idea of what we will be working with!
 

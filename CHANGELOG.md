@@ -22,9 +22,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- `Element.send_keys()` now uses the new `KeyEvents` system (it is still backwards compatible with passing a string)
-- Key event processing now properly handles modifier key sequences
-
+- `Element.send_keys()` now uses the new `KeyEvents` system (it is still backwards compatible with passing a string) @hvgupta 
+- Key event processing now properly handles modifier key sequences @hvgupta 
+- Update CDP schemas @nathanfallet
 
 ### Removed
 

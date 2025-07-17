@@ -42,6 +42,7 @@ class ResourceType(enum.Enum):
     PING = "Ping"
     CSP_VIOLATION_REPORT = "CSPViolationReport"
     PREFLIGHT = "Preflight"
+    FED_CM = "FedCM"
     OTHER = "Other"
 
     def to_json(self) -> str:
@@ -2191,6 +2192,10 @@ class SignedExchangeInfo:
     #: The outer response of signed HTTP exchange which was received from network.
     outer_response: Response
 
+    #: Whether network response for the signed exchange was accompanied by
+    #: extra headers.
+    has_extra_info: bool
+
     #: Information about the signed exchange header.
     header: typing.Optional[SignedExchangeHeader] = None
 
@@ -2203,6 +2208,7 @@ class SignedExchangeInfo:
     def to_json(self) -> T_JSON_DICT:
         json: T_JSON_DICT = dict()
         json["outerResponse"] = self.outer_response.to_json()
+        json["hasExtraInfo"] = self.has_extra_info
         if self.header is not None:
             json["header"] = self.header.to_json()
         if self.security_details is not None:
@@ -2215,6 +2221,7 @@ class SignedExchangeInfo:
     def from_json(cls, json: T_JSON_DICT) -> SignedExchangeInfo:
         return cls(
             outer_response=Response.from_json(json["outerResponse"]),
+            has_extra_info=bool(json["hasExtraInfo"]),
             header=SignedExchangeHeader.from_json(json["header"])
             if json.get("header", None) is not None
             else None,
@@ -2421,7 +2428,7 @@ class PrivateNetworkRequestPolicy(enum.Enum):
 
 
 class IPAddressSpace(enum.Enum):
-    LOCAL = "Local"
+    LOOPBACK = "Loopback"
     PRIVATE = "Private"
     PUBLIC = "Public"
     UNKNOWN = "Unknown"
@@ -2866,9 +2873,9 @@ def set_accepted_encodings(
     json = yield cmd_dict
 
 
-def clear_accepted_encodings_override() -> typing.Generator[
-    T_JSON_DICT, T_JSON_DICT, None
-]:
+def clear_accepted_encodings_override() -> (
+    typing.Generator[T_JSON_DICT, T_JSON_DICT, None]
+):
     """
     Clears accepted encodings set by setAcceptedEncodings
 
@@ -2913,9 +2920,9 @@ def can_clear_browser_cookies() -> typing.Generator[T_JSON_DICT, T_JSON_DICT, bo
 
 
 @deprecated(version="1.3")
-def can_emulate_network_conditions() -> typing.Generator[
-    T_JSON_DICT, T_JSON_DICT, bool
-]:
+def can_emulate_network_conditions() -> (
+    typing.Generator[T_JSON_DICT, T_JSON_DICT, bool]
+):
     """
     Tells whether emulation of network conditions is supported.
 
@@ -3120,9 +3127,9 @@ def enable(
 
 
 @deprecated(version="1.3")
-def get_all_cookies() -> typing.Generator[
-    T_JSON_DICT, T_JSON_DICT, typing.List[Cookie]
-]:
+def get_all_cookies() -> (
+    typing.Generator[T_JSON_DICT, T_JSON_DICT, typing.List[Cookie]]
+):
     """
     Returns all browser cookies. Depending on the backend support, will return detailed cookie
     information in the ``cookies`` field.
@@ -3650,7 +3657,7 @@ def set_cookie_controls(
 ) -> typing.Generator[T_JSON_DICT, T_JSON_DICT, None]:
     """
     Sets Controls for third-party cookie access
-    Page reload is required before the new cookie bahavior will be observed
+    Page reload is required before the new cookie behavior will be observed
 
     **EXPERIMENTAL**
 

@@ -34,7 +34,6 @@ nav:
           - cast: reference/cdp/cast.md
           - console: reference/cdp/console.md
           - css: reference/cdp/css.md
-          - database: reference/cdp/database.md
           - debugger: reference/cdp/debugger.md
           - device_access: reference/cdp/device_access.md
           - device_orientation: reference/cdp/device_orientation.md
@@ -91,7 +90,9 @@ plugins:
             show_root_heading: false
             show_root_toc_entry: false
 site_name: Zendriver
-site_url: https://slensky.com/zendriver
+site_url: https://zendriver.dev
+repo_url: https://github.com/cdpdriver/zendriver
+repo_name: cdpdriver/zendriver
 theme:
   features:
     - navigation.footer
@@ -99,14 +100,14 @@ theme:
     - navigation.expand
   name: material
   palette:
-    - accent: green
-      primary: custom
+    - accent: blue
+      primary: black
       scheme: slate
       toggle:
         icon: material/toggle-switch-off-outline
         name: Switch to light mode
-    - accent: green
-      primary: custom
+    - accent: blue
+      primary: black
       scheme: default
       toggle:
         icon: material/toggle-switch

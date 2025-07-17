@@ -1,4 +1,4 @@
-**Target page:** [https://slensky.com/zendriver-examples/console.html](https://slensky.com/zendriver-examples/console.html)
+**Target page:** [https://cdpdriver.github.io/examples/console.html](https://cdpdriver.github.io/examples/console.html)
 
 In this tutorial, we will explore how to use the Chrome DevTools Protocol (CDP) directly, when Zendriver does not provide
 a specific API for the functionality you need.
