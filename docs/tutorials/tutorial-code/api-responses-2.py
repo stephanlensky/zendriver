@@ -11,7 +11,7 @@ async def main() -> None:
     page = browser.tabs[0]
     async with page.expect_response(".*/user-data.json") as response_expectation:
         await page.get(
-            "https://slensky.com/zendriver-examples/api-request.html",
+            "https://cdpdriver.github.io/examples/api-request.html",
         )
         response = await response_expectation.value
 

@@ -188,6 +188,7 @@ class Connection(metaclass=CantTouchThis):
     attached: bool
     websocket: websockets.asyncio.client.ClientConnection | None = None
     _target: cdp.target.TargetInfo | None
+    _current_id_mutex: asyncio.Lock = asyncio.Lock()
 
     def __init__(
         self,
@@ -468,7 +469,8 @@ class Connection(metaclass=CantTouchThis):
             tx.connection = self
             if not self.mapper:
                 self.__count__ = itertools.count(0)
-            tx.id = next(self.__count__)
+            async with self._current_id_mutex:
+                tx.id = next(self.__count__)
             self.mapper.update({tx.id: tx})
             if not _is_update:
                 await self._register_handlers()

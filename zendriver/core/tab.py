@@ -13,11 +13,14 @@ import warnings
 import webbrowser
 from typing import TYPE_CHECKING, Any, List, Literal, Optional, Tuple, Union
 
+from .intercept import BaseFetchInterception
 from .. import cdp
 from . import element, util
 from .config import PathLike
 from .connection import Connection, ProtocolException
 from .expect import DownloadExpectation, RequestExpectation, ResponseExpectation
+from ..cdp.fetch import RequestStage
+from ..cdp.network import ResourceType
 
 if TYPE_CHECKING:
     from .browser import Browser
@@ -1232,6 +1235,28 @@ class Tab(Connection):
         :rtype: DownloadExpectation
         """
         return DownloadExpectation(self)
+
+    def intercept(
+        self,
+        url_pattern: str,
+        request_stage: RequestStage,
+        resource_type: ResourceType,
+    ) -> BaseFetchInterception:
+        """
+        Sets up interception for network requests matching a URL pattern, request stage, and resource type.
+
+        :param url_pattern: URL string or regex pattern to match requests.
+        :type url_pattern: Union[str, re.Pattern[str]]
+        :param request_stage: Stage of the request to intercept (e.g., request, response).
+        :type request_stage: RequestStage
+        :param resource_type: Type of resource (e.g., Document, Script, Image).
+        :type resource_type: ResourceType
+        :return: A BaseFetchInterception instance for further configuration or awaiting intercepted requests.
+        :rtype: BaseFetchInterception
+
+        Use this to block, modify, or inspect network traffic for specific resources during browser automation.
+        """
+        return BaseFetchInterception(self, url_pattern, request_stage, resource_type)
 
     async def download_file(self, url: str, filename: Optional[PathLike] = None):
         """

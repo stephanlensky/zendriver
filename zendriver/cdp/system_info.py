@@ -339,9 +339,9 @@ class ProcessInfo:
         )
 
 
-def get_info() -> typing.Generator[
-    T_JSON_DICT, T_JSON_DICT, typing.Tuple[GPUInfo, str, str, str]
-]:
+def get_info() -> (
+    typing.Generator[T_JSON_DICT, T_JSON_DICT, typing.Tuple[GPUInfo, str, str, str]]
+):
     """
     Returns information about the system.
 
@@ -383,9 +383,9 @@ def get_feature_state(
     return bool(json["featureEnabled"])
 
 
-def get_process_info() -> typing.Generator[
-    T_JSON_DICT, T_JSON_DICT, typing.List[ProcessInfo]
-]:
+def get_process_info() -> (
+    typing.Generator[T_JSON_DICT, T_JSON_DICT, typing.List[ProcessInfo]]
+):
     """
     Returns information about all running processes.
 

@@ -1,4 +1,4 @@
-**Target page:** [https://slensky.com/zendriver-examples/login-page.html](https://slensky.com/zendriver-examples/login-page.html)
+**Target page:** [https://cdpdriver.github.io/examples/login-page.html](https://cdpdriver.github.io/examples/login-page.html)
 
 In this tutorial, we will demonstrate how to fill out a new account sign-up form and then log in with the newly created account. The example page login/signup is implemented entirely with JavaScript, so created accounts do not persist once the tab has been closed.
 

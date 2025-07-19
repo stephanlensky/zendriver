@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Fetch Example</title>
+    <script>
+        window.onload = function () {
+            fetch('https://cdpdriver.github.io/examples/user-data.json')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('result').textContent = JSON.stringify(data, null, 2);
+                })
+                .catch(error => {
+                    document.getElementById('result').textContent = 'Error: ' + error;
+                });
+        };
+    </script>
+</head>
+<body>
+<h1>Fetch Result</h1>
+<pre id="result">Loading...</pre>
+</body>
+</html>

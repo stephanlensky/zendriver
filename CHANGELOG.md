@@ -15,6 +15,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
+## [0.12.1] - 2025-07-17
+
+### Fixed
+
+- Remove usage of StrEnum to fix compatibility with Python 3.10 @stephanlensky
+
+## [0.12.0] - 2025-07-17
+
+### Added
+
+- Added `Tab.intercept` @nathanfallet
+
+## [0.11.0] - 2025-07-16
+
+### Added
+
+- Complete rewrite of keyboard input system with new `KeyEvents` class in `zendriver.core.keys` @hvgupta
+  - Added support for modifiers (Ctrl, Alt, Shift, Meta)
+  - Added support for special keys including arrows, escape, delete and backspace
+  - Added `KeyEvents.from_text()` class method for converting plain text to cdp events
+  - Added `KeyEvents.from_mixed_input()` class method for handling mixed sequences of text, special keys to cdp events
+  - Proper Handling of shift variants of keys
+  - Comprehensive key event types: `CHAR`, `KEY_DOWN`, `KEY_UP`
+  - Added key event type (`DOWN_AND_UP`) as a combination of `KEY_DOWN` and `KEY_UP`
+
+### Changed
+
+- `Element.send_keys()` now uses the new `KeyEvents` system (it is still backwards compatible with passing a string) @hvgupta
+- Key event processing now properly handles modifier key sequences @hvgupta
+- Update CDP schemas @nathanfallet
+
 ## [0.10.2] - 2025-07-06
 
 ### Fixed

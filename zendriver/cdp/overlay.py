@@ -926,7 +926,6 @@ class InspectMode(enum.Enum):
     SEARCH_FOR_NODE = "searchForNode"
     SEARCH_FOR_UA_SHADOW_DOM = "searchForUAShadowDOM"
     CAPTURE_AREA_SCREENSHOT = "captureAreaScreenshot"
-    SHOW_DISTANCES = "showDistances"
     NONE = "none"
 
     def to_json(self) -> str:

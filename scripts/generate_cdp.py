@@ -9,6 +9,7 @@ import re
 import subprocess
 import typing
 import urllib.request
+import shutil
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
@@ -990,6 +991,8 @@ def main():
 
     output_path = REPO_ROOT / "zendriver" / "cdp"
 
+    if output_path.exists():
+        shutil.rmtree(output_path)
     output_path.mkdir(exist_ok=True)
     try:
         # Parse domains
