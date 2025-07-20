@@ -1210,7 +1210,7 @@ def get_isolate_id() -> typing.Generator[T_JSON_DICT, T_JSON_DICT, str]:
 
 
 def get_heap_usage() -> (
-    typing.Generator[T_JSON_DICT, T_JSON_DICT, typing.Tuple[float, float]]
+    typing.Generator[T_JSON_DICT, T_JSON_DICT, typing.Tuple[float, float, float, float]]
 ):
     """
     Returns the JavaScript heap usage.
@@ -1220,14 +1220,21 @@ def get_heap_usage() -> (
 
     :returns: A tuple with the following items:
 
-        0. **usedSize** - Used heap size in bytes.
-        1. **totalSize** - Allocated heap size in bytes.
+        0. **usedSize** - Used JavaScript heap size in bytes.
+        1. **totalSize** - Allocated JavaScript heap size in bytes.
+        2. **embedderHeapUsedSize** - Used size in bytes in the embedder's garbage-collected heap.
+        3. **backingStorageSize** - Size in bytes of backing storage for array buffers and external strings.
     """
     cmd_dict: T_JSON_DICT = {
         "method": "Runtime.getHeapUsage",
     }
     json = yield cmd_dict
-    return (float(json["usedSize"]), float(json["totalSize"]))
+    return (
+        float(json["usedSize"]),
+        float(json["totalSize"]),
+        float(json["embedderHeapUsedSize"]),
+        float(json["backingStorageSize"]),
+    )
 
 
 def get_properties(

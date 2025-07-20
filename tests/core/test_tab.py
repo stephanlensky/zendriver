@@ -4,6 +4,8 @@ import pytest
 
 import zendriver as zd
 from tests.sample_data import sample_file
+from zendriver.cdp.fetch import RequestStage
+from zendriver.cdp.network import ResourceType
 
 
 async def test_set_user_agent_sets_navigator_values(browser: zd.Browser):
@@ -60,6 +62,19 @@ async def test_select(browser: zd.Browser):
     assert result.text == "Apples"
 
 
+async def test_xpath(browser: zd.Browser):
+    tab = await browser.get(sample_file("groceries.html"))
+
+    results = await tab.xpath('//li[@aria-label="Apples (42)"]')
+
+    assert len(results) == 1
+    result = results[0]
+
+    assert result is not None
+    assert result.tag == "li"
+    assert result.text == "Apples"
+
+
 async def test_add_handler_type_event(browser: zd.Browser):
     tab = await browser.get(sample_file("groceries.html"))
 
@@ -93,7 +108,7 @@ async def test_add_handler_module_event(browser: zd.Browser):
 
     tab.add_handler(zd.cdp.network, request_handler)
 
-    assert len(tab.handlers) == 26
+    assert len(tab.handlers) == 27
 
 
 async def test_remove_handlers(browser: zd.Browser):
@@ -206,3 +221,20 @@ async def test_expect_download(browser: zd.Browser):
         download = await download_ex.value
         assert type(download) is zd.cdp.page.DownloadWillBegin
         assert download.url is not None
+
+
+async def test_intercept(browser: zd.Browser):
+    tab = browser.main_tab
+
+    async with tab.intercept(
+        "*/user-data.json",
+        RequestStage.RESPONSE,
+        ResourceType.XHR,
+    ) as interception:
+        await tab.get(sample_file("profile.html"))
+        body, _ = await interception.response_body
+        await interception.continue_request()
+
+        assert body is not None
+        # original_response = loads(body)
+        # assert original_response["name"] == "Zendriver"

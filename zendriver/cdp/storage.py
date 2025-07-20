@@ -14,6 +14,7 @@ from .util import event_class, T_JSON_DICT
 from . import browser
 from . import network
 from . import page
+from . import target
 
 
 class SerializedStorageKey(str):
@@ -33,7 +34,6 @@ class StorageType(enum.Enum):
     Enum of possible storage types.
     """
 
-    APPCACHE = "appcache"
     COOKIES = "cookies"
     FILE_SYSTEMS = "file_systems"
     INDEXEDDB = "indexeddb"
@@ -183,38 +183,50 @@ class InterestGroupAuctionFetchType(enum.Enum):
         return cls(json)
 
 
-class SharedStorageAccessType(enum.Enum):
+class SharedStorageAccessScope(enum.Enum):
     """
-    Enum of shared storage access types.
+    Enum of shared storage access scopes.
     """
 
-    DOCUMENT_ADD_MODULE = "documentAddModule"
-    DOCUMENT_SELECT_URL = "documentSelectURL"
-    DOCUMENT_RUN = "documentRun"
-    DOCUMENT_SET = "documentSet"
-    DOCUMENT_APPEND = "documentAppend"
-    DOCUMENT_DELETE = "documentDelete"
-    DOCUMENT_CLEAR = "documentClear"
-    DOCUMENT_GET = "documentGet"
-    WORKLET_SET = "workletSet"
-    WORKLET_APPEND = "workletAppend"
-    WORKLET_DELETE = "workletDelete"
-    WORKLET_CLEAR = "workletClear"
-    WORKLET_GET = "workletGet"
-    WORKLET_KEYS = "workletKeys"
-    WORKLET_ENTRIES = "workletEntries"
-    WORKLET_LENGTH = "workletLength"
-    WORKLET_REMAINING_BUDGET = "workletRemainingBudget"
-    HEADER_SET = "headerSet"
-    HEADER_APPEND = "headerAppend"
-    HEADER_DELETE = "headerDelete"
-    HEADER_CLEAR = "headerClear"
+    WINDOW = "window"
+    SHARED_STORAGE_WORKLET = "sharedStorageWorklet"
+    PROTECTED_AUDIENCE_WORKLET = "protectedAudienceWorklet"
+    HEADER = "header"
 
     def to_json(self) -> str:
         return self.value
 
     @classmethod
-    def from_json(cls, json: str) -> SharedStorageAccessType:
+    def from_json(cls, json: str) -> SharedStorageAccessScope:
+        return cls(json)
+
+
+class SharedStorageAccessMethod(enum.Enum):
+    """
+    Enum of shared storage access methods.
+    """
+
+    ADD_MODULE = "addModule"
+    CREATE_WORKLET = "createWorklet"
+    SELECT_URL = "selectURL"
+    RUN = "run"
+    BATCH_UPDATE = "batchUpdate"
+    SET_ = "set"
+    APPEND = "append"
+    DELETE = "delete"
+    CLEAR = "clear"
+    GET = "get"
+    KEYS = "keys"
+    VALUES = "values"
+    ENTRIES = "entries"
+    LENGTH = "length"
+    REMAINING_BUDGET = "remainingBudget"
+
+    def to_json(self) -> str:
+        return self.value
+
+    @classmethod
+    def from_json(cls, json: str) -> SharedStorageAccessMethod:
         return cls(json)
 
 
@@ -280,6 +292,52 @@ class SharedStorageMetadata:
 
 
 @dataclass
+class SharedStoragePrivateAggregationConfig:
+    """
+    Represents a dictionary object passed in as privateAggregationConfig to
+    run or selectURL.
+    """
+
+    #: Configures the maximum size allowed for filtering IDs.
+    filtering_id_max_bytes: int
+
+    #: The chosen aggregation service deployment.
+    aggregation_coordinator_origin: typing.Optional[str] = None
+
+    #: The context ID provided.
+    context_id: typing.Optional[str] = None
+
+    #: The limit on the number of contributions in the final report.
+    max_contributions: typing.Optional[int] = None
+
+    def to_json(self) -> T_JSON_DICT:
+        json: T_JSON_DICT = dict()
+        json["filteringIdMaxBytes"] = self.filtering_id_max_bytes
+        if self.aggregation_coordinator_origin is not None:
+            json["aggregationCoordinatorOrigin"] = self.aggregation_coordinator_origin
+        if self.context_id is not None:
+            json["contextId"] = self.context_id
+        if self.max_contributions is not None:
+            json["maxContributions"] = self.max_contributions
+        return json
+
+    @classmethod
+    def from_json(cls, json: T_JSON_DICT) -> SharedStoragePrivateAggregationConfig:
+        return cls(
+            filtering_id_max_bytes=int(json["filteringIdMaxBytes"]),
+            aggregation_coordinator_origin=str(json["aggregationCoordinatorOrigin"])
+            if json.get("aggregationCoordinatorOrigin", None) is not None
+            else None,
+            context_id=str(json["contextId"])
+            if json.get("contextId", None) is not None
+            else None,
+            max_contributions=int(json["maxContributions"])
+            if json.get("maxContributions", None) is not None
+            else None,
+        )
+
+
+@dataclass
 class SharedStorageReportingMetadata:
     """
     Pair of reporting metadata details for a candidate URL for ``selectURL()``.
@@ -340,69 +398,126 @@ class SharedStorageAccessParams:
     """
 
     #: Spec of the module script URL.
-    #: Present only for SharedStorageAccessType.documentAddModule.
+    #: Present only for SharedStorageAccessMethods: addModule and
+    #: createWorklet.
     script_source_url: typing.Optional[str] = None
 
+    #: String denoting "context-origin", "script-origin", or a custom
+    #: origin to be used as the worklet's data origin.
+    #: Present only for SharedStorageAccessMethod: createWorklet.
+    data_origin: typing.Optional[str] = None
+
     #: Name of the registered operation to be run.
-    #: Present only for SharedStorageAccessType.documentRun and
-    #: SharedStorageAccessType.documentSelectURL.
+    #: Present only for SharedStorageAccessMethods: run and selectURL.
     operation_name: typing.Optional[str] = None
 
+    #: ID of the operation call.
+    #: Present only for SharedStorageAccessMethods: run and selectURL.
+    operation_id: typing.Optional[str] = None
+
+    #: Whether or not to keep the worket alive for future run or selectURL
+    #: calls.
+    #: Present only for SharedStorageAccessMethods: run and selectURL.
+    keep_alive: typing.Optional[bool] = None
+
+    #: Configures the private aggregation options.
+    #: Present only for SharedStorageAccessMethods: run and selectURL.
+    private_aggregation_config: typing.Optional[
+        SharedStoragePrivateAggregationConfig
+    ] = None
+
     #: The operation's serialized data in bytes (converted to a string).
-    #: Present only for SharedStorageAccessType.documentRun and
-    #: SharedStorageAccessType.documentSelectURL.
+    #: Present only for SharedStorageAccessMethods: run and selectURL.
+    #: TODO(crbug.com/401011862): Consider updating this parameter to binary.
     serialized_data: typing.Optional[str] = None
 
     #: Array of candidate URLs' specs, along with any associated metadata.
-    #: Present only for SharedStorageAccessType.documentSelectURL.
+    #: Present only for SharedStorageAccessMethod: selectURL.
     urls_with_metadata: typing.Optional[typing.List[SharedStorageUrlWithMetadata]] = (
         None
     )
 
+    #: Spec of the URN:UUID generated for a selectURL call.
+    #: Present only for SharedStorageAccessMethod: selectURL.
+    urn_uuid: typing.Optional[str] = None
+
     #: Key for a specific entry in an origin's shared storage.
-    #: Present only for SharedStorageAccessType.documentSet,
-    #: SharedStorageAccessType.documentAppend,
-    #: SharedStorageAccessType.documentDelete,
-    #: SharedStorageAccessType.workletSet,
-    #: SharedStorageAccessType.workletAppend,
-    #: SharedStorageAccessType.workletDelete,
-    #: SharedStorageAccessType.workletGet,
-    #: SharedStorageAccessType.headerSet,
-    #: SharedStorageAccessType.headerAppend, and
-    #: SharedStorageAccessType.headerDelete.
+    #: Present only for SharedStorageAccessMethods: set, append, delete, and
+    #: get.
     key: typing.Optional[str] = None
 
     #: Value for a specific entry in an origin's shared storage.
-    #: Present only for SharedStorageAccessType.documentSet,
-    #: SharedStorageAccessType.documentAppend,
-    #: SharedStorageAccessType.workletSet,
-    #: SharedStorageAccessType.workletAppend,
-    #: SharedStorageAccessType.headerSet, and
-    #: SharedStorageAccessType.headerAppend.
+    #: Present only for SharedStorageAccessMethods: set and append.
     value: typing.Optional[str] = None
 
     #: Whether or not to set an entry for a key if that key is already present.
-    #: Present only for SharedStorageAccessType.documentSet,
-    #: SharedStorageAccessType.workletSet, and
-    #: SharedStorageAccessType.headerSet.
+    #: Present only for SharedStorageAccessMethod: set.
     ignore_if_present: typing.Optional[bool] = None
+
+    #: A number denoting the (0-based) order of the worklet's
+    #: creation relative to all other shared storage worklets created by
+    #: documents using the current storage partition.
+    #: Present only for SharedStorageAccessMethods: addModule, createWorklet.
+    worklet_ordinal: typing.Optional[int] = None
+
+    #: Hex representation of the DevTools token used as the TargetID for the
+    #: associated shared storage worklet.
+    #: Present only for SharedStorageAccessMethods: addModule, createWorklet,
+    #: run, selectURL, and any other SharedStorageAccessMethod when the
+    #: SharedStorageAccessScope is sharedStorageWorklet.
+    worklet_target_id: typing.Optional[target.TargetID] = None
+
+    #: Name of the lock to be acquired, if present.
+    #: Optionally present only for SharedStorageAccessMethods: batchUpdate,
+    #: set, append, delete, and clear.
+    with_lock: typing.Optional[str] = None
+
+    #: If the method has been called as part of a batchUpdate, then this
+    #: number identifies the batch to which it belongs.
+    #: Optionally present only for SharedStorageAccessMethods:
+    #: batchUpdate (required), set, append, delete, and clear.
+    batch_update_id: typing.Optional[str] = None
+
+    #: Number of modifier methods sent in batch.
+    #: Present only for SharedStorageAccessMethod: batchUpdate.
+    batch_size: typing.Optional[int] = None
 
     def to_json(self) -> T_JSON_DICT:
         json: T_JSON_DICT = dict()
         if self.script_source_url is not None:
             json["scriptSourceUrl"] = self.script_source_url
+        if self.data_origin is not None:
+            json["dataOrigin"] = self.data_origin
         if self.operation_name is not None:
             json["operationName"] = self.operation_name
+        if self.operation_id is not None:
+            json["operationId"] = self.operation_id
+        if self.keep_alive is not None:
+            json["keepAlive"] = self.keep_alive
+        if self.private_aggregation_config is not None:
+            json["privateAggregationConfig"] = self.private_aggregation_config.to_json()
         if self.serialized_data is not None:
             json["serializedData"] = self.serialized_data
         if self.urls_with_metadata is not None:
             json["urlsWithMetadata"] = [i.to_json() for i in self.urls_with_metadata]
+        if self.urn_uuid is not None:
+            json["urnUuid"] = self.urn_uuid
         if self.key is not None:
             json["key"] = self.key
         if self.value is not None:
             json["value"] = self.value
         if self.ignore_if_present is not None:
             json["ignoreIfPresent"] = self.ignore_if_present
+        if self.worklet_ordinal is not None:
+            json["workletOrdinal"] = self.worklet_ordinal
+        if self.worklet_target_id is not None:
+            json["workletTargetId"] = self.worklet_target_id.to_json()
+        if self.with_lock is not None:
+            json["withLock"] = self.with_lock
+        if self.batch_update_id is not None:
+            json["batchUpdateId"] = self.batch_update_id
+        if self.batch_size is not None:
+            json["batchSize"] = self.batch_size
         return json
 
     @classmethod
@@ -411,8 +526,22 @@ class SharedStorageAccessParams:
             script_source_url=str(json["scriptSourceUrl"])
             if json.get("scriptSourceUrl", None) is not None
             else None,
+            data_origin=str(json["dataOrigin"])
+            if json.get("dataOrigin", None) is not None
+            else None,
             operation_name=str(json["operationName"])
             if json.get("operationName", None) is not None
+            else None,
+            operation_id=str(json["operationId"])
+            if json.get("operationId", None) is not None
+            else None,
+            keep_alive=bool(json["keepAlive"])
+            if json.get("keepAlive", None) is not None
+            else None,
+            private_aggregation_config=SharedStoragePrivateAggregationConfig.from_json(
+                json["privateAggregationConfig"]
+            )
+            if json.get("privateAggregationConfig", None) is not None
             else None,
             serialized_data=str(json["serializedData"])
             if json.get("serializedData", None) is not None
@@ -423,10 +552,28 @@ class SharedStorageAccessParams:
             ]
             if json.get("urlsWithMetadata", None) is not None
             else None,
+            urn_uuid=str(json["urnUuid"])
+            if json.get("urnUuid", None) is not None
+            else None,
             key=str(json["key"]) if json.get("key", None) is not None else None,
             value=str(json["value"]) if json.get("value", None) is not None else None,
             ignore_if_present=bool(json["ignoreIfPresent"])
             if json.get("ignoreIfPresent", None) is not None
+            else None,
+            worklet_ordinal=int(json["workletOrdinal"])
+            if json.get("workletOrdinal", None) is not None
+            else None,
+            worklet_target_id=target.TargetID.from_json(json["workletTargetId"])
+            if json.get("workletTargetId", None) is not None
+            else None,
+            with_lock=str(json["withLock"])
+            if json.get("withLock", None) is not None
+            else None,
+            batch_update_id=str(json["batchUpdateId"])
+            if json.get("batchUpdateId", None) is not None
+            else None,
+            batch_size=int(json["batchSize"])
+            if json.get("batchSize", None) is not None
             else None,
         )
 
@@ -664,30 +811,6 @@ class AttributionReportingEventReportWindows:
         )
 
 
-@dataclass
-class AttributionReportingTriggerSpec:
-    #: number instead of integer because not all uint32 can be represented by
-    #: int
-    trigger_data: typing.List[float]
-
-    event_report_windows: AttributionReportingEventReportWindows
-
-    def to_json(self) -> T_JSON_DICT:
-        json: T_JSON_DICT = dict()
-        json["triggerData"] = [i for i in self.trigger_data]
-        json["eventReportWindows"] = self.event_report_windows.to_json()
-        return json
-
-    @classmethod
-    def from_json(cls, json: T_JSON_DICT) -> AttributionReportingTriggerSpec:
-        return cls(
-            trigger_data=[float(i) for i in json["triggerData"]],
-            event_report_windows=AttributionReportingEventReportWindows.from_json(
-                json["eventReportWindows"]
-            ),
-        )
-
-
 class AttributionReportingTriggerDataMatching(enum.Enum):
     EXACT = "exact"
     MODULUS = "modulus"
@@ -796,13 +919,37 @@ class AttributionScopesData:
 
 
 @dataclass
+class AttributionReportingNamedBudgetDef:
+    name: str
+
+    budget: int
+
+    def to_json(self) -> T_JSON_DICT:
+        json: T_JSON_DICT = dict()
+        json["name"] = self.name
+        json["budget"] = self.budget
+        return json
+
+    @classmethod
+    def from_json(cls, json: T_JSON_DICT) -> AttributionReportingNamedBudgetDef:
+        return cls(
+            name=str(json["name"]),
+            budget=int(json["budget"]),
+        )
+
+
+@dataclass
 class AttributionReportingSourceRegistration:
     time: network.TimeSinceEpoch
 
     #: duration in seconds
     expiry: int
 
-    trigger_specs: typing.List[AttributionReportingTriggerSpec]
+    #: number instead of integer because not all uint32 can be represented by
+    #: int
+    trigger_data: typing.List[float]
+
+    event_report_windows: AttributionReportingEventReportWindows
 
     #: duration in seconds
     aggregatable_report_window: int
@@ -833,6 +980,12 @@ class AttributionReportingSourceRegistration:
 
     max_event_level_reports: int
 
+    named_budgets: typing.List[AttributionReportingNamedBudgetDef]
+
+    debug_reporting: bool
+
+    event_level_epsilon: float
+
     debug_key: typing.Optional[UnsignedInt64AsBase10] = None
 
     scopes_data: typing.Optional[AttributionScopesData] = None
@@ -841,7 +994,8 @@ class AttributionReportingSourceRegistration:
         json: T_JSON_DICT = dict()
         json["time"] = self.time.to_json()
         json["expiry"] = self.expiry
-        json["triggerSpecs"] = [i.to_json() for i in self.trigger_specs]
+        json["triggerData"] = [i for i in self.trigger_data]
+        json["eventReportWindows"] = self.event_report_windows.to_json()
         json["aggregatableReportWindow"] = self.aggregatable_report_window
         json["type"] = self.type_.to_json()
         json["sourceOrigin"] = self.source_origin
@@ -857,6 +1011,9 @@ class AttributionReportingSourceRegistration:
             self.aggregatable_debug_reporting_config.to_json()
         )
         json["maxEventLevelReports"] = self.max_event_level_reports
+        json["namedBudgets"] = [i.to_json() for i in self.named_budgets]
+        json["debugReporting"] = self.debug_reporting
+        json["eventLevelEpsilon"] = self.event_level_epsilon
         if self.debug_key is not None:
             json["debugKey"] = self.debug_key.to_json()
         if self.scopes_data is not None:
@@ -868,10 +1025,10 @@ class AttributionReportingSourceRegistration:
         return cls(
             time=network.TimeSinceEpoch.from_json(json["time"]),
             expiry=int(json["expiry"]),
-            trigger_specs=[
-                AttributionReportingTriggerSpec.from_json(i)
-                for i in json["triggerSpecs"]
-            ],
+            trigger_data=[float(i) for i in json["triggerData"]],
+            event_report_windows=AttributionReportingEventReportWindows.from_json(
+                json["eventReportWindows"]
+            ),
             aggregatable_report_window=int(json["aggregatableReportWindow"]),
             type_=AttributionReportingSourceType.from_json(json["type"]),
             source_origin=str(json["sourceOrigin"]),
@@ -897,6 +1054,12 @@ class AttributionReportingSourceRegistration:
                 json["aggregatableDebugReportingConfig"]
             ),
             max_event_level_reports=int(json["maxEventLevelReports"]),
+            named_budgets=[
+                AttributionReportingNamedBudgetDef.from_json(i)
+                for i in json["namedBudgets"]
+            ],
+            debug_reporting=bool(json["debugReporting"]),
+            event_level_epsilon=float(json["eventLevelEpsilon"]),
             debug_key=UnsignedInt64AsBase10.from_json(json["debugKey"])
             if json.get("debugKey", None) is not None
             else None,
@@ -1078,6 +1241,27 @@ class AttributionReportingAggregatableDedupKey:
 
 
 @dataclass
+class AttributionReportingNamedBudgetCandidate:
+    filters: AttributionReportingFilterPair
+
+    name: typing.Optional[str] = None
+
+    def to_json(self) -> T_JSON_DICT:
+        json: T_JSON_DICT = dict()
+        json["filters"] = self.filters.to_json()
+        if self.name is not None:
+            json["name"] = self.name
+        return json
+
+    @classmethod
+    def from_json(cls, json: T_JSON_DICT) -> AttributionReportingNamedBudgetCandidate:
+        return cls(
+            filters=AttributionReportingFilterPair.from_json(json["filters"]),
+            name=str(json["name"]) if json.get("name", None) is not None else None,
+        )
+
+
+@dataclass
 class AttributionReportingTriggerRegistration:
     filters: AttributionReportingFilterPair
 
@@ -1100,6 +1284,8 @@ class AttributionReportingTriggerRegistration:
     )
 
     scopes: typing.List[str]
+
+    named_budgets: typing.List[AttributionReportingNamedBudgetCandidate]
 
     debug_key: typing.Optional[UnsignedInt64AsBase10] = None
 
@@ -1129,6 +1315,7 @@ class AttributionReportingTriggerRegistration:
             self.aggregatable_debug_reporting_config.to_json()
         )
         json["scopes"] = [i for i in self.scopes]
+        json["namedBudgets"] = [i.to_json() for i in self.named_budgets]
         if self.debug_key is not None:
             json["debugKey"] = self.debug_key.to_json()
         if self.aggregation_coordinator_origin is not None:
@@ -1168,6 +1355,10 @@ class AttributionReportingTriggerRegistration:
                 json["aggregatableDebugReportingConfig"]
             ),
             scopes=[str(i) for i in json["scopes"]],
+            named_budgets=[
+                AttributionReportingNamedBudgetCandidate.from_json(i)
+                for i in json["namedBudgets"]
+            ],
             debug_key=UnsignedInt64AsBase10.from_json(json["debugKey"])
             if json.get("debugKey", None) is not None
             else None,
@@ -1231,6 +1422,20 @@ class AttributionReportingAggregatableResult(enum.Enum):
 
     @classmethod
     def from_json(cls, json: str) -> AttributionReportingAggregatableResult:
+        return cls(json)
+
+
+class AttributionReportingReportResult(enum.Enum):
+    SENT = "sent"
+    PROHIBITED = "prohibited"
+    FAILED_TO_ASSEMBLE = "failedToAssemble"
+    EXPIRED = "expired"
+
+    def to_json(self) -> str:
+        return self.value
+
+    @classmethod
+    def from_json(cls, json: str) -> AttributionReportingReportResult:
         return cls(json)
 
 
@@ -1954,6 +2159,50 @@ def get_related_website_sets() -> (
     return [RelatedWebsiteSet.from_json(i) for i in json["sets"]]
 
 
+def get_affected_urls_for_third_party_cookie_metadata(
+    first_party_url: str, third_party_urls: typing.List[str]
+) -> typing.Generator[T_JSON_DICT, T_JSON_DICT, typing.List[str]]:
+    """
+    Returns the list of URLs from a page and its embedded resources that match
+    existing grace period URL pattern rules.
+    https://developers.google.com/privacy-sandbox/cookies/temporary-exceptions/grace-period
+
+    **EXPERIMENTAL**
+
+    :param first_party_url: The URL of the page currently being visited.
+    :param third_party_urls: The list of embedded resource URLs from the page.
+    :returns: Array of matching URLs. If there is a primary pattern match for the first- party URL, only the first-party URL is returned in the array.
+    """
+    params: T_JSON_DICT = dict()
+    params["firstPartyUrl"] = first_party_url
+    params["thirdPartyUrls"] = [i for i in third_party_urls]
+    cmd_dict: T_JSON_DICT = {
+        "method": "Storage.getAffectedUrlsForThirdPartyCookieMetadata",
+        "params": params,
+    }
+    json = yield cmd_dict
+    return [str(i) for i in json["matchedUrls"]]
+
+
+def set_protected_audience_k_anonymity(
+    owner: str, name: str, hashes: typing.List[str]
+) -> typing.Generator[T_JSON_DICT, T_JSON_DICT, None]:
+    """
+    :param owner:
+    :param name:
+    :param hashes:
+    """
+    params: T_JSON_DICT = dict()
+    params["owner"] = owner
+    params["name"] = name
+    params["hashes"] = [i for i in hashes]
+    cmd_dict: T_JSON_DICT = {
+        "method": "Storage.setProtectedAudienceKAnonymity",
+        "params": params,
+    }
+    json = yield cmd_dict
+
+
 @event_class("Storage.cacheStorageContentUpdated")
 @dataclass
 class CacheStorageContentUpdated:
@@ -2163,12 +2412,16 @@ class SharedStorageAccessed:
 
     #: Time of the access.
     access_time: network.TimeSinceEpoch
+    #: Enum value indicating the access scope.
+    scope: SharedStorageAccessScope
     #: Enum value indicating the Shared Storage API method invoked.
-    type_: SharedStorageAccessType
+    method: SharedStorageAccessMethod
     #: DevTools Frame Token for the primary frame tree's root.
     main_frame_id: page.FrameId
-    #: Serialized origin for the context that invoked the Shared Storage API.
+    #: Serialization of the origin owning the Shared Storage data.
     owner_origin: str
+    #: Serialization of the site owning the Shared Storage data.
+    owner_site: str
     #: The sub-parameters wrapped by ``params`` are all optional and their
     #: presence/absence depends on ``type``.
     params: SharedStorageAccessParams
@@ -2177,10 +2430,52 @@ class SharedStorageAccessed:
     def from_json(cls, json: T_JSON_DICT) -> SharedStorageAccessed:
         return cls(
             access_time=network.TimeSinceEpoch.from_json(json["accessTime"]),
-            type_=SharedStorageAccessType.from_json(json["type"]),
+            scope=SharedStorageAccessScope.from_json(json["scope"]),
+            method=SharedStorageAccessMethod.from_json(json["method"]),
             main_frame_id=page.FrameId.from_json(json["mainFrameId"]),
             owner_origin=str(json["ownerOrigin"]),
+            owner_site=str(json["ownerSite"]),
             params=SharedStorageAccessParams.from_json(json["params"]),
+        )
+
+
+@event_class("Storage.sharedStorageWorkletOperationExecutionFinished")
+@dataclass
+class SharedStorageWorkletOperationExecutionFinished:
+    """
+    A shared storage run or selectURL operation finished its execution.
+    The following parameters are included in all events.
+    """
+
+    #: Time that the operation finished.
+    finished_time: network.TimeSinceEpoch
+    #: Time, in microseconds, from start of shared storage JS API call until
+    #: end of operation execution in the worklet.
+    execution_time: int
+    #: Enum value indicating the Shared Storage API method invoked.
+    method: SharedStorageAccessMethod
+    #: ID of the operation call.
+    operation_id: str
+    #: Hex representation of the DevTools token used as the TargetID for the
+    #: associated shared storage worklet.
+    worklet_target_id: target.TargetID
+    #: DevTools Frame Token for the primary frame tree's root.
+    main_frame_id: page.FrameId
+    #: Serialization of the origin owning the Shared Storage data.
+    owner_origin: str
+
+    @classmethod
+    def from_json(
+        cls, json: T_JSON_DICT
+    ) -> SharedStorageWorkletOperationExecutionFinished:
+        return cls(
+            finished_time=network.TimeSinceEpoch.from_json(json["finishedTime"]),
+            execution_time=int(json["executionTime"]),
+            method=SharedStorageAccessMethod.from_json(json["method"]),
+            operation_id=str(json["operationId"]),
+            worklet_target_id=target.TargetID.from_json(json["workletTargetId"]),
+            main_frame_id=page.FrameId.from_json(json["mainFrameId"]),
+            owner_origin=str(json["ownerOrigin"]),
         )
 
 
@@ -2253,4 +2548,73 @@ class AttributionReportingTriggerRegistered:
             aggregatable=AttributionReportingAggregatableResult.from_json(
                 json["aggregatable"]
             ),
+        )
+
+
+@event_class("Storage.attributionReportingReportSent")
+@dataclass
+class AttributionReportingReportSent:
+    """
+    **EXPERIMENTAL**
+
+
+    """
+
+    url: str
+    body: dict
+    result: AttributionReportingReportResult
+    #: If result is ``sent``, populated with net/HTTP status.
+    net_error: typing.Optional[int]
+    net_error_name: typing.Optional[str]
+    http_status_code: typing.Optional[int]
+
+    @classmethod
+    def from_json(cls, json: T_JSON_DICT) -> AttributionReportingReportSent:
+        return cls(
+            url=str(json["url"]),
+            body=dict(json["body"]),
+            result=AttributionReportingReportResult.from_json(json["result"]),
+            net_error=int(json["netError"])
+            if json.get("netError", None) is not None
+            else None,
+            net_error_name=str(json["netErrorName"])
+            if json.get("netErrorName", None) is not None
+            else None,
+            http_status_code=int(json["httpStatusCode"])
+            if json.get("httpStatusCode", None) is not None
+            else None,
+        )
+
+
+@event_class("Storage.attributionReportingVerboseDebugReportSent")
+@dataclass
+class AttributionReportingVerboseDebugReportSent:
+    """
+    **EXPERIMENTAL**
+
+
+    """
+
+    url: str
+    body: typing.Optional[typing.List[dict]]
+    net_error: typing.Optional[int]
+    net_error_name: typing.Optional[str]
+    http_status_code: typing.Optional[int]
+
+    @classmethod
+    def from_json(cls, json: T_JSON_DICT) -> AttributionReportingVerboseDebugReportSent:
+        return cls(
+            url=str(json["url"]),
+            body=[dict(i) for i in json["body"]]
+            if json.get("body", None) is not None
+            else None,
+            net_error=int(json["netError"])
+            if json.get("netError", None) is not None
+            else None,
+            net_error_name=str(json["netErrorName"])
+            if json.get("netErrorName", None) is not None
+            else None,
+            http_status_code=int(json["httpStatusCode"])
+            if json.get("httpStatusCode", None) is not None
+            else None,
         )

@@ -10,6 +10,7 @@ import pathlib
 import pickle
 import re
 import shutil
+import subprocess
 import urllib.parse
 import urllib.request
 import warnings
@@ -54,10 +55,11 @@ class Browser:
 
     """
 
-    _process: asyncio.subprocess.Process | None
+    _process: subprocess.Popen | None
     _process_pid: int | None
     _http: HTTPApi | None = None
     _cookies: CookieJar | None = None
+    _update_target_info_mutex: asyncio.Lock = asyncio.Lock()
 
     config: Config
     connection: Connection | None
@@ -69,9 +71,11 @@ class Browser:
         *,
         user_data_dir: PathLike | None = None,
         headless: bool = False,
+        user_agent: str | None = None,
         browser_executable_path: PathLike | None = None,
         browser_args: List[str] | None = None,
         sandbox: bool = True,
+        lang: str | None = None,
         host: str | None = None,
         port: int | None = None,
         **kwargs,
@@ -83,9 +87,11 @@ class Browser:
             config = Config(
                 user_data_dir=user_data_dir,
                 headless=headless,
+                user_agent=user_agent,
                 browser_executable_path=browser_executable_path,
                 browser_args=browser_args or [],
                 sandbox=sandbox,
+                lang=lang,
                 host=host,
                 port=port,
                 **kwargs,
@@ -177,7 +183,7 @@ class Browser:
     sleep = wait
     """alias for wait"""
 
-    def _handle_target_update(
+    async def _handle_target_update(
         self,
         event: Union[
             cdp.target.TargetInfoChanged,
@@ -188,56 +194,58 @@ class Browser:
     ):
         """this is an internal handler which updates the targets when chrome emits the corresponding event"""
 
-        if isinstance(event, cdp.target.TargetInfoChanged):
-            target_info = event.target_info
+        async with self._update_target_info_mutex:
+            if isinstance(event, cdp.target.TargetInfoChanged):
+                target_info = event.target_info
 
-            current_tab = next(
-                filter(
-                    lambda item: item.target_id == target_info.target_id, self.targets
+                current_tab = next(
+                    filter(
+                        lambda item: item.target_id == target_info.target_id,
+                        self.targets,
+                    )
                 )
-            )
-            current_target = current_tab.target
+                current_target = current_tab.target
 
-            if logger.getEffectiveLevel() <= 10:
-                changes = util.compare_target_info(current_target, target_info)
-                changes_string = ""
-                for change in changes:
-                    key, old, new = change
-                    changes_string += f"\n{key}: {old} => {new}\n"
+                if logger.getEffectiveLevel() <= 10:
+                    changes = util.compare_target_info(current_target, target_info)
+                    changes_string = ""
+                    for change in changes:
+                        key, old, new = change
+                        changes_string += f"\n{key}: {old} => {new}\n"
+                    logger.debug(
+                        "target #%d has changed: %s"
+                        % (self.targets.index(current_tab), changes_string)
+                    )
+
+                    current_tab.target = target_info
+
+            elif isinstance(event, cdp.target.TargetCreated):
+                target_info = event.target_info
+                from .tab import Tab
+
+                new_target = Tab(
+                    (
+                        f"ws://{self.config.host}:{self.config.port}"
+                        f"/devtools/{target_info.type_ or 'page'}"  # all types are 'page' internally in chrome apparently
+                        f"/{target_info.target_id}"
+                    ),
+                    target=target_info,
+                    browser=self,
+                )
+
+                self.targets.append(new_target)
+
+                logger.debug("target #%d created => %s", len(self.targets), new_target)
+
+            elif isinstance(event, cdp.target.TargetDestroyed):
+                current_tab = next(
+                    filter(lambda item: item.target_id == event.target_id, self.targets)
+                )
                 logger.debug(
-                    "target #%d has changed: %s"
-                    % (self.targets.index(current_tab), changes_string)
+                    "target removed. id # %d => %s"
+                    % (self.targets.index(current_tab), current_tab)
                 )
-
-                current_tab.target = target_info
-
-        elif isinstance(event, cdp.target.TargetCreated):
-            target_info = event.target_info
-            from .tab import Tab
-
-            new_target = Tab(
-                (
-                    f"ws://{self.config.host}:{self.config.port}"
-                    f"/devtools/{target_info.type_ or 'page'}"  # all types are 'page' internally in chrome apparently
-                    f"/{target_info.target_id}"
-                ),
-                target=target_info,
-                browser=self,
-            )
-
-            self.targets.append(new_target)
-
-            logger.debug("target #%d created => %s", len(self.targets), new_target)
-
-        elif isinstance(event, cdp.target.TargetDestroyed):
-            current_tab = next(
-                filter(lambda item: item.target_id == event.target_id, self.targets)
-            )
-            logger.debug(
-                "target removed. id # %d => %s"
-                % (self.targets.index(current_tab), current_tab)
-            )
-            self.targets.remove(current_tab)
+                self.targets.remove(current_tab)
 
     async def get(
         self, url="about:blank", new_tab: bool = False, new_window: bool = False
@@ -252,9 +260,25 @@ class Browser:
         :param new_tab: open new tab
         :param new_window:  open new window
         :return: Page
+        :raises: asyncio.TimeoutError
         """
         if not self.connection:
             raise RuntimeError("Browser not yet started. use await browser.start()")
+
+        future = asyncio.get_running_loop().create_future()
+        event_type = cdp.target.TargetInfoChanged
+
+        async def get_handler(event: cdp.target.TargetInfoChanged) -> None:
+            if future.done():
+                return
+
+            # ignore TargetInfoChanged event from browser startup
+            if event.target_info.url != "about:blank" or (
+                url == "about:blank" and event.target_info.url == "about:blank"
+            ):
+                future.set_result(event)
+
+        self.connection.add_handler(event_type, get_handler)
 
         if new_tab or new_window:
             # create new target using the browser session
@@ -271,7 +295,6 @@ class Browser:
                 )
             )
             connection.browser = self
-
         else:
             # first tab from browser.tabs
             connection = next(filter(lambda item: item.type_ == "page", self.targets))
@@ -279,7 +302,9 @@ class Browser:
             await connection.send(cdp.page.navigate(url))
             connection.browser = self
 
-        await connection.sleep(0.25)
+        await asyncio.wait_for(future, 10)
+        self.connection.remove_handlers(event_type, get_handler)
+
         return connection
 
     async def start(self) -> Browser:
@@ -329,6 +354,9 @@ class Browser:
                 % ",".join(str(_) for _ in self.config._extensions)
             )  # noqa
 
+        if self.config.lang is not None:
+            self.config.add_argument(f"--lang={self.config.lang}")
+
         exe = self.config.browser_executable_path
         params = self.config()
         params.append("about:blank")
@@ -337,18 +365,7 @@ class Browser:
             "starting\n\texecutable :%s\n\narguments:\n%s", exe, "\n\t".join(params)
         )
         if not connect_existing:
-            self._process: asyncio.subprocess.Process = (
-                await asyncio.create_subprocess_exec(
-                    # self.config.browser_executable_path,
-                    # *cmdparams,
-                    exe,
-                    *params,
-                    stdin=asyncio.subprocess.PIPE,
-                    stdout=asyncio.subprocess.PIPE,
-                    stderr=asyncio.subprocess.PIPE,
-                    close_fds=is_posix,
-                )
-            )
+            self._process = util._start_process(exe, params, is_posix)
             self._process_pid = self._process.pid
 
         self._http = HTTPApi((self.config.host, self.config.port))
@@ -459,7 +476,6 @@ class Browser:
             raise RuntimeError("Browser not yet started. use await browser.start()")
 
         permissions = list(cdp.browser.PermissionType)
-        permissions.remove(cdp.browser.PermissionType.FLASH)
         permissions.remove(cdp.browser.PermissionType.CAPTURED_SURFACE_CONTROL)
         await self.connection.send(cdp.browser.grant_permissions(permissions))
 
@@ -603,7 +619,7 @@ class Browser:
                     self._process.kill()
                     logger.debug("killed browser process")
 
-                await self._process.wait()
+                await asyncio.to_thread(self._process.wait)
 
             except ProcessLookupError:
                 # ignore this well known race condition because it only means that

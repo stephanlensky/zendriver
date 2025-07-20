@@ -86,10 +86,10 @@ class PseudoType(enum.Enum):
 
     FIRST_LINE = "first-line"
     FIRST_LETTER = "first-letter"
-    CHECK = "check"
+    CHECKMARK = "checkmark"
     BEFORE = "before"
     AFTER = "after"
-    SELECT_ARROW = "select-arrow"
+    PICKER_ICON = "picker-icon"
     MARKER = "marker"
     BACKDROP = "backdrop"
     COLUMN = "column"
@@ -102,8 +102,7 @@ class PseudoType(enum.Enum):
     FIRST_LINE_INHERITED = "first-line-inherited"
     SCROLL_MARKER = "scroll-marker"
     SCROLL_MARKER_GROUP = "scroll-marker-group"
-    SCROLL_NEXT_BUTTON = "scroll-next-button"
-    SCROLL_PREV_BUTTON = "scroll-prev-button"
+    SCROLL_BUTTON = "scroll-button"
     SCROLLBAR = "scrollbar"
     SCROLLBAR_THUMB = "scrollbar-thumb"
     SCROLLBAR_BUTTON = "scrollbar-button"
@@ -115,12 +114,14 @@ class PseudoType(enum.Enum):
     VIEW_TRANSITION = "view-transition"
     VIEW_TRANSITION_GROUP = "view-transition-group"
     VIEW_TRANSITION_IMAGE_PAIR = "view-transition-image-pair"
+    VIEW_TRANSITION_GROUP_CHILDREN = "view-transition-group-children"
     VIEW_TRANSITION_OLD = "view-transition-old"
     VIEW_TRANSITION_NEW = "view-transition-new"
     PLACEHOLDER = "placeholder"
     FILE_SELECTOR_BUTTON = "file-selector-button"
     DETAILS_CONTENT = "details-content"
     PICKER = "picker"
+    PERMISSION_ICON = "permission-icon"
 
     def to_json(self) -> str:
         return self.value
@@ -1087,6 +1088,7 @@ def get_outer_html(
     node_id: typing.Optional[NodeId] = None,
     backend_node_id: typing.Optional[BackendNodeId] = None,
     object_id: typing.Optional[runtime.RemoteObjectId] = None,
+    include_shadow_dom: typing.Optional[bool] = None,
 ) -> typing.Generator[T_JSON_DICT, T_JSON_DICT, str]:
     """
     Returns node's HTML markup.
@@ -1094,6 +1096,7 @@ def get_outer_html(
     :param node_id: *(Optional)* Identifier of the node.
     :param backend_node_id: *(Optional)* Identifier of the backend node.
     :param object_id: *(Optional)* JavaScript object id of the node wrapper.
+    :param include_shadow_dom: **(EXPERIMENTAL)** *(Optional)* Include all shadow roots. Equals to false if not specified.
     :returns: Outer HTML markup.
     """
     params: T_JSON_DICT = dict()
@@ -1103,6 +1106,8 @@ def get_outer_html(
         params["backendNodeId"] = backend_node_id.to_json()
     if object_id is not None:
         params["objectId"] = object_id.to_json()
+    if include_shadow_dom is not None:
+        params["includeShadowDOM"] = include_shadow_dom
     cmd_dict: T_JSON_DICT = {
         "method": "DOM.getOuterHTML",
         "params": params,

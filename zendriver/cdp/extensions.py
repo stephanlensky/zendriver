@@ -51,6 +51,23 @@ def load_unpacked(path: str) -> typing.Generator[T_JSON_DICT, T_JSON_DICT, str]:
     return str(json["id"])
 
 
+def uninstall(id_: str) -> typing.Generator[T_JSON_DICT, T_JSON_DICT, None]:
+    """
+    Uninstalls an unpacked extension (others not supported) from the profile.
+    Available if the client is connected using the --remote-debugging-pipe flag
+    and the --enable-unsafe-extension-debugging.
+
+    :param id_: Extension id.
+    """
+    params: T_JSON_DICT = dict()
+    params["id"] = id_
+    cmd_dict: T_JSON_DICT = {
+        "method": "Extensions.uninstall",
+        "params": params,
+    }
+    json = yield cmd_dict
+
+
 def get_storage_items(
     id_: str, storage_area: StorageArea, keys: typing.Optional[typing.List[str]] = None
 ) -> typing.Generator[T_JSON_DICT, T_JSON_DICT, dict]:

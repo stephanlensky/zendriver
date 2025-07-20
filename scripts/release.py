@@ -37,7 +37,7 @@ import requests  # type: ignore
 REPO_ROOT = Path(__file__).parent.parent
 
 # for creating GitHub release
-GITHUB_REPO_SLUG = "stephanlensky/zendriver"
+GITHUB_REPO_SLUG = "cdpdriver/zendriver"
 
 PYPROJECT_TOML = Path("pyproject.toml")
 PYPROJECT_VERSION_REGEX = r"^version = \"(?P<version>\d+\.\d+\.\d+)\"$"
@@ -88,9 +88,9 @@ def ensure_on_main_branch() -> None:
 
 
 def ensure_github_token() -> str:
-    github_token = os.environ.get("GITHUB_TOKEN")
+    github_token = os.environ.get("CDPDRIVER_GITHUB_TOKEN")
     if not github_token:
-        print("Error: $GITHUB_TOKEN environment variable must be set")
+        print("Error: $CDPDRIVER_GITHUB_TOKEN environment variable must be set")
         sys.exit(1)
     return github_token
 

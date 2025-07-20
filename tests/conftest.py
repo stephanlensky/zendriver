@@ -1,6 +1,8 @@
+import asyncio
 import logging
 import os
 import signal
+import sys
 from contextlib import AbstractAsyncContextManager
 from enum import Enum
 from threading import Event
@@ -83,6 +85,9 @@ class CreateBrowser(AbstractAsyncContextManager):
 
 @pytest.fixture
 def create_browser() -> type[CreateBrowser]:
+    if sys.platform == "win32":
+        asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())  # type: ignore
+
     return CreateBrowser
 
 
@@ -123,4 +128,9 @@ def handle_next_test(signum, frame):
     NEXT_TEST_EVENT.set()
 
 
-signal.signal(signal.SIGUSR1, handle_next_test)
+if hasattr(signal, "SIGUSR1"):
+    signal.signal(signal.SIGUSR1, handle_next_test)
+else:
+    logger.warning(
+        "SIGUSR1 not available on this platform, handle_next_test will not be called."
+    )

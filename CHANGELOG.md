@@ -17,6 +17,122 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
+## [0.12.1] - 2025-07-17
+
+### Fixed
+
+- Remove usage of StrEnum to fix compatibility with Python 3.10 @stephanlensky
+
+## [0.12.0] - 2025-07-17
+
+### Added
+
+- Added `Tab.intercept` @nathanfallet
+
+## [0.11.0] - 2025-07-16
+
+### Added
+
+- Complete rewrite of keyboard input system with new `KeyEvents` class in `zendriver.core.keys` @hvgupta
+  - Added support for modifiers (Ctrl, Alt, Shift, Meta)
+  - Added support for special keys including arrows, escape, delete and backspace
+  - Added `KeyEvents.from_text()` class method for converting plain text to cdp events
+  - Added `KeyEvents.from_mixed_input()` class method for handling mixed sequences of text, special keys to cdp events
+  - Proper Handling of shift variants of keys
+  - Comprehensive key event types: `CHAR`, `KEY_DOWN`, `KEY_UP`
+  - Added key event type (`DOWN_AND_UP`) as a combination of `KEY_DOWN` and `KEY_UP`
+
+### Changed
+
+- `Element.send_keys()` now uses the new `KeyEvents` system (it is still backwards compatible with passing a string) @hvgupta
+- Key event processing now properly handles modifier key sequences @hvgupta
+- Update CDP schemas @nathanfallet
+
+## [0.10.2] - 2025-07-06
+
+### Fixed
+
+- Refactor to asynchronous handlers to avoid blocking the listening loop @nathanfallet
+
+## [0.10.1] - 2025-07-06
+
+### Fixed
+
+- Added `Tab.flash_point` from nodriver @nathanfallet
+- Ensured loading is finished in expect @nathanfallet
+
+## [0.10.0] - 2025-07-05
+
+### Fixed
+
+- Refactor element waiting loops in `find_*` and `select*` methods. @H1steria
+- Improve `query_selector` error handling to consistently return `None` when a node is not found. @H1steria
+- Add user_agent option to allow bypassing cloudflare javascript challenge in headless mode. @H1steria
+- Fixed `lang` parameter never being set in `Browser.start` @nathanfallet
+
+### Added
+
+- Added `mouse_move` and `mouse_click` methods from nodriver. @H1steria
+
+## [0.9.0] - 2025-07-01
+
+### Added
+
+- Added `speed` in `Tab.scroll_down` and `Tab.scroll_up` methods to control the scroll speed @nathanfallet
+- Allow to wait for promise in `Element.apply` method @nathanfallet
+- Added `Element.clear_input_by_deleting` to handle inputs with custom delete behavior @nathanfallet
+- Added `Tab.xpath` from nodriver @nathanfallet
+
+## [0.8.1] - 2025-06-07
+
+### Fixed
+
+- Add an optional `special_characters` flag to `Element.send_keys` to support sending special characters (e.g. emojis) @nathanfallet
+
+## [0.8.0] - 2025-06-01
+
+### Fixed
+
+- Fixed tests so that they can run on Windows (and still run on Linux like before) @nathanfallet
+- Remove usage of asyncio subprocess for better compatibility on Windows @nathanfallet
+- Added a missing Chrome Canary path for Windows @nathanfallet
+- Added a flag to re-enable `--load-extension` (disabled by default in Chrome 136+) @nathanfallet
+
+## [0.7.1] - 2025-05-08
+
+### Changed
+
+- Updated CDP models @jsuarezl
+
+## [0.7.0] - 2025-04-28
+
+### Added
+
+- Added `Tab.screenshot_b64` and `Element.screenshot_b64` methods to return screenshot as base64 string @falmar
+- Added `Tab.print_to_pdf` to print the current page to a PDF file @stephanlensky
+
+## [0.6.1] - 2025-04-25
+
+### Fixed
+
+- Fix race condition in `Browser.get` and `Tab.close` which could cause exceptions, especially when running multiple browsers in parallel @stephanlensky
+
+## [0.6.0] - 2025-04-20
+
+### Fixed
+
+- `Browser.get` and `Tab.close` will now wait for their appropiate target events before returning @ccev
+
+### Added
+
+- Added `Tab.save_snapshot` to export the current page to MHTML format.
+
+## [0.5.2] - 2025-04-09
+
+### Fixed
+
+- Fixed type annotation of `Element.children` @stephanlensky
+
 ## [0.5.1] - 2025-02-16
 
 ### Changed
