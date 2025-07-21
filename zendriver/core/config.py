@@ -10,7 +10,7 @@ from typing import Any, List, Optional, Union
 
 __all__ = [
     "Config",
-    "find_chrome_executable",
+    "find_executable",
     "temp_profile_dir",
     "is_root",
     "is_posix",
@@ -34,6 +34,7 @@ class Config:
         user_data_dir: Optional[PathLike] = AUTO,
         headless: Optional[bool] = False,
         browser_executable_path: Optional[PathLike] = AUTO,
+        browser: str = "auto",
         browser_args: Optional[List[str]] = AUTO,
         sandbox: Optional[bool] = True,
         lang: Optional[str] = None,
@@ -59,6 +60,7 @@ class Config:
         :param user_data_dir: the data directory to use (must be unique if using multiple browsers)
         :param headless: set to True for headless mode
         :param browser_executable_path: specify browser executable, instead of using autodetect
+        :param browser: which browser to use. Can be "chrome", "brave" or "auto". Default is "auto".
         :param browser_args: forwarded to browser executable. eg : ["--some-chromeparam=somevalue", "some-other-param=someval"]
         :param sandbox: disables sandbox
         :param autodiscover_targets: use autodiscovery of targets
@@ -73,6 +75,7 @@ class Config:
         :type user_data_dir: PathLike
         :type headless: bool
         :type browser_executable_path: PathLike
+        :type browser: str
         :type browser_args: list[str]
         :type sandbox: bool
         :type lang: str
@@ -91,7 +94,7 @@ class Config:
             self.user_data_dir = str(user_data_dir)
 
         if not browser_executable_path:
-            browser_executable_path = find_chrome_executable()
+            browser_executable_path = find_executable(browser)
 
         self._browser_args = browser_args
         self.browser_executable_path = browser_executable_path
@@ -280,41 +283,7 @@ def temp_profile_dir():
     return path
 
 
-def find_chrome_executable() -> PathLike:
-    """
-    Finds the chrome, beta, canary, chromium executable
-    and returns the disk path
-    """
-    candidates = []
-    if is_posix:
-        for item in os.environ["PATH"].split(os.pathsep):
-            for subitem in (
-                "google-chrome",
-                "chromium",
-                "chromium-browser",
-                "chrome",
-                "google-chrome-stable",
-            ):
-                candidates.append(os.sep.join((item, subitem)))
-        if "darwin" in sys.platform:
-            candidates += [
-                "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
-                "/Applications/Chromium.app/Contents/MacOS/Chromium",
-            ]
-
-    else:
-        for item2 in map(
-            os.environ.get,
-            ("PROGRAMFILES", "PROGRAMFILES(X86)", "LOCALAPPDATA", "PROGRAMW6432"),
-        ):
-            if item2 is not None:
-                for subitem in (
-                    "Google/Chrome/Application",
-                    "Google/Chrome Beta/Application",
-                    "Google/Chrome Canary/Application",
-                    "Google/Chrome SxS/Application",
-                ):
-                    candidates.append(os.sep.join((item2, subitem, "chrome.exe")))
+def find_binary(candidates):
     rv = []
     for candidate in candidates:
         if os.path.exists(candidate) and os.access(candidate, os.X_OK):
@@ -327,7 +296,6 @@ def find_chrome_executable() -> PathLike:
             )
 
     winner = None
-
     if rv and len(rv) > 1:
         # assuming the shortest path wins
         winner = min(rv, key=lambda x: len(x))
@@ -335,10 +303,77 @@ def find_chrome_executable() -> PathLike:
     elif len(rv) == 1:
         winner = rv[0]
 
-    if winner:
-        return os.path.normpath(winner)
+    return winner
+
+
+def find_executable(browser: str = "auto") -> PathLike:
+    """
+    Finds the executable for the specified browser and returns its disk path.
+    :param browser: The browser to find. Can be "chrome", "brave" or "auto".
+    :return: The path to the browser executable.
+    """
+    browsers_to_try = []
+    if browser == "auto":
+        browsers_to_try = ["chrome", "brave"]
+    elif browser in ["chrome", "brave"]:
+        browsers_to_try = [browser]
+    else:
+        raise ValueError("browser must be 'chrome', 'brave' or 'auto'")
+
+    for browser_name in browsers_to_try:
+        candidates = []
+        if browser_name == "chrome":
+            if is_posix:
+                for item in os.environ["PATH"].split(os.pathsep):
+                    for subitem in (
+                        "google-chrome",
+                        "chromium",
+                        "chromium-browser",
+                        "chrome",
+                        "google-chrome-stable",
+                    ):
+                        candidates.append(os.sep.join((item, subitem)))
+                if "darwin" in sys.platform:
+                    candidates += [
+                        "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+                        "/Applications/Chromium.app/Contents/MacOS/Chromium",
+                    ]
+            else:
+                for item2 in map(
+                    os.environ.get,
+                    (
+                        "PROGRAMFILES",
+                        "PROGRAMFILES(X86)",
+                        "LOCALAPPDATA",
+                        "PROGRAMW6432",
+                    ),
+                ):
+                    if item2 is not None:
+                        for subitem in (
+                            "Google/Chrome/Application",
+                            "Google/Chrome Beta/Application",
+                            "Google/Chrome Canary/Application",
+                            "Google/Chrome SxS/Application",
+                        ):
+                            candidates.append(
+                                os.sep.join((item2, subitem, "chrome.exe"))
+                            )
+        elif browser_name == "brave":
+            if not is_posix:
+                for item2 in map(
+                    os.environ.get,
+                    ("PROGRAMFILES", "PROGRAMFILES(X86)"),
+                ):
+                    if item2 is not None:
+                        for subitem in ("BraveSoftware/Brave-Browser/Application",):
+                            candidates.append(
+                                os.sep.join((item2, subitem, "brave.exe"))
+                            )
+        winner = find_binary(candidates)
+        if winner:
+            return os.path.normpath(winner)
 
     raise FileNotFoundError(
-        "could not find a valid chrome browser binary. please make sure chrome is installed."
+        "could not find a valid browser binary. please make sure it is installed "
         "or use the keyword argument 'browser_executable_path=/path/to/your/browser' "
     )
