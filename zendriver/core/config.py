@@ -359,7 +359,18 @@ def find_executable(browser: str = "auto") -> PathLike:
                                 os.sep.join((item2, subitem, "chrome.exe"))
                             )
         elif browser_name == "brave":
-            if not is_posix:
+            if is_posix:
+                for item in os.environ["PATH"].split(os.pathsep):
+                    for subitem in (
+                        "brave-browser",
+                        "brave",
+                    ):
+                        candidates.append(os.sep.join((item, subitem)))
+                if "darwin" in sys.platform:
+                    candidates.append(
+                        "/Applications/Brave Browser.app/Contents/MacOS/Brave Browser"
+                    )
+            else:
                 for item2 in map(
                     os.environ.get,
                     ("PROGRAMFILES", "PROGRAMFILES(X86)"),
