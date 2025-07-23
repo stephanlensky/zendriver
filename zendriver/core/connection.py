@@ -464,26 +464,23 @@ class Connection(metaclass=CantTouchThis):
                     await self._prepare_headless()
         if not self.listener or not self.listener.running:
             self.listener = Listener(self)
+
+        tx = Transaction(cdp_obj)
+        tx.connection = self
+        if not self.mapper:
+            self.__count__ = itertools.count(0)
+        async with self._current_id_mutex:
+            tx.id = next(self.__count__)
+        self.mapper.update({tx.id: tx})
+        if not _is_update:
+            await self._register_handlers()
+        await self.websocket.send(tx.message)
         try:
-            tx = Transaction(cdp_obj)
-            tx.connection = self
-            if not self.mapper:
-                self.__count__ = itertools.count(0)
-            async with self._current_id_mutex:
-                tx.id = next(self.__count__)
-            self.mapper.update({tx.id: tx})
-            if not _is_update:
-                await self._register_handlers()
-            await self.websocket.send(tx.message)
-            try:
-                return await tx
-            except ProtocolException as e:
-                e.message = e.message or ""
-                e.message += f"\ncommand:{tx.method}\nparams:{tx.params}"
-                raise e
-        except Exception:
-            await self.aclose()
-            raise
+            return await tx
+        except ProtocolException as e:
+            e.message = e.message or ""
+            e.message += f"\ncommand:{tx.method}\nparams:{tx.params}"
+            raise e
 
     #
     async def _register_handlers(self):
