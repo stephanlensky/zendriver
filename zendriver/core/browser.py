@@ -15,7 +15,7 @@ import urllib.parse
 import urllib.request
 import warnings
 from collections import defaultdict
-from typing import List, Tuple, Union
+from typing import List, Tuple, Union, Dict, Callable, Any
 
 import asyncio_atexit
 
@@ -137,6 +137,7 @@ class Browser:
         self._process_pid = None
         self._is_updating = asyncio.Event()
         self.connection = None
+        self._pageBindings: Dict[str, Callable[..., Any]] = dict()
         logger.debug("Session object initialized: %s" % vars(self))
 
     @property

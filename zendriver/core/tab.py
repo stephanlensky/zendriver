@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import base64
 import datetime
+import json
 import logging
 import pathlib
 import re
@@ -13,9 +14,11 @@ import warnings
 import webbrowser
 from typing import TYPE_CHECKING, Any, List, Literal, Optional, Tuple, Union
 
+from .errors import PageError
+from .helper import add_page_binding_string, PageBinding
 from .intercept import BaseFetchInterception
 from .. import cdp
-from . import element, util
+from . import element, util, helper
 from .config import PathLike
 from .connection import Connection, ProtocolException
 from .expect import DownloadExpectation, RequestExpectation, ResponseExpectation
@@ -142,6 +145,28 @@ class Tab(Connection):
         self.browser = browser
         self._dom = None
         self._window_id = None
+        self._pageBindings: typing.Dict[str, typing.Callable[..., Any]] = dict()
+
+        # self.add_handler('Page.domContentEventFired',
+        #           lambda event: self.emit(Page.Events.DOMContentLoaded))
+        # self.add_handler('Page.loadEventFired',
+        #           lambda event: self.emit(Page.Events.Load))
+        # self.add_handler('Runtime.consoleAPICalled',
+        #           lambda event: self._onConsoleAPI(event))
+        self.add_handler(cdp.runtime.BindingCalled, self._onBindingCalled)
+        # self.add_handler('Page.javascriptDialogOpening',
+        #           lambda event: self._onDialog(event))
+        # self.add_handler('Runtime.exceptionThrown',
+        #           lambda exception: self._handleException(
+        #               exception.get('exceptionDetails')))
+        # self.add_handler('Security.certificateError',
+        #           lambda event: self._onCertificateError(event))
+        # self.add_handler('Inspector.targetCrashed',
+        #           lambda event: self._onTargetCrashed())
+        # self.add_handler('Performance.metrics',
+        #           lambda event: self._emitMetrics(event))
+        # self.add_handler('Log.entryAdded',
+        #           lambda event: self._onLogEntryAdded(event))
 
     @property
     def inspector_url(self):
@@ -729,6 +754,22 @@ class Tab(Connection):
             else:
                 return remote_object, errors
 
+    async def evaluate_on_new_document(self, expression: str) -> None:
+        """Add a JavaScript function to the document.
+
+        This function would be invoked in one of the following scenarios:
+
+        * whenever the page is navigated
+        * whenever the child frame is attached or navigated. In this case, the
+          function is invoked in the context of the newly attached frame.
+        """
+        await self.send(
+            cdp.page.add_script_to_evaluate_on_new_document(
+                source=expression,
+            )
+        )
+
+
     async def js_dumps(
         self, obj_name: str, return_by_value: Optional[bool] = True
     ) -> (
@@ -1203,6 +1244,83 @@ class Tab(Connection):
                 )
 
             await asyncio.sleep(0.1)
+
+    async def set_content(self, html: str) -> None:
+        """Set content to this page."""
+        func = """
+        function(html) {
+          document.open();
+          document.write(html);
+          document.close();
+        }
+        """
+        expression = helper.evaluation_string(func, html)
+        await self.evaluate(expression)
+
+    async def _onBindingCalled(self, event: cdp.runtime.BindingCalled) -> None:
+        obj = json.loads(event.payload)
+        name = obj.get("name")
+        seq = obj.get("seq")
+        args = obj.get("args", ())
+        kwargs = obj.get("kwargs", {})
+        if name not in self._pageBindings:
+            return
+
+        result = self._pageBindings[name](*args, **kwargs)
+
+        deliverResult = """
+            function deliverResult(name, seq, result) {
+                window[name]._callbacks.get(seq)(result);
+                window[name]._callbacks.delete(seq);
+            }
+        """
+
+        expression = helper.evaluation_string(deliverResult, name, seq, result)
+        await self.send(
+            cdp.runtime.evaluate(
+                expression=expression, context_id=event.execution_context_id
+            )
+        )
+
+    async def expose_function(self, name: str, func: typing.Callable[..., Any]) -> None:
+        """Add python function to the browser's ``window`` object as ``name``.
+
+        Registered function can be called from chrome process.
+
+        :arg string name: Name of the function on the window object.
+        :arg Callable func: Function which will be called on
+                                         python process. This function should
+                                         not be asynchronous function.
+        """
+        if name in self._pageBindings:
+            raise PageError(
+                f"Function '{name}' has been already registered"
+            )
+
+        if name in self.browser._pageBindings:
+            raise PageError(
+                f"Function '{name}' has been already registered in the browser context"
+            )
+
+        await self.send(
+            cdp.runtime.add_binding(
+                name=name,
+            )
+        )
+
+        self._pageBindings[name] = func
+
+        expression = add_page_binding_string(binding_name=name)
+        await self.evaluate_on_new_document(expression)
+        await self.evaluate(expression)
+
+    def exposePlaywrightBindingIfNeeded(self):
+        if self._playwrightBindingExposed:
+            return
+        self._playwrightBindingExposed = True
+        await self.doExposePlaywrightBinding()
+        self.bindingsInitScript = PageBinding.create_init_script()
+
 
     def expect_request(
         self, url_pattern: Union[str, re.Pattern[str]]
