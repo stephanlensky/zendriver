@@ -213,3 +213,4 @@ class DownloadExpectation:
     @property
     async def value(self) -> cdp.browser.DownloadWillBegin:
         return await self.future
+    
