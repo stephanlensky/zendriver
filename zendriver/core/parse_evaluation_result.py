@@ -56,56 +56,28 @@ def parse_evaluation_result_value(
             return refs.get(value["ref"])
 
         if "v" in value:
-            v = value["v"]
-            if v == "undefined":
-                return None
-            if v == "null":
-                return None
-            if v == "NaN":
-                return float("nan")
-            if v == "Infinity":
-                return float("inf")
-            if v == "-Infinity":
-                return float("-inf")
-            if v == "-0":
-                return -0.0
-            return None
+            return _parse_special_value(value["v"])
 
         if "d" in value:
-            return datetime.datetime.fromisoformat(value["d"])
+            return _parse_datetime(value["d"])
 
         if "u" in value:
-            return urllib.parse.urlparse(value["u"])
+            return _parse_url(value["u"])
 
         if "bi" in value:
             return int(value["bi"])
 
         if "e" in value:
-            e = value["e"]
-            exc = Exception(e["m"])
-            exc.name = e["n"]  # type: ignore
-            exc.stack = e["s"]  # type: ignore
-            return exc
+            return _parse_exception(value["e"])
 
         if "r" in value:
-            return re.compile(value["r"]["p"], flags=_regex_flags(value["r"]["f"]))
+            return _parse_regex(value["r"])
 
         if "a" in value:
-            arr: list = []
-            refs[value["id"]] = arr
-            for item in value["a"]:
-                arr.append(parse_evaluation_result_value(item, handles, refs))
-            return arr
+            return _parse_array(value, handles, refs)
 
         if "o" in value:
-            obj: dict = {}
-            refs[value["id"]] = obj
-            for pair in value["o"]:
-                key = pair["k"]
-                if key == "__proto__":
-                    continue
-                obj[key] = parse_evaluation_result_value(pair["v"], handles, refs)
-            return obj
+            return _parse_object(value, handles, refs)
 
         if "h" in value:
             return handles[value["h"]]
@@ -114,6 +86,56 @@ def parse_evaluation_result_value(
             return base64_to_typed_array(value["ta"]["b"], value["ta"]["k"])
 
     return value
+
+
+def _parse_special_value(v: str):
+    special_values = {
+        "undefined": None,
+        "null": None,
+        "NaN": float("nan"),
+        "Infinity": float("inf"),
+        "-Infinity": float("-inf"),
+        "-0": -0.0,
+    }
+    return special_values.get(v)
+
+
+def _parse_datetime(date_str: str):
+    return datetime.datetime.fromisoformat(date_str)
+
+
+def _parse_url(url_str: str):
+    return urllib.parse.urlparse(url_str)
+
+
+def _parse_exception(e: dict):
+    exc = Exception(e["m"])
+    exc.name = e.get("n", "")  # type: ignore
+    exc.stack = e.get("s", "")  # type: ignore
+    return exc
+
+
+def _parse_regex(r: dict):
+    return re.compile(r["p"], flags=_regex_flags(r["f"]))
+
+
+def _parse_array(value: dict, handles, refs):
+    arr: list = []
+    refs[value["id"]] = arr
+    for item in value["a"]:
+        arr.append(parse_evaluation_result_value(item, handles, refs))
+    return arr
+
+
+def _parse_object(value: dict, handles, refs):
+    obj: dict = {}
+    refs[value["id"]] = obj
+    for pair in value["o"]:
+        key = pair["k"]
+        if key == "__proto__":
+            continue
+        obj[key] = parse_evaluation_result_value(pair["v"], handles, refs)
+    return obj
 
 
 def _regex_flags(flags_str: str) -> int:
