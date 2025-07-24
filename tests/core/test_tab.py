@@ -242,7 +242,7 @@ async def test_intercept(browser: zd.Browser):
 
 async def test_expose_function(browser: zd.Browser):
     async def sha256(text):
-        return str(text)+"sha256"
+        return str(text) + "sha256"
 
     tab = browser.main_tab
 
@@ -265,6 +265,6 @@ async def test_add_script_tag(browser: zd.Browser):
     tab = browser.main_tab
 
     await tab.add_script_tag(content="""window.Store = {"name":"zendriver"} """)
-    assert await tab.evaluate("window.Store", return_by_value=True) == {"name":"zendriver"}
-
-
+    assert await tab.evaluate("window.Store", return_by_value=True) == {
+        "name": "zendriver"
+    }

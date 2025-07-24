@@ -149,7 +149,6 @@ class Tab(Connection):
 
         self.add_handler(cdp.runtime.BindingCalled, self._onBindingCalled)
 
-
     @property
     def inspector_url(self):
         """
@@ -751,7 +750,6 @@ class Tab(Connection):
             )
         )
 
-
     async def js_dumps(
         self, obj_name: str, return_by_value: Optional[bool] = True
     ) -> (
@@ -1239,9 +1237,12 @@ class Tab(Connection):
 
             await asyncio.sleep(0.1)
 
-
-    def get_binding(self, name)->PageBinding:
-        return self._pageBindings.get(name) or self.browser._pageBindings.get(name)
+    def get_binding(self, name):
+        return (
+            self._pageBindings.get(name) or self.browser._pageBindings.get(name)
+            if self.browser
+            else None
+        )
 
     async def _onBindingCalled(self, event: cdp.runtime.BindingCalled) -> None:
         await PageBinding.dispatch(self, event, self.browser)
@@ -1256,12 +1257,18 @@ class Tab(Connection):
                                          python process. This function should
                                          not be asynchronous function.
         """
-        def __func(source:BindingSource, *args, **kwargs):
+
+        def __func(source: BindingSource, *args, **kwargs):
             return func(*args, **kwargs)
 
         return await self.expose_bindings(name, __func, needs_handle=False)
 
-    async def expose_bindings(self, name: str, func: typing.Callable[[BindingSource, ...], Any], needs_handle=False):
+    async def expose_bindings(
+        self,
+        name: str,
+        func: typing.Callable[[BindingSource, Any], Any],
+        needs_handle=False,
+    ):
         """Add python function to the browser's ``window`` object as ``name``.
 
         Registered function can be called from chrome process.
@@ -1272,22 +1279,16 @@ class Tab(Connection):
                                          not be asynchronous function.
         """
         if name in self._pageBindings:
-            raise PageError(
-                f"Function '{name}' has been already registered"
-            )
+            raise PageError(f"Function '{name}' has been already registered")
 
-        if name in self.browser._pageBindings:
+        if self.browser and name in self.browser._pageBindings:
             raise PageError(
                 f"Function '{name}' has been already registered in the browser context"
             )
 
         await self.expose_zendriver_binding_if_needed()
 
-        binding  = PageBinding(
-            name=name,
-            function=func,
-            needs_handle=needs_handle
-        )
+        binding = PageBinding(name=name, function=func, needs_handle=needs_handle)
         self._pageBindings[name] = binding
 
         await self.evaluate(binding.init_script)
@@ -1317,7 +1318,6 @@ class Tab(Connection):
         # Generate cleanup code and evaluate in all frames
         cleanup = "".join(f"{{ {binding.cleanup_script} }};\n" for binding in bindings)
         await self.evaluate(cleanup)
-
 
     async def add_script_tag(self, **options):
         """Add script tag to this frame."""
@@ -1349,37 +1349,37 @@ class Tab(Connection):
             return script;
         }"""
 
-        if isinstance(options.get('url'), str):
-            url = options['url']
+        if isinstance(options.get("url"), str):
+            url = options["url"]
             args = [addScriptUrl, url]
-            if 'type' in options:
-                args.append(options['type'])
+            if "type" in options:
+                args.append(options["type"])
             return await self.evaluate(evaluation_string(*args))
 
-        if isinstance(options.get('path'), str):
-            with open(options['path']) as f:
+        if isinstance(options.get("path"), str):
+            with open(options["path"]) as f:
                 contents = f.read()
-            contents = contents + '//# sourceURL={}'.format(
-                options['path'].replace('\n', ''))
+            contents = contents + "//# sourceURL={}".format(
+                options["path"].replace("\n", "")
+            )
             args = [addScriptContent, contents]
-            if 'type' in options:
-                args.append(options['type'])
+            if "type" in options:
+                args.append(options["type"])
 
             return await self.evaluate(evaluation_string(*args))
 
-        if isinstance(options.get('content'), str):
-            args = [addScriptContent, options['content']]
-            if 'type' in options:
-                args.append(options['type'])
+        if isinstance(options.get("content"), str):
+            args = [addScriptContent, options["content"]]
+            if "type" in options:
+                args.append(options["type"])
 
             return await self.evaluate(evaluation_string(*args))
 
-        raise ValueError(
-            'Provide an object with a `url`, `path` or `content` property')
+        raise ValueError("Provide an object with a `url`, `path` or `content` property")
 
     async def add_style_tag(self, **options):
-        """Add style tag to this frame.        """
-        addStyleUrl = '''
+        """Add style tag to this frame."""
+        addStyleUrl = """
         async function (url) {
             const link = document.createElement('link');
             link.rel = 'stylesheet';
@@ -1391,9 +1391,9 @@ class Tab(Connection):
             document.head.appendChild(link);
             await promise;
             return link;
-        }'''
+        }"""
 
-        addStyleContent = '''
+        addStyleContent = """
         async function (content) {
             const style = document.createElement('style');
             style.type = 'text/css';
@@ -1405,25 +1405,26 @@ class Tab(Connection):
             document.head.appendChild(style);
             await promise;
             return style;
-        }'''
+        }"""
 
-        if isinstance(options.get('url'), str):
-            url = options['url']
+        if isinstance(options.get("url"), str):
+            url = options["url"]
             return await self.evaluate(evaluation_string(addStyleUrl, url))
 
-        if isinstance(options.get('path'), str):
-            with open(options['path']) as f:
+        if isinstance(options.get("path"), str):
+            with open(options["path"]) as f:
                 contents = f.read()
-            contents = contents + '/*# sourceURL={}*/'.format(
-                options['path'].replace('\n', ''))
+            contents = contents + "/*# sourceURL={}*/".format(
+                options["path"].replace("\n", "")
+            )
             return await self.evaluate(evaluation_string(addStyleContent, contents))
 
-        if isinstance(options.get('content'), str):
-            return await self.evaluate(evaluation_string(addStyleContent, options['content']))
+        if isinstance(options.get("content"), str):
+            return await self.evaluate(
+                evaluation_string(addStyleContent, options["content"])
+            )
 
-        raise ValueError(
-            'Provide an object with a `url`, `path` or `content` property')
-
+        raise ValueError("Provide an object with a `url`, `path` or `content` property")
 
     def expect_request(
         self, url_pattern: Union[str, re.Pattern[str]]

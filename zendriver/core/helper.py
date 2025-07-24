@@ -1,4 +1,5 @@
 """Helper functions."""
+
 import asyncio
 import json
 import logging
@@ -10,6 +11,7 @@ from .raw_bindings_controller import raw_bindings_controller_source
 
 logger = logging.getLogger(__name__)
 
+
 def evaluation_string(fun: str, *args: Any, **kwargs) -> str:
     """Convert function and arguments to str."""
     _args = ", ".join([json.dumps("undefined" if arg is None else arg) for arg in args])
@@ -17,7 +19,7 @@ def evaluation_string(fun: str, *args: Any, **kwargs) -> str:
     return expr
 
 
-def init_script(source:str):
+def init_script(source: str):
     return f"(() => {{\n{source}\n}})();"
 
 
@@ -28,10 +30,9 @@ class BindingSource:
         self.execution_context_id = execution_context_id
 
 
-
 class PageBinding:
-    kController = '__zendriver__binding__controller__'
-    kBindingName = '__zendriver__binding__'
+    kController = "__zendriver__binding__controller__"
+    kBindingName = "__zendriver__binding__"
 
     @staticmethod
     def create_init_script():
@@ -86,15 +87,24 @@ class PageBinding:
                 except Exception:
                     handle = None
                 result = binding.function(
-                    BindingSource(page=page, browser=browser, execution_context_id=execution_context_id),
-                    handle=handle
-                                          )
+                    BindingSource(
+                        page=page,
+                        browser=browser,
+                        execution_context_id=execution_context_id,
+                    ),
+                    handle=handle,
+                )
             else:
                 args = [parse_evaluation_result_value(a) for a in serialized_args]
                 # TODO::
                 result = binding.function(
-                    BindingSource(page=page, browser=browser, execution_context_id=execution_context_id),
-                    *args)
+                    BindingSource(
+                        page=page,
+                        browser=browser,
+                        execution_context_id=execution_context_id,
+                    ),
+                    *args,
+                )
 
             if asyncio.iscoroutine(result):
                 result = await result
