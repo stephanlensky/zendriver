@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Gracefully close the browser process on exit @nathanfallet
+
 ### Added
 
 ### Changed
