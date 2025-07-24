@@ -68,7 +68,6 @@ class CreateBrowser(AbstractAsyncContextManager):
         )
 
         self.browser: zd.Browser | None = None
-        self.browser_pid: int | None = None
 
     async def __aenter__(self) -> zd.Browser:
         self.browser = await zd.start(self.config)
@@ -78,9 +77,9 @@ class CreateBrowser(AbstractAsyncContextManager):
         return self.browser
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
-        if self.browser is not None:
+        if self.browser is not None and self.browser._process_pid is not None:
             await self.browser.stop()
-            assert self.browser_pid is None
+            assert self.browser._process_pid is None
 
 
 @pytest.fixture
