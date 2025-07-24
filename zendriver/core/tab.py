@@ -3,7 +3,6 @@ from __future__ import annotations
 import asyncio
 import base64
 import datetime
-import json
 import logging
 import pathlib
 import re
@@ -15,7 +14,7 @@ import webbrowser
 from typing import TYPE_CHECKING, Any, List, Literal, Optional, Tuple, Union
 
 from .errors import PageError
-from .helper import add_page_binding_string, PageBinding
+from .helper import PageBinding, BindingSource, evaluation_string
 from .intercept import BaseFetchInterception
 from .. import cdp
 from . import element, util, helper
@@ -145,28 +144,11 @@ class Tab(Connection):
         self.browser = browser
         self._dom = None
         self._window_id = None
-        self._pageBindings: typing.Dict[str, typing.Callable[..., Any]] = dict()
+        self._pageBindings: typing.Dict[str, PageBinding] = dict()
+        self._zendriverBindingExposed = False
 
-        # self.add_handler('Page.domContentEventFired',
-        #           lambda event: self.emit(Page.Events.DOMContentLoaded))
-        # self.add_handler('Page.loadEventFired',
-        #           lambda event: self.emit(Page.Events.Load))
-        # self.add_handler('Runtime.consoleAPICalled',
-        #           lambda event: self._onConsoleAPI(event))
         self.add_handler(cdp.runtime.BindingCalled, self._onBindingCalled)
-        # self.add_handler('Page.javascriptDialogOpening',
-        #           lambda event: self._onDialog(event))
-        # self.add_handler('Runtime.exceptionThrown',
-        #           lambda exception: self._handleException(
-        #               exception.get('exceptionDetails')))
-        # self.add_handler('Security.certificateError',
-        #           lambda event: self._onCertificateError(event))
-        # self.add_handler('Inspector.targetCrashed',
-        #           lambda event: self._onTargetCrashed())
-        # self.add_handler('Performance.metrics',
-        #           lambda event: self._emitMetrics(event))
-        # self.add_handler('Log.entryAdded',
-        #           lambda event: self._onLogEntryAdded(event))
+
 
     @property
     def inspector_url(self):
@@ -998,6 +980,18 @@ class Tab(Connection):
             cdp.dom.get_outer_html(backend_node_id=doc.backend_node_id)
         )
 
+    async def set_content(self, html: str) -> None:
+        """Set content to this page."""
+        func = """
+        function(html) {
+          document.open();
+          document.write(html);
+          document.close();
+        }
+        """
+        expression = helper.evaluation_string(func, html)
+        await self.evaluate(expression)
+
     async def maximize(self):
         """
         maximize page/tab/window
@@ -1245,44 +1239,29 @@ class Tab(Connection):
 
             await asyncio.sleep(0.1)
 
-    async def set_content(self, html: str) -> None:
-        """Set content to this page."""
-        func = """
-        function(html) {
-          document.open();
-          document.write(html);
-          document.close();
-        }
-        """
-        expression = helper.evaluation_string(func, html)
-        await self.evaluate(expression)
+
+    def get_binding(self, name)->PageBinding:
+        return self._pageBindings.get(name) or self.browser._pageBindings.get(name)
 
     async def _onBindingCalled(self, event: cdp.runtime.BindingCalled) -> None:
-        obj = json.loads(event.payload)
-        name = obj.get("name")
-        seq = obj.get("seq")
-        args = obj.get("args", ())
-        kwargs = obj.get("kwargs", {})
-        if name not in self._pageBindings:
-            return
+        await PageBinding.dispatch(self, event, self.browser)
 
-        result = self._pageBindings[name](*args, **kwargs)
+    async def expose_function(self, name: str, func: typing.Callable[..., Any]):
+        """Add python function to the browser's ``window`` object as ``name``.
 
-        deliverResult = """
-            function deliverResult(name, seq, result) {
-                window[name]._callbacks.get(seq)(result);
-                window[name]._callbacks.delete(seq);
-            }
+        Registered function can be called from chrome process.
+
+        :arg string name: Name of the function on the window object.
+        :arg Callable func: Function which will be called on
+                                         python process. This function should
+                                         not be asynchronous function.
         """
+        def __func(source:BindingSource, *args, **kwargs):
+            return func(*args, **kwargs)
 
-        expression = helper.evaluation_string(deliverResult, name, seq, result)
-        await self.send(
-            cdp.runtime.evaluate(
-                expression=expression, context_id=event.execution_context_id
-            )
-        )
+        return await self.expose_bindings(name, __func, needs_handle=False)
 
-    async def expose_function(self, name: str, func: typing.Callable[..., Any]) -> None:
+    async def expose_bindings(self, name: str, func: typing.Callable[[BindingSource, ...], Any], needs_handle=False):
         """Add python function to the browser's ``window`` object as ``name``.
 
         Registered function can be called from chrome process.
@@ -1302,24 +1281,148 @@ class Tab(Connection):
                 f"Function '{name}' has been already registered in the browser context"
             )
 
+        await self.expose_zendriver_binding_if_needed()
+
+        binding  = PageBinding(
+            name=name,
+            function=func,
+            needs_handle=needs_handle
+        )
+        self._pageBindings[name] = binding
+
+        await self.evaluate(binding.init_script)
+        return binding
+
+    async def expose_zendriver_binding_if_needed(self):
+        if self._zendriverBindingExposed:
+            return
+        self._zendriverBindingExposed = True
+        await self.do_expose_zendriver_binding()
+        bindingsInitScript = PageBinding.create_init_script()
+        await self.evaluate_on_new_document(bindingsInitScript)
+        await self.evaluate(bindingsInitScript)
+
+    async def do_expose_zendriver_binding(self):
         await self.send(
             cdp.runtime.add_binding(
-                name=name,
+                name=PageBinding.kBindingName,
             )
         )
 
-        self._pageBindings[name] = func
+    async def remove_exposed_bindings(self, bindings: list[PageBinding]):
+        for binding in bindings:
+            if self._pageBindings.get(binding.name) == binding:
+                self._pageBindings.pop(binding.name)
 
-        expression = add_page_binding_string(binding_name=name)
-        await self.evaluate_on_new_document(expression)
-        await self.evaluate(expression)
+        # Generate cleanup code and evaluate in all frames
+        cleanup = "".join(f"{{ {binding.cleanup_script} }};\n" for binding in bindings)
+        await self.evaluate(cleanup)
 
-    def exposePlaywrightBindingIfNeeded(self):
-        if self._playwrightBindingExposed:
-            return
-        self._playwrightBindingExposed = True
-        await self.doExposePlaywrightBinding()
-        self.bindingsInitScript = PageBinding.create_init_script()
+
+    async def add_script_tag(self, **options):
+        """Add script tag to this frame."""
+        addScriptUrl = """
+        async function addScriptUrl(url, type) {
+            const script = document.createElement('script');
+            script.src = url;
+            if (type)
+                script.type = type;
+            const promise = new Promise((res, rej) => {
+                script.onload = res;
+                script.onerror = rej;
+            });
+            document.head.appendChild(script);
+            await promise;
+            return script;
+        }"""
+
+        addScriptContent = """
+        function addScriptContent(content, type = 'text/javascript') {
+            const script = document.createElement('script');
+            script.type = type;
+            script.text = content;
+            let error = null;
+            script.onerror = e => error = e;
+            document.head.appendChild(script);
+            if (error)
+                throw error;
+            return script;
+        }"""
+
+        if isinstance(options.get('url'), str):
+            url = options['url']
+            args = [addScriptUrl, url]
+            if 'type' in options:
+                args.append(options['type'])
+            return await self.evaluate(evaluation_string(*args))
+
+        if isinstance(options.get('path'), str):
+            with open(options['path']) as f:
+                contents = f.read()
+            contents = contents + '//# sourceURL={}'.format(
+                options['path'].replace('\n', ''))
+            args = [addScriptContent, contents]
+            if 'type' in options:
+                args.append(options['type'])
+
+            return await self.evaluate(evaluation_string(*args))
+
+        if isinstance(options.get('content'), str):
+            args = [addScriptContent, options['content']]
+            if 'type' in options:
+                args.append(options['type'])
+
+            return await self.evaluate(evaluation_string(*args))
+
+        raise ValueError(
+            'Provide an object with a `url`, `path` or `content` property')
+
+    async def add_style_tag(self, **options):
+        """Add style tag to this frame.        """
+        addStyleUrl = '''
+        async function (url) {
+            const link = document.createElement('link');
+            link.rel = 'stylesheet';
+            link.href = url;
+            const promise = new Promise((res, rej) => {
+                link.onload = res;
+                link.onerror = rej;
+            });
+            document.head.appendChild(link);
+            await promise;
+            return link;
+        }'''
+
+        addStyleContent = '''
+        async function (content) {
+            const style = document.createElement('style');
+            style.type = 'text/css';
+            style.appendChild(document.createTextNode(content));
+            const promise = new Promise((res, rej) => {
+                style.onload = res;
+                style.onerror = rej;
+            });
+            document.head.appendChild(style);
+            await promise;
+            return style;
+        }'''
+
+        if isinstance(options.get('url'), str):
+            url = options['url']
+            return await self.evaluate(evaluation_string(addStyleUrl, url))
+
+        if isinstance(options.get('path'), str):
+            with open(options['path']) as f:
+                contents = f.read()
+            contents = contents + '/*# sourceURL={}*/'.format(
+                options['path'].replace('\n', ''))
+            return await self.evaluate(evaluation_string(addStyleContent, contents))
+
+        if isinstance(options.get('content'), str):
+            return await self.evaluate(evaluation_string(addStyleContent, options['content']))
+
+        raise ValueError(
+            'Provide an object with a `url`, `path` or `content` property')
 
 
     def expect_request(

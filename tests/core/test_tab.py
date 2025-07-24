@@ -238,3 +238,33 @@ async def test_intercept(browser: zd.Browser):
         assert body is not None
         # original_response = loads(body)
         # assert original_response["name"] == "Zendriver"
+
+
+async def test_expose_function(browser: zd.Browser):
+    async def sha256(text):
+        return str(text)+"sha256"
+
+    tab = browser.main_tab
+
+    await tab.expose_function("sha256", sha256)
+    await tab.set_content("""
+            <script>
+              async function onClick() {
+                document.querySelector('div#secret').textContent = await window.sha256('zendriver');
+              }
+            </script>
+            <button onclick="onClick()">Click me</button>
+            <div id="secret"></div>
+        """)
+
+    await (await tab.find("button")).click()
+    assert (await tab.find("div#secret")).text == await sha256("zendriver")
+
+
+async def test_add_script_tag(browser: zd.Browser):
+    tab = browser.main_tab
+
+    await tab.add_script_tag(content="""window.Store = {"name":"zendriver"} """)
+    assert await tab.evaluate("window.Store", return_by_value=True) == {"name":"zendriver"}
+
+
