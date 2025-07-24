@@ -110,8 +110,6 @@ async def browser(
             "Pausing after test. Send next test hotkey (default Mod+Return) to continue to next test"
         )
         NEXT_TEST_EVENT.wait()
-    await browser.stop()
-    assert browser._process_pid is None
 
 
 # signal handler for starting next test
