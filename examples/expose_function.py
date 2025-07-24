@@ -24,6 +24,10 @@ async def main():
                 <div id="secret"></div>
             """)
 
+        await (await page.find("button")).click()
+        assert (await page.find("div#secret")).text == await sha256("zendriver")
+        print("done")
+
 
 if __name__ == "__main__":
     asyncio.run(main())

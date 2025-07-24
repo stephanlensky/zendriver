@@ -96,7 +96,6 @@ class PageBinding:
                 )
             else:
                 args = [parse_evaluation_result_value(a) for a in serialized_args]
-                # TODO::
                 result = binding.function(
                     BindingSource(
                         page=page,
