@@ -2,8 +2,8 @@ import asyncio
 import re
 from typing import Union
 
-from .connection import Connection
 from .. import cdp
+from .connection import Connection
 
 
 class BaseRequestExpectation:
@@ -178,25 +178,27 @@ class ResponseExpectation(BaseRequestExpectation):
 class DownloadExpectation:
     def __init__(self, tab: Connection):
         self.tab = tab
-        self.future: asyncio.Future[cdp.page.DownloadWillBegin] = asyncio.Future()
+        self.future: asyncio.Future[cdp.browser.DownloadWillBegin] = asyncio.Future()
         # TODO: Improve
         self.default_behavior = (
             self.tab._download_behavior[0] if self.tab._download_behavior else "default"
         )
 
-    async def _handler(self, event: cdp.page.DownloadWillBegin):
+    async def _handler(self, event: cdp.browser.DownloadWillBegin):
         self._remove_handler()
         self.future.set_result(event)
 
     def _remove_handler(self):
-        self.tab.remove_handlers(cdp.page.DownloadWillBegin, self._handler)
+        self.tab.remove_handlers(cdp.browser.DownloadWillBegin, self._handler)
 
     async def __aenter__(self):
         """
         Enter the context manager, adding download handler, set download behavior to deny.
         """
-        await self.tab.send(cdp.browser.set_download_behavior(behavior="deny"))
-        self.tab.add_handler(cdp.page.DownloadWillBegin, self._handler)
+        await self.tab.send(
+            cdp.browser.set_download_behavior(behavior="deny", events_enabled=True)
+        )
+        self.tab.add_handler(cdp.browser.DownloadWillBegin, self._handler)
         return self
 
     async def __aexit__(self, *args):
@@ -209,5 +211,5 @@ class DownloadExpectation:
         self._remove_handler()
 
     @property
-    async def value(self) -> cdp.page.DownloadWillBegin:
+    async def value(self) -> cdp.browser.DownloadWillBegin:
         return await self.future
