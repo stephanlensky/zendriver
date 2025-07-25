@@ -22,7 +22,7 @@ import asyncio_atexit
 from .. import cdp
 from . import tab, util
 from ._contradict import ContraDict
-from .config import Config, PathLike, is_posix
+from .config import BrowserType, Config, PathLike, is_posix
 from .connection import Connection
 
 logger = logging.getLogger(__name__)
@@ -73,6 +73,7 @@ class Browser:
         headless: bool = False,
         user_agent: str | None = None,
         browser_executable_path: PathLike | None = None,
+        browser: BrowserType = "auto",
         browser_args: List[str] | None = None,
         sandbox: bool = True,
         lang: str | None = None,
@@ -89,6 +90,7 @@ class Browser:
                 headless=headless,
                 user_agent=user_agent,
                 browser_executable_path=browser_executable_path,
+                browser=browser,
                 browser_args=browser_args or [],
                 sandbox=sandbox,
                 lang=lang,
@@ -602,6 +604,7 @@ class Browser:
             return
 
         if self.connection:
+            await self.connection.send(cdp.browser.close())
             await self.connection.aclose()
             logger.debug("closed the connection")
 

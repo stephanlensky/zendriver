@@ -15,6 +15,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
+## [0.13.0] - 2025-07-24
+
+### Fixed
+
+- Gracefully close the browser process on exit @nathanfallet
+
+### Added
+
+- Add support for Brave browser @H1steria
+
 ## [0.12.1] - 2025-07-17
 
 ### Fixed

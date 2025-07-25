@@ -17,7 +17,7 @@ from .element import Element
 if typing.TYPE_CHECKING:
     from .browser import Browser, PathLike
 from .. import cdp
-from .config import Config
+from .config import BrowserType, Config
 
 __registered__instances__: Set[Browser] = set()
 
@@ -31,6 +31,7 @@ async def start(
     user_data_dir: Optional[PathLike] = None,
     headless: Optional[bool] = False,
     browser_executable_path: Optional[PathLike] = None,
+    browser: BrowserType = "auto",
     browser_args: Optional[List[str]] = None,
     sandbox: Optional[bool] = True,
     lang: Optional[str] = None,
@@ -89,6 +90,7 @@ async def start(
             user_data_dir,
             headless,
             browser_executable_path,
+            browser,
             browser_args,
             sandbox,
             lang,
