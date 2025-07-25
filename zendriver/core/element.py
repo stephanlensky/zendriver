@@ -298,13 +298,6 @@ class Element:
         )
         self.attrs.clear()
         self._make_attrs()
-        # if self.node_name != "IFRAME":
-        #    parent_node = util.filter_recurse(
-        #        doc, lambda n: n.node_id == self.node.parent_id
-        #    )
-        #    if not parent_node:
-        #        # could happen if node is for example <html>
-        #        return self
         return self
 
     @property
