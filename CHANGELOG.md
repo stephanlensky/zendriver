@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Remove unnecessary usage of `typing_extensions` (fixes `No module named 'typing_extensions'` error) @stephanlensky
+
 ### Added
 
 ### Changed
