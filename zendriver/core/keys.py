@@ -1,9 +1,8 @@
 from enum import Enum, IntEnum
-from typing import List, Optional, Tuple, Union
+from typing import List, Optional, Tuple, TypedDict, Union
 
 import emoji
 import grapheme  # type: ignore
-from typing_extensions import TypedDict
 
 
 class KeyModifiers(IntEnum):
