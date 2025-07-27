@@ -19,6 +19,7 @@ from typing import (
     Optional,
     TypeVar,
     Union,
+    List,
 )
 
 import websockets
@@ -185,10 +186,10 @@ class CantTouchThis(type):
 
 
 class Connection(metaclass=CantTouchThis):
-    attached: bool
     websocket: websockets.asyncio.client.ClientConnection | None = None
     _target: cdp.target.TargetInfo | None
     _current_id_mutex: asyncio.Lock = asyncio.Lock()
+    _download_behavior: List[str] | None = None
 
     def __init__(
         self,
@@ -225,6 +226,106 @@ class Connection(metaclass=CantTouchThis):
                 % (cdp.target.TargetInfo.__name__, type(target).__name__)
             )
         self._target = target
+
+    @property
+    def target_id(self) -> cdp.target.TargetID | None:
+        """
+        returns the target id of the current target.
+        if no target is set, it will return None.
+        """
+        if self.target:
+            return self.target.target_id
+        return None
+
+    @property
+    def type_(self) -> str | None:
+        """
+        returns the type of the current target.
+        if no target is set, it will return None.
+        """
+        if self.target:
+            return self.target.type_
+        return None
+
+    @property
+    def title(self) -> str | None:
+        """
+        returns the title of the current target.
+        if no target is set, it will return None.
+        """
+        if self.target:
+            return self.target.title
+        return None
+
+    @property
+    def url(self) -> str | None:
+        """
+        returns the url of the current target.
+        if no target is set, it will return None.
+        """
+        if self.target:
+            return self.target.url
+        return None
+
+    @property
+    def attached(self) -> bool | None:
+        """
+        returns True if the current target is attached, False otherwise.
+        if no target is set, it will return None.
+        """
+        if self.target:
+            return self.target.attached
+        return None
+
+    @property
+    def can_access_opener(self) -> bool | None:
+        """
+        returns True if the current target can access its opener, False otherwise.
+        if no target is set, it will return None.
+        """
+        if self.target:
+            return self.target.can_access_opener
+        return None
+
+    @property
+    def opener_id(self) -> cdp.target.TargetID | None:
+        """
+        returns the opener id of the current target.
+        if no target is set, it will return None.
+        """
+        if self.target:
+            return self.target.opener_id
+        return None
+
+    @property
+    def opener_frame_id(self) -> cdp.page.FrameId | None:
+        """
+        returns the opener frame id of the current target.
+        if no target is set, it will return None.
+        """
+        if self.target:
+            return self.target.opener_frame_id
+        return None
+
+    @property
+    def browser_context_id(self) -> cdp.browser.BrowserContextID | None:
+        """
+        returns the browser context id of the current target.
+        if no target is set, it will return None.
+        """
+        if self.target:
+            return self.target.browser_context_id
+        return None
+
+    @property
+    def subtype(self) -> str | None:
+        """
+        returns the subtype of the current target.
+        if no target is set, it will return None.
+        """
+        if self.target:
+            return self.target.subtype
+        return None
 
     @property
     def closed(self):
@@ -405,13 +506,6 @@ class Connection(metaclass=CantTouchThis):
         except AttributeError:
             # no listener created yet
             pass
-
-    def __getattr__(self, item):
-        """:meta private:"""
-        try:
-            return getattr(self.target, item)
-        except AttributeError:
-            raise
 
     async def __aenter__(self):
         """:meta private:"""
