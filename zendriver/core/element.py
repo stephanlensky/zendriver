@@ -9,6 +9,7 @@ import pathlib
 import secrets
 import typing
 import urllib.parse
+from deprecated import deprecated
 
 from .. import cdp
 from . import util
@@ -193,6 +194,7 @@ class Element:
     def tab(self):
         return self._tab
 
+    @deprecated(reason="Use get() instead")
     def __getattr__(self, item):
         # if attribute is not found on the element python object
         # check if it may be present in the element attributes (eg, href=, src=, alt=)
@@ -205,6 +207,26 @@ class Element:
     #     x = getattr(self.node, item, None)
     #
     #     return x
+
+    def get(self, name: str) -> str | None:
+        """
+        Returns the value of the attribute with the given name, or None if it does not exist.
+
+        For example, if the element has an attribute `href="#"`, you can retrieve it with:
+            href = element.get("href")
+
+        :param name: The name of the attribute to retrieve.
+        :type name: str
+        :return: The value of the attribute, or None if it does not exist.
+        :rtype: str | None
+        """
+        try:
+            x = getattr(self.attrs, name, None)
+            if x:
+                return x
+            return None
+        except AttributeError:
+            return None
 
     def __setattr__(self, key, value):
         if key[0] != "_":
