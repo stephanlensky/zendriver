@@ -8,10 +8,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
-- fix verify_cf() @H1steria
-- fix relative coordinates of flash_point() @H1steria
+
+- Remove unnecessary usage of `typing_extensions` (fixes `No module named 'typing_extensions'` error) @stephanlensky
+- Fix verify_cf() @H1steria
+- Fix relative coordinates of flash_point() @H1steria
+
 ### Added
-- add flash_point() to Tab.mouse_click() @H1steria
+
+- Add flash_point() to Tab.mouse_click() @H1steria
+
 ### Changed
 
 ### Removed
