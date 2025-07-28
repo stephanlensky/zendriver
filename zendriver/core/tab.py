@@ -22,7 +22,6 @@ from .expect import DownloadExpectation, RequestExpectation, ResponseExpectation
 from ..cdp.fetch import RequestStage
 from ..cdp.network import ResourceType
 
-from .cloudflare import verify_cf
 
 if TYPE_CHECKING:
     from .browser import Browser
@@ -1519,6 +1518,8 @@ class Tab(Connection):
         Raises:
             TimeoutError: If the checkbox is not found or solved within the timeout.
         """
+        from .cloudflare import verify_cf
+
         await verify_cf(self, click_delay, timeout, challenge_selector, flash_corners)
 
     async def mouse_move(self, x: float, y: float, steps=10, flash=False):
