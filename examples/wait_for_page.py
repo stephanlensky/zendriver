@@ -2,7 +2,7 @@ import asyncio
 import zendriver as zd
 
 
-async def main():
+async def main() -> None:
     async with await zd.start() as browser:
         tab = browser.main_tab
         async with tab.expect_request("https://github.com/") as request_info:

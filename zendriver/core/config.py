@@ -6,11 +6,11 @@ import secrets
 import sys
 import tempfile
 import zipfile
-from typing import Any, List, Optional, Union
+from typing import Any, List, Literal, Optional, Union
 
 __all__ = [
     "Config",
-    "find_chrome_executable",
+    "find_executable",
     "temp_profile_dir",
     "is_root",
     "is_posix",
@@ -23,6 +23,8 @@ is_posix = sys.platform.startswith(("darwin", "cygwin", "linux", "linux2"))
 PathLike = Union[str, pathlib.Path]
 AUTO = None
 
+BrowserType = Literal["chrome", "brave", "auto"]
+
 
 class Config:
     """
@@ -34,6 +36,7 @@ class Config:
         user_data_dir: Optional[PathLike] = AUTO,
         headless: Optional[bool] = False,
         browser_executable_path: Optional[PathLike] = AUTO,
+        browser: BrowserType = "auto",
         browser_args: Optional[List[str]] = AUTO,
         sandbox: Optional[bool] = True,
         lang: Optional[str] = None,
@@ -59,6 +62,7 @@ class Config:
         :param user_data_dir: the data directory to use (must be unique if using multiple browsers)
         :param headless: set to True for headless mode
         :param browser_executable_path: specify browser executable, instead of using autodetect
+        :param browser: which browser to use. Can be "chrome", "brave" or "auto". Default is "auto".
         :param browser_args: forwarded to browser executable. eg : ["--some-chromeparam=somevalue", "some-other-param=someval"]
         :param sandbox: disables sandbox
         :param autodiscover_targets: use autodiscovery of targets
@@ -73,6 +77,7 @@ class Config:
         :type user_data_dir: PathLike
         :type headless: bool
         :type browser_executable_path: PathLike
+        :type browser: BrowserType
         :type browser_args: list[str]
         :type sandbox: bool
         :type lang: str
@@ -85,13 +90,13 @@ class Config:
 
         # defer creating a temp user data dir until the browser requests it so
         # config can be used/reused as a template for multiple browser instances
-        self._user_data_dir = None
+        self._user_data_dir: str | None = None
         self._custom_data_dir = False
         if user_data_dir:
             self.user_data_dir = str(user_data_dir)
 
         if not browser_executable_path:
-            browser_executable_path = find_chrome_executable()
+            browser_executable_path = find_executable(browser)
 
         self._browser_args = browser_args
         self.browser_executable_path = browser_executable_path
@@ -139,7 +144,7 @@ class Config:
         ]
 
     @property
-    def browser_args(self):
+    def browser_args(self) -> List[str]:
         return sorted(self._default_browser_args + self._browser_args)
 
     @property
@@ -157,7 +162,7 @@ class Config:
         return self._user_data_dir
 
     @user_data_dir.setter
-    def user_data_dir(self, path: PathLike):
+    def user_data_dir(self, path: PathLike) -> None:
         if path:
             self._user_data_dir = str(path)
             self._custom_data_dir = True
@@ -169,7 +174,7 @@ class Config:
     def uses_custom_data_dir(self) -> bool:
         return self._custom_data_dir
 
-    def add_extension(self, extension_path: PathLike):
+    def add_extension(self, extension_path: PathLike) -> None:
         """
         adds an extension to load, you could point extension_path
         to a folder (containing the manifest), or extension file (crx)
@@ -198,7 +203,7 @@ class Config:
     # def __getattr__(self, item):
     #     if item not in self.__dict__:
 
-    def __call__(self):
+    def __call__(self) -> list[str]:
         # the host and port will be added when starting
         # the browser, as by the time it starts, the port
         # is probably already taken
@@ -223,7 +228,7 @@ class Config:
             args.append("--remote-debugging-port=%s" % self.port)
         return args
 
-    def add_argument(self, arg: str):
+    def add_argument(self, arg: str) -> None:
         if any(
             x in arg.lower()
             for x in [
@@ -241,7 +246,7 @@ class Config:
             )
         self._browser_args.append(arg)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         s = f"{self.__class__.__name__}"
         for k, v in ({**self.__dict__, **self.__class__.__dict__}).items():
             if k[0] == "_":
@@ -261,7 +266,7 @@ class Config:
     #     return d
 
 
-def is_root():
+def is_root() -> bool:
     """
     helper function to determine if user trying to launch chrome
     under linux as root, which needs some alternative handling
@@ -274,48 +279,14 @@ def is_root():
         return os.getuid() == 0
 
 
-def temp_profile_dir():
+def temp_profile_dir() -> str:
     """generate a temp dir (path)"""
     path = os.path.normpath(tempfile.mkdtemp(prefix="uc_"))
     return path
 
 
-def find_chrome_executable() -> PathLike:
-    """
-    Finds the chrome, beta, canary, chromium executable
-    and returns the disk path
-    """
-    candidates = []
-    if is_posix:
-        for item in os.environ["PATH"].split(os.pathsep):
-            for subitem in (
-                "google-chrome",
-                "chromium",
-                "chromium-browser",
-                "chrome",
-                "google-chrome-stable",
-            ):
-                candidates.append(os.sep.join((item, subitem)))
-        if "darwin" in sys.platform:
-            candidates += [
-                "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
-                "/Applications/Chromium.app/Contents/MacOS/Chromium",
-            ]
-
-    else:
-        for item2 in map(
-            os.environ.get,
-            ("PROGRAMFILES", "PROGRAMFILES(X86)", "LOCALAPPDATA", "PROGRAMW6432"),
-        ):
-            if item2 is not None:
-                for subitem in (
-                    "Google/Chrome/Application",
-                    "Google/Chrome Beta/Application",
-                    "Google/Chrome Canary/Application",
-                    "Google/Chrome SxS/Application",
-                ):
-                    candidates.append(os.sep.join((item2, subitem, "chrome.exe")))
-    rv = []
+def find_binary(candidates: list[str]) -> str | None:
+    rv: list[str] = []
     for candidate in candidates:
         if os.path.exists(candidate) and os.access(candidate, os.X_OK):
             logger.debug("%s is a valid candidate... " % candidate)
@@ -326,8 +297,7 @@ def find_chrome_executable() -> PathLike:
                 % candidate
             )
 
-    winner = None
-
+    winner: str | None = None
     if rv and len(rv) > 1:
         # assuming the shortest path wins
         winner = min(rv, key=lambda x: len(x))
@@ -335,10 +305,88 @@ def find_chrome_executable() -> PathLike:
     elif len(rv) == 1:
         winner = rv[0]
 
-    if winner:
-        return os.path.normpath(winner)
+    return winner
+
+
+def find_executable(browser: BrowserType = "auto") -> PathLike:
+    """
+    Finds the executable for the specified browser and returns its disk path.
+    :param browser: The browser to find. Can be "chrome", "brave" or "auto".
+    :return: The path to the browser executable.
+    """
+    browsers_to_try = []
+    if browser == "auto":
+        browsers_to_try = ["chrome", "brave"]
+    elif browser in ["chrome", "brave"]:
+        browsers_to_try = [browser]
+    else:
+        raise ValueError("browser must be 'chrome', 'brave' or 'auto'")
+
+    for browser_name in browsers_to_try:
+        candidates = []
+        if browser_name == "chrome":
+            if is_posix:
+                for item in os.environ["PATH"].split(os.pathsep):
+                    for subitem in (
+                        "google-chrome",
+                        "chromium",
+                        "chromium-browser",
+                        "chrome",
+                        "google-chrome-stable",
+                    ):
+                        candidates.append(os.sep.join((item, subitem)))
+                if "darwin" in sys.platform:
+                    candidates += [
+                        "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+                        "/Applications/Chromium.app/Contents/MacOS/Chromium",
+                    ]
+            else:
+                for item2 in map(
+                    os.environ.get,
+                    (
+                        "PROGRAMFILES",
+                        "PROGRAMFILES(X86)",
+                        "LOCALAPPDATA",
+                        "PROGRAMW6432",
+                    ),
+                ):
+                    if item2 is not None:
+                        for subitem in (
+                            "Google/Chrome/Application",
+                            "Google/Chrome Beta/Application",
+                            "Google/Chrome Canary/Application",
+                            "Google/Chrome SxS/Application",
+                        ):
+                            candidates.append(
+                                os.sep.join((item2, subitem, "chrome.exe"))
+                            )
+        elif browser_name == "brave":
+            if is_posix:
+                for item in os.environ["PATH"].split(os.pathsep):
+                    for subitem in (
+                        "brave-browser",
+                        "brave",
+                    ):
+                        candidates.append(os.sep.join((item, subitem)))
+                if "darwin" in sys.platform:
+                    candidates.append(
+                        "/Applications/Brave Browser.app/Contents/MacOS/Brave Browser"
+                    )
+            else:
+                for item2 in map(
+                    os.environ.get,
+                    ("PROGRAMFILES", "PROGRAMFILES(X86)"),
+                ):
+                    if item2 is not None:
+                        for subitem in ("BraveSoftware/Brave-Browser/Application",):
+                            candidates.append(
+                                os.sep.join((item2, subitem, "brave.exe"))
+                            )
+        winner = find_binary(candidates)
+        if winner:
+            return os.path.normpath(winner)
 
     raise FileNotFoundError(
-        "could not find a valid chrome browser binary. please make sure chrome is installed."
+        "could not find a valid browser binary. please make sure it is installed "
         "or use the keyword argument 'browser_executable_path=/path/to/your/browser' "
     )

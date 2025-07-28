@@ -1,9 +1,8 @@
 from enum import Enum, IntEnum
-from typing import List, Optional, Tuple, Union
+from typing import List, Optional, Tuple, TypedDict, Union
 
 import emoji
 import grapheme  # type: ignore
-from typing_extensions import TypedDict
 
 
 class KeyModifiers(IntEnum):
@@ -249,7 +248,7 @@ class KeyEvents:
         self,
         key_press_event: KeyPressEvent,
         modifiers: Union[KeyModifiers, int] = KeyModifiers.Default,
-    ):
+    ) -> "KeyEvents.Payload":
         """
         Convert the key event to a basic event format.
         Args:

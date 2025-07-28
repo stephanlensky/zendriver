@@ -6,7 +6,8 @@ import sys
 from contextlib import AbstractAsyncContextManager
 from enum import Enum
 from threading import Event
-from typing import AsyncGenerator
+from types import FrameType
+from typing import AsyncGenerator, Any
 
 import pytest
 
@@ -21,13 +22,14 @@ class BrowserMode(Enum):
     ALL = "all"
 
     @property
-    def fixture_params(self):
+    def fixture_params(self) -> list[dict[str, bool]]:
         if self == BrowserMode.HEADLESS:
             return [{"headless": True}]
         elif self == BrowserMode.HEADFUL:
             return [{"headless": False}]
         elif self == BrowserMode.ALL:
             return [{"headless": True}, {"headless": False}]
+        return []
 
 
 NEXT_TEST_EVENT = Event()
@@ -40,7 +42,7 @@ class TestConfig:
     USE_WAYLAND = os.getenv("WAYLAND_DISPLAY") is not None
 
 
-class CreateBrowser(AbstractAsyncContextManager):
+class CreateBrowser(AbstractAsyncContextManager):  # type: ignore
     def __init__(
         self,
         *,
@@ -68,7 +70,6 @@ class CreateBrowser(AbstractAsyncContextManager):
         )
 
         self.browser: zd.Browser | None = None
-        self.browser_pid: int | None = None
 
     async def __aenter__(self) -> zd.Browser:
         self.browser = await zd.start(self.config)
@@ -77,10 +78,12 @@ class CreateBrowser(AbstractAsyncContextManager):
         await self.browser.wait(0)
         return self.browser
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
-        if self.browser is not None:
+    async def __aexit__(
+        self, exc_type: type[BaseException] | None, exc_val: Any, exc_tb: Any
+    ) -> None:
+        if self.browser is not None and self.browser._process_pid is not None:
             await self.browser.stop()
-            assert self.browser_pid is None
+            assert self.browser._process_pid is None
 
 
 @pytest.fixture
@@ -93,7 +96,7 @@ def create_browser() -> type[CreateBrowser]:
 
 @pytest.fixture(params=TestConfig.BROWSER_MODE.fixture_params)
 def headless(request: pytest.FixtureRequest) -> bool:
-    return request.param["headless"]
+    return request.param["headless"]  # type: ignore
 
 
 @pytest.fixture
@@ -110,12 +113,10 @@ async def browser(
             "Pausing after test. Send next test hotkey (default Mod+Return) to continue to next test"
         )
         NEXT_TEST_EVENT.wait()
-    await browser.stop()
-    assert browser._process_pid is None
 
 
 # signal handler for starting next test
-def handle_next_test(signum, frame):
+def handle_next_test(signum: int, frame: FrameType | None) -> None:
     if not TestConfig.PAUSE_AFTER_TEST:
         logger.warning(
             "Next test signal received, but ZENDRIVER_PAUSE_AFTER_TEST is not set."

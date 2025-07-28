@@ -5,6 +5,7 @@ Automatically generate code reference pages under docs/reference.
 
 import shutil
 from pathlib import Path
+from typing import Any
 
 import yaml
 
@@ -34,22 +35,24 @@ def get_documented_modules() -> list[Path]:
     ]
 
 
-def load_mkdocs_yml() -> dict:
+def load_mkdocs_yml() -> dict[str, Any]:
     mkdocs_yml_path = MKDOCS_YML
     with mkdocs_yml_path.open() as f:
-        return yaml.safe_load(f)
+        return yaml.safe_load(f)  # type: ignore
 
 
-def write_mkdocs_yml(mkdocs_yml: dict) -> None:
+def write_mkdocs_yml(mkdocs_yml: dict[str, Any]) -> None:
     mkdocs_yml_path = MKDOCS_YML
     with mkdocs_yml_path.open("w") as f:
         yaml.safe_dump(mkdocs_yml, f)
 
 
-def get_nav_item_by_title(nav_section: list[dict], title: str) -> list[dict]:
+def get_nav_item_by_title(
+    nav_section: list[dict[str, Any]], title: str
+) -> list[dict[str, Any]]:
     for item in nav_section:
         if title in item:
-            return item[title]
+            return item[title]  # type: ignore
 
     raise ValueError(f"Title '{title}' not found in nav section")
 

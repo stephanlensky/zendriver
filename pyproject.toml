@@ -1,6 +1,6 @@
 [project]
 name = "zendriver"
-version = "0.12.1"
+version = "0.13.1"
 description = "A blazing fast, async-first, undetectable webscraping/web automation framework"
 readme = "README.md"
 authors = [{ name = "Stephan Lensky", email = "oss@slensky.com" }]
@@ -67,8 +67,15 @@ exclude = [
 exclude = [
     "zendriver/cdp",
     "examples/demo.py",
+    "examples/fetch_domain.py",
     "examples/imgur_upload_image.py",
+    "examples/mouse_drag_boxes.py",
+    "examples/network_monitor.py",
+    "examples/wait_for_page.py",
+    "examples/set_user_agent.py",
+    "examples/expect_download.py",
 ]
+strict = true
 check_untyped_defs = true
 
 [[tool.mypy.overrides]]

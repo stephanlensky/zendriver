@@ -4,7 +4,7 @@ from tests.sample_data import sample_file
 from zendriver import SpecialKeys, KeyModifiers, KeyEvents
 
 
-async def test_visible_events(browser: zd.Browser):
+async def test_visible_events(browser: zd.Browser) -> None:
     """Test keyboard events with contenteditable div."""
     # Open the page
     main_page = await browser.get(sample_file("simple_editor.html"))
@@ -43,7 +43,7 @@ async def test_visible_events(browser: zd.Browser):
         assert actual_html == expected, f"Expected '{expected}', got '{actual_html}'"
 
 
-async def test_escape_key_popup(browser: zd.Browser):
+async def test_escape_key_popup(browser: zd.Browser) -> None:
     """Test escape key functionality to close a popup."""
     main_page = await browser.get(sample_file("special_key_detector.html"))
 

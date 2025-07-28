@@ -5,7 +5,7 @@ import os
 import zendriver as zd
 
 
-async def main():
+async def main() -> None:
     path_image = r"Your Image Path"
     out_dir = r"."
     async with await zd.start() as browser:

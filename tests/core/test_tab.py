@@ -1,4 +1,5 @@
 import asyncio
+from typing import Any
 
 import pytest
 
@@ -8,8 +9,9 @@ from zendriver.cdp.fetch import RequestStage
 from zendriver.cdp.network import ResourceType
 
 
-async def test_set_user_agent_sets_navigator_values(browser: zd.Browser):
+async def test_set_user_agent_sets_navigator_values(browser: zd.Browser) -> None:
     tab = browser.main_tab
+    assert tab is not None
 
     await tab.set_user_agent(
         "Test user agent", accept_language="testLang", platform="TestPlatform"
@@ -23,8 +25,10 @@ async def test_set_user_agent_sets_navigator_values(browser: zd.Browser):
     assert navigator_platform == "TestPlatform"
 
 
-async def test_set_user_agent_defaults_existing_user_agent(browser: zd.Browser):
+async def test_set_user_agent_defaults_existing_user_agent(browser: zd.Browser) -> None:
     tab = browser.main_tab
+    assert tab is not None
+
     existing_user_agent = await tab.evaluate("navigator.userAgent")
 
     await tab.set_user_agent(accept_language="testLang")
@@ -35,7 +39,7 @@ async def test_set_user_agent_defaults_existing_user_agent(browser: zd.Browser):
     assert navigator_language == "testLang"
 
 
-async def test_find_finds_element_by_text(browser: zd.Browser):
+async def test_find_finds_element_by_text(browser: zd.Browser) -> None:
     tab = await browser.get(sample_file("groceries.html"))
 
     result = await tab.find("Apples")
@@ -45,14 +49,14 @@ async def test_find_finds_element_by_text(browser: zd.Browser):
     assert result.text == "Apples"
 
 
-async def test_find_times_out_if_element_not_found(browser: zd.Browser):
+async def test_find_times_out_if_element_not_found(browser: zd.Browser) -> None:
     tab = await browser.get(sample_file("groceries.html"))
 
     with pytest.raises(asyncio.TimeoutError):
         await tab.find("Clothes", timeout=1)
 
 
-async def test_select(browser: zd.Browser):
+async def test_select(browser: zd.Browser) -> None:
     tab = await browser.get(sample_file("groceries.html"))
 
     result = await tab.select("li[aria-label^='Apples']")
@@ -62,7 +66,7 @@ async def test_select(browser: zd.Browser):
     assert result.text == "Apples"
 
 
-async def test_xpath(browser: zd.Browser):
+async def test_xpath(browser: zd.Browser) -> None:
     tab = await browser.get(sample_file("groceries.html"))
 
     results = await tab.xpath('//li[@aria-label="Apples (42)"]')
@@ -75,13 +79,13 @@ async def test_xpath(browser: zd.Browser):
     assert result.text == "Apples"
 
 
-async def test_add_handler_type_event(browser: zd.Browser):
+async def test_add_handler_type_event(browser: zd.Browser) -> None:
     tab = await browser.get(sample_file("groceries.html"))
 
-    async def request_handler_1(event):
+    async def request_handler_1(event: zd.cdp.network.RequestWillBeSent) -> None:
         pass
 
-    async def request_handler_2(event):
+    async def request_handler_2(event: zd.cdp.network.RequestWillBeSent) -> None:
         pass
 
     assert len(tab.handlers) == 0
@@ -98,10 +102,10 @@ async def test_add_handler_type_event(browser: zd.Browser):
     ]
 
 
-async def test_add_handler_module_event(browser: zd.Browser):
+async def test_add_handler_module_event(browser: zd.Browser) -> None:
     tab = await browser.get(sample_file("groceries.html"))
 
-    async def request_handler(event):
+    async def request_handler(event: Any) -> None:
         pass
 
     assert len(tab.handlers) == 0
@@ -111,10 +115,10 @@ async def test_add_handler_module_event(browser: zd.Browser):
     assert len(tab.handlers) == 27
 
 
-async def test_remove_handlers(browser: zd.Browser):
+async def test_remove_handlers(browser: zd.Browser) -> None:
     tab = await browser.get(sample_file("groceries.html"))
 
-    async def request_handler(event):
+    async def request_handler(event: zd.cdp.network.RequestWillBeSent) -> None:
         pass
 
     tab.add_handler(zd.cdp.network.RequestWillBeSent, request_handler)
@@ -124,10 +128,10 @@ async def test_remove_handlers(browser: zd.Browser):
     assert len(tab.handlers) == 0
 
 
-async def test_remove_handlers_specific_event(browser: zd.Browser):
+async def test_remove_handlers_specific_event(browser: zd.Browser) -> None:
     tab = await browser.get(sample_file("groceries.html"))
 
-    async def request_handler(event):
+    async def request_handler(event: zd.cdp.network.RequestWillBeSent) -> None:
         pass
 
     tab.add_handler(zd.cdp.network.RequestWillBeSent, request_handler)
@@ -139,13 +143,13 @@ async def test_remove_handlers_specific_event(browser: zd.Browser):
     assert len(tab.handlers) == 0
 
 
-async def test_remove_specific_handler(browser: zd.Browser):
+async def test_remove_specific_handler(browser: zd.Browser) -> None:
     tab = await browser.get(sample_file("groceries.html"))
 
-    async def request_handler_1(event):
+    async def request_handler_1(event: zd.cdp.network.RequestWillBeSent) -> None:
         pass
 
-    async def request_handler_2(event):
+    async def request_handler_2(event: zd.cdp.network.RequestWillBeSent) -> None:
         pass
 
     tab.add_handler(zd.cdp.network.RequestWillBeSent, request_handler_1)
@@ -158,10 +162,10 @@ async def test_remove_specific_handler(browser: zd.Browser):
     assert len(tab.handlers[zd.cdp.network.RequestWillBeSent]) == 1
 
 
-async def test_remove_handlers_without_event(browser: zd.Browser):
+async def test_remove_handlers_without_event(browser: zd.Browser) -> None:
     tab = await browser.get(sample_file("groceries.html"))
 
-    async def request_handler(event):
+    async def request_handler(event: zd.cdp.network.RequestWillBeSent) -> None:
         pass
 
     tab.add_handler(zd.cdp.network.RequestWillBeSent, request_handler)
@@ -172,7 +176,7 @@ async def test_remove_handlers_without_event(browser: zd.Browser):
         assert str(e) == "if handler is provided, event_type should be provided as well"
 
 
-async def test_wait_for_ready_state(browser: zd.Browser):
+async def test_wait_for_ready_state(browser: zd.Browser) -> None:
     tab = await browser.get(sample_file("groceries.html"))
 
     await tab.wait_for_ready_state("complete")
@@ -181,8 +185,9 @@ async def test_wait_for_ready_state(browser: zd.Browser):
     assert ready_state == "complete"
 
 
-async def test_expect_request(browser: zd.Browser):
+async def test_expect_request(browser: zd.Browser) -> None:
     tab = browser.main_tab
+    assert tab is not None
 
     async with tab.expect_request(sample_file("groceries.html")) as request_info:
         await tab.get(sample_file("groceries.html"))
@@ -197,8 +202,9 @@ async def test_expect_request(browser: zd.Browser):
         assert type(response_body) is tuple
 
 
-async def test_expect_response(browser: zd.Browser):
+async def test_expect_response(browser: zd.Browser) -> None:
     tab = browser.main_tab
+    assert tab is not None
 
     async with tab.expect_response(sample_file("groceries.html")) as response_info:
         await tab.get(sample_file("groceries.html"))
@@ -212,8 +218,9 @@ async def test_expect_response(browser: zd.Browser):
         assert type(response_body) is tuple
 
 
-async def test_expect_download(browser: zd.Browser):
+async def test_expect_download(browser: zd.Browser) -> None:
     tab = browser.main_tab
+    assert tab is not None
 
     async with tab.expect_download() as download_ex:
         await tab.get(sample_file("groceries.html"))
@@ -223,8 +230,9 @@ async def test_expect_download(browser: zd.Browser):
         assert download.url is not None
 
 
-async def test_intercept(browser: zd.Browser):
+async def test_intercept(browser: zd.Browser) -> None:
     tab = browser.main_tab
+    assert tab is not None
 
     async with tab.intercept(
         "*/user-data.json",
