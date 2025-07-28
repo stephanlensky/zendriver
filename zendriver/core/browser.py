@@ -55,7 +55,7 @@ class Browser:
 
     """
 
-    _process: subprocess.Popen | None
+    _process: subprocess.Popen[bytes] | None
     _process_pid: int | None
     _http: HTTPApi | None = None
     _cookies: CookieJar | None = None
@@ -149,9 +149,14 @@ class Browser:
         return self.info.webSocketDebuggerUrl  # type: ignore
 
     @property
-    def main_tab(self) -> tab.Tab:
+    def main_tab(self) -> tab.Tab | None:
         """returns the target which was launched with the browser"""
-        return sorted(self.targets, key=lambda x: x.type_ == "page", reverse=True)[0]
+        results = sorted(self.targets, key=lambda x: x.type_ == "page", reverse=True)
+        if len(results) > 0:
+            result = results[0]
+            if isinstance(result, tab.Tab):
+                return result
+        return None
 
     @property
     def tabs(self) -> List[tab.Tab]:
@@ -159,7 +164,7 @@ class Browser:
         :return:
         """
         tabs = filter(lambda item: item.type_ == "page", self.targets)
-        return list(tabs)
+        return list(tabs)  # type: ignore
 
     @property
     def cookies(self) -> CookieJar:
@@ -295,11 +300,11 @@ class Browser:
                     lambda item: item.type_ == "page" and item.target_id == target_id,
                     self.targets,
                 )
-            )
+            )  # type: ignore
             connection.browser = self
         else:
             # first tab from browser.tabs
-            connection = next(filter(lambda item: item.type_ == "page", self.targets))
+            connection = next(filter(lambda item: item.type_ == "page", self.targets))  # type: ignore
             # use the tab to navigate to new url
             await connection.send(cdp.page.navigate(url))
             connection.browser = self
@@ -552,8 +557,7 @@ class Browser:
         targets = await self._get_targets()
         for t in targets:
             for existing_tab in self.targets:
-                existing_target = existing_tab.target
-                if existing_target.target_id == t.target_id:
+                if existing_tab.target_id == t.target_id:
                     existing_tab.target.__dict__.update(t.__dict__)
                     break
             else:
@@ -581,7 +585,10 @@ class Browser:
             raise exc_type(exc_val)
 
     def __iter__(self) -> Browser:
-        self._i = self.tabs.index(self.main_tab)
+        main_tab = self.main_tab
+        if not main_tab:
+            return self
+        self._i = self.tabs.index(main_tab)
         return self
 
     def __reversed__(self) -> List[tab.Tab]:

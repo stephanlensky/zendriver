@@ -11,6 +11,7 @@ from zendriver.cdp.network import ResourceType
 
 async def test_set_user_agent_sets_navigator_values(browser: zd.Browser) -> None:
     tab = browser.main_tab
+    assert tab is not None
 
     await tab.set_user_agent(
         "Test user agent", accept_language="testLang", platform="TestPlatform"
@@ -26,6 +27,8 @@ async def test_set_user_agent_sets_navigator_values(browser: zd.Browser) -> None
 
 async def test_set_user_agent_defaults_existing_user_agent(browser: zd.Browser) -> None:
     tab = browser.main_tab
+    assert tab is not None
+
     existing_user_agent = await tab.evaluate("navigator.userAgent")
 
     await tab.set_user_agent(accept_language="testLang")
@@ -184,6 +187,7 @@ async def test_wait_for_ready_state(browser: zd.Browser) -> None:
 
 async def test_expect_request(browser: zd.Browser) -> None:
     tab = browser.main_tab
+    assert tab is not None
 
     async with tab.expect_request(sample_file("groceries.html")) as request_info:
         await tab.get(sample_file("groceries.html"))
@@ -200,6 +204,7 @@ async def test_expect_request(browser: zd.Browser) -> None:
 
 async def test_expect_response(browser: zd.Browser) -> None:
     tab = browser.main_tab
+    assert tab is not None
 
     async with tab.expect_response(sample_file("groceries.html")) as response_info:
         await tab.get(sample_file("groceries.html"))
@@ -215,6 +220,7 @@ async def test_expect_response(browser: zd.Browser) -> None:
 
 async def test_expect_download(browser: zd.Browser) -> None:
     tab = browser.main_tab
+    assert tab is not None
 
     async with tab.expect_download() as download_ex:
         await tab.get(sample_file("groceries.html"))
@@ -226,6 +232,7 @@ async def test_expect_download(browser: zd.Browser) -> None:
 
 async def test_intercept(browser: zd.Browser) -> None:
     tab = browser.main_tab
+    assert tab is not None
 
     async with tab.intercept(
         "*/user-data.json",

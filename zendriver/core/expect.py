@@ -85,7 +85,7 @@ class BaseRequestExpectation:
             cdp.network.LoadingFinished, self._loading_finished_handler
         )
 
-    async def __aenter__(self):
+    async def __aenter__(self):  # type: ignore
         """
         Enter the context manager, adding request and response handlers.
         """
@@ -203,7 +203,7 @@ class DownloadExpectation:
         self.tab.add_handler(cdp.browser.DownloadWillBegin, self._handler)
         return self
 
-    async def __aexit__(self, *args) -> None:
+    async def __aexit__(self, *args: Any) -> None:
         """
         Exit the context manager, removing handler, set download behavior to default.
         """

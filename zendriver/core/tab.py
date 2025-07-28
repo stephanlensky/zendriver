@@ -1495,11 +1495,13 @@ class Tab(Connection):
 
         import urllib.parse
 
-        res = []
+        res: list[str] = []
         all_assets = await self.query_selector_all(selector="a,link,img,script,meta")
         for asset in all_assets:
             if not absolute:
-                res.append(asset.src or asset.href)
+                res_to_add = asset.src or asset.href
+                if res_to_add:
+                    res.append(res_to_add)
             else:
                 for k, v in asset.attrs.items():
                     if k in ("src", "href"):

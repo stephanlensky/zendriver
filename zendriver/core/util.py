@@ -16,7 +16,8 @@ import zendriver
 from .element import Element
 
 if typing.TYPE_CHECKING:
-    from .browser import Browser, PathLike
+    from .browser import Browser
+    from .config import PathLike
 from .. import cdp
 from .config import BrowserType, Config
 
@@ -106,9 +107,7 @@ async def start(
     return await Browser.create(config)
 
 
-async def create_from_undetected_chromedriver(
-    driver,
-) -> Browser:
+async def create_from_undetected_chromedriver(driver: Any) -> Browser:
     """
     create a zendriver.Browser instance from a running undetected_chromedriver.Chrome instance.
     """
@@ -204,15 +203,15 @@ def filter_recurse(
 
 
 def circle(
-    x, y=None, radius=10, num=10, dir=0
+    x: float, y: float | None = None, radius: int = 10, num: int = 10, dir: int = 0
 ) -> typing.Generator[typing.Tuple[float, float], None, None]:
     """
     a generator will calculate coordinates around a circle.
 
     :param x: start x position
-    :type x: int
+    :type x: float
     :param y: start y position
-    :type y: int
+    :type y: float
     :param radius: size of the circle
     :type radius: int
     :param num: the amount of points calculated (higher => slower, more cpu, but more detailed)
@@ -255,7 +254,9 @@ def remove_from_tree(tree: cdp.dom.Node, node: cdp.dom.Node) -> cdp.dom.Node:
     return tree
 
 
-async def html_from_tree(tree: Union[cdp.dom.Node, Element], target: zendriver.Tab):
+async def html_from_tree(
+    tree: Union[cdp.dom.Node, Element], target: zendriver.Tab
+) -> str:
     if not hasattr(tree, "children"):
         raise TypeError("object should have a .children attribute")
     out = ""
@@ -305,7 +306,7 @@ def loop() -> AbstractEventLoop:
     return loop
 
 
-def cdp_get_module(domain: Union[str, types.ModuleType]):
+def cdp_get_module(domain: Union[str, types.ModuleType]) -> Any:
     """
     get cdp module by given string
 
@@ -340,7 +341,7 @@ def cdp_get_module(domain: Union[str, types.ModuleType]):
 
 def _start_process(
     exe: str | Path, params: List[str], is_posix: bool
-) -> subprocess.Popen:
+) -> subprocess.Popen[bytes]:
     """
     Start a subprocess with the given executable and parameters.
 
@@ -359,7 +360,7 @@ def _start_process(
     )
 
 
-async def _read_process_stderr(process: subprocess.Popen, n: int = 2**16) -> str:
+async def _read_process_stderr(process: subprocess.Popen[bytes], n: int = 2**16) -> str:
     """
     Read the given number of bytes from the stderr of the given process.
 

@@ -32,7 +32,7 @@ class BaseFetchInterception:
         self.resource_type = resource_type
         self.response_future: asyncio.Future[cdp.fetch.RequestPaused] = asyncio.Future()
 
-    async def _response_handler(self, event: cdp.fetch.RequestPaused):
+    async def _response_handler(self, event: cdp.fetch.RequestPaused) -> None:
         """
         Internal handler for response events.
         :param event: The response event.
@@ -41,13 +41,13 @@ class BaseFetchInterception:
         self._remove_response_handler()
         self.response_future.set_result(event)
 
-    def _remove_response_handler(self):
+    def _remove_response_handler(self) -> None:
         """
         Remove the response event handler.
         """
         self.tab.remove_handlers(cdp.fetch.RequestPaused, self._response_handler)
 
-    async def __aenter__(self):
+    async def __aenter__(self) -> "BaseFetchInterception":
         """
         Enter the context manager, adding request and response handlers.
         """
@@ -68,7 +68,7 @@ class BaseFetchInterception:
         self.tab.add_handler(cdp.fetch.RequestPaused, self._response_handler)
         return self
 
-    async def __aexit__(self, *args):
+    async def __aexit__(self, *args: typing.Any) -> None:
         """
         Exit the context manager, removing request and response handlers.
         """
@@ -76,7 +76,7 @@ class BaseFetchInterception:
         await self.tab.send(cdp.fetch.disable())
 
     @property
-    async def request(self):
+    async def request(self) -> cdp.network.Request:
         """
         Get the matched request.
         :return: The matched request.

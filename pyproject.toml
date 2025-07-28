@@ -71,6 +71,9 @@ exclude = [
     "examples/imgur_upload_image.py",
     "examples/mouse_drag_boxes.py",
     "examples/network_monitor.py",
+    "examples/wait_for_page.py",
+    "examples/set_user_agent.py",
+    "examples/expect_download.py",
 ]
 strict = true
 check_untyped_defs = true

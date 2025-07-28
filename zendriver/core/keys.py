@@ -248,7 +248,7 @@ class KeyEvents:
         self,
         key_press_event: KeyPressEvent,
         modifiers: Union[KeyModifiers, int] = KeyModifiers.Default,
-    ):
+    ) -> "KeyEvents.Payload":
         """
         Convert the key event to a basic event format.
         Args:

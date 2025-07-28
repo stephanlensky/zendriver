@@ -196,14 +196,14 @@ class Element:
         return self._tab
 
     @deprecated(reason="Use get() instead")
-    def __getattr__(self, item):
+    def __getattr__(self, item: str) -> str | None:
         # if attribute is not found on the element python object
         # check if it may be present in the element attributes (eg, href=, src=, alt=)
         # returns None when attribute is not found
         # instead of raising AttributeError
         x = getattr(self.attrs, item, None)
         if x:
-            return x
+            return x  # type: ignore
         return None
 
     #     x = getattr(self.node, item, None)
@@ -230,7 +230,7 @@ class Element:
         except AttributeError:
             return None
 
-    def __setattr__(self, key, value) -> None:
+    def __setattr__(self, key: str, value: typing.Any) -> None:
         if key[0] != "_":
             if key[1:] not in vars(self).keys():
                 # we probably deal with an attribute of
@@ -241,14 +241,14 @@ class Element:
         # the python object
         super().__setattr__(key, value)
 
-    def __setitem__(self, key, value):
+    def __setitem__(self, key: str, value: typing.Any) -> None:
         if key[0] != "_":
             if key[1:] not in vars(self).keys():
                 # we probably deal with an attribute of
                 # the html element, so forward it
                 self.attrs[key] = value
 
-    def __getitem__(self, item):
+    def __getitem__(self, item: str) -> typing.Any:
         # we probably deal with an attribute of
         # the html element, so forward it
         return self.attrs.get(item, None)
@@ -279,7 +279,7 @@ class Element:
             await self.tab.send(cdp.dom.remove_node(node.node_id))
         # self._tree = util.remove_from_tree(self.tree, self.node)
 
-    async def update(self, _node=None) -> Element:
+    async def update(self, _node: cdp.dom.Node | None = None) -> Element:
         """
         updates element to retrieve more properties. for example this enables
         :py:obj:`~children` and :py:obj:`~parent` attributes.
@@ -447,7 +447,7 @@ class Element:
             )
         )
 
-    def __await__(self):
+    def __await__(self) -> typing.Any:
         return self.update().__await__()
 
     def __call__(self, js_method: str) -> typing.Any:
@@ -509,7 +509,7 @@ class Element:
         elif result[1]:
             return result[1]
 
-    async def get_position(self, abs=False) -> Position | None:
+    async def get_position(self, abs: bool = False) -> Position | None:
         if not self._remote_object or not self.parent or not self.object_id:
             self._remote_object = await self._tab.send(
                 cdp.dom.resolve_node(backend_node_id=self.backend_node_id)
@@ -522,8 +522,8 @@ class Element:
                 raise Exception("could not find position for %s " % self)
             pos = Position(quads[0])
             if abs:
-                scroll_y = (await self.tab.evaluate("window.scrollY")).value
-                scroll_x = (await self.tab.evaluate("window.scrollX")).value
+                scroll_y = (await self.tab.evaluate("window.scrollY")).value  # type: ignore
+                scroll_x = (await self.tab.evaluate("window.scrollX")).value  # type: ignore
                 abs_x = pos.left + scroll_x + (pos.width / 2)
                 abs_y = pos.top + scroll_y + (pos.height / 2)
                 pos.abs_x = abs_x
@@ -713,11 +713,11 @@ class Element:
 
         # await self.apply("""(el) => el.scrollIntoView(false)""")
 
-    async def clear_input(self):
+    async def clear_input(self) -> None:
         """clears an input field"""
-        return await self.apply('function (element) { element.value = "" } ')
+        await self.apply('function (element) { element.value = "" } ')
 
-    async def clear_input_by_deleting(self):
+    async def clear_input_by_deleting(self) -> None:
         """
         clears the input of the element by simulating a series of delete key presses.
 
@@ -725,7 +725,7 @@ class Element:
         repeatedly until the input is empty. it is useful for clearing input fields or text areas
         when :func:`clear_input` does not work (for example, when custom input handling is implemented on the page).
         """
-        return await self.apply(
+        await self.apply(
             """
                 async function clearByDeleting(n, d = 50) {
                     n.focus();
@@ -800,9 +800,9 @@ class Element:
             )
         )
 
-    async def focus(self):
+    async def focus(self) -> None:
         """focus the current element. often useful in form (select) fields"""
-        return await self.apply("(element) => element.focus()")
+        await self.apply("(element) => element.focus()")
 
     async def select_option(self) -> None:
         """
@@ -823,10 +823,10 @@ class Element:
                 """
             )
 
-    async def set_value(self, value) -> None:
+    async def set_value(self, value: str) -> None:
         await self._tab.send(cdp.dom.set_node_value(node_id=self.node_id, value=value))
 
-    async def set_text(self, value) -> None:
+    async def set_text(self, value: str) -> None:
         if not self.node_type == 3:
             if self.child_node_count == 1:
                 child_node = self.children[0]
@@ -877,7 +877,7 @@ class Element:
         await self.update()
         return await self.tab.query_selector_all(selector, _node=self)
 
-    async def query_selector(self, selector) -> Element | None:
+    async def query_selector(self, selector: str) -> Element | None:
         """
         like js querySelector()
         """
@@ -907,7 +907,7 @@ class Element:
             raise RuntimeError(
                 "could not determine position of element. probably because it's not in view, or hidden"
             )
-        viewport = pos.to_viewport(scale)
+        viewport = pos.to_viewport(float(scale if scale else 1))
         await self.tab.sleep()
 
         data = await self._tab.send(
@@ -930,7 +930,7 @@ class Element:
         filename: typing.Optional[PathLike] = "auto",
         format: str = "jpeg",
         scale: typing.Optional[typing.Union[int, float]] = 1,
-    ) -> None:
+    ) -> str:
         """
         Saves a screenshot of this element (only)
         This is not the same as :py:obj:`Tab.save_screenshot`, which saves a "regular" screenshot
@@ -948,7 +948,7 @@ class Element:
         await self.tab.sleep()
 
         if not filename or filename == "auto":
-            parsed = urllib.parse.urlparse(self.tab.target.url)
+            parsed = urllib.parse.urlparse(self.tab.target.url)  # type: ignore
             parts = parsed.path.split("/")
             last_part = parts[-1]
             last_part = last_part.rsplit("?", 1)[0]
@@ -1167,10 +1167,10 @@ class Element:
         await self("play")
         await self._tab
 
-    async def is_recording(self):
-        return await self.apply('(vid) => vid["_recording"]')
+    async def is_recording(self) -> bool:
+        return await self.apply('(vid) => vid["_recording"]')  # type: ignore
 
-    def _make_attrs(self):
+    def _make_attrs(self) -> None:
         sav = None
         if self.node.attributes:
             for i, a in enumerate(self.node.attributes):
@@ -1224,7 +1224,7 @@ class Element:
 class Position(cdp.dom.Quad):
     """helper class for element positioning"""
 
-    def __init__(self, points):
+    def __init__(self, points: list[float]):
         super().__init__(points)
         (
             self.left,
@@ -1246,7 +1246,7 @@ class Position(cdp.dom.Quad):
             self.top + (self.height / 2),
         )
 
-    def to_viewport(self, scale=1) -> cdp.page.Viewport:
+    def to_viewport(self, scale: float = 1) -> cdp.page.Viewport:
         return cdp.page.Viewport(
             x=self.x, y=self.y, width=self.width, height=self.height, scale=scale
         )
@@ -1255,7 +1255,7 @@ class Position(cdp.dom.Quad):
         return f"<Position(x={self.left}, y={self.top}, width={self.width}, height={self.height})>"
 
 
-async def resolve_node(tab: Tab, node_id: cdp.dom.NodeId):
+async def resolve_node(tab: Tab, node_id: cdp.dom.NodeId) -> cdp.dom.Node:
     remote_obj: cdp.runtime.RemoteObject = await tab.send(
         cdp.dom.resolve_node(node_id=node_id)
     )
