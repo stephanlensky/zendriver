@@ -22,6 +22,7 @@ from .expect import DownloadExpectation, RequestExpectation, ResponseExpectation
 from ..cdp.fetch import RequestStage
 from ..cdp.network import ResourceType
 
+
 if TYPE_CHECKING:
     from .browser import Browser
     from .element import Element
@@ -1133,7 +1134,7 @@ class Tab(Connection):
         selector: str | None = None,
         text: str | None = None,
         timeout: int | float = 10,
-    ) -> element.Element:
+    ) -> Element:
         """
         variant on query_selector_all and find_elements_by_text
         this variant takes either selector or text, and will block until
@@ -1495,21 +1496,30 @@ class Tab(Connection):
                         res.append(abs_url)
         return res
 
-    async def verify_cf(self):
-        """an attempt.."""
-        checkbox = None
-        checkbox_sibling = await self.wait_for(text="verify you are human")
-        if checkbox_sibling:
-            parent = checkbox_sibling.parent
-            while parent:
-                checkbox = await parent.query_selector("input[type=checkbox]")
-                if checkbox:
-                    break
-                parent = parent.parent
-        if not checkbox:
-            raise RuntimeError("could not find checkbox for cloudflare verification")
-        await checkbox.mouse_move()
-        await checkbox.mouse_click()
+    async def verify_cf(
+        self,
+        click_delay: float = 5,
+        timeout: float = 15,
+        challenge_selector: Optional[str] = None,
+        flash_corners: bool = False,
+    ) -> None:
+        """
+        Finds and solves the Cloudflare checkbox challenge.
+
+        The total time for finding and clicking is governed by `timeout`.
+
+        Args:
+            click_delay: The delay in seconds between clicks.
+            timeout: The total time in seconds to wait for the challenge and solve it.
+            challenge_selector: An optional CSS selector for the challenge input element.
+            flash_corners: If True, flash the corners of the challenge element.
+
+        Raises:
+            TimeoutError: If the checkbox is not found or solved within the timeout.
+        """
+        from .cloudflare import verify_cf
+
+        await verify_cf(self, click_delay, timeout, challenge_selector, flash_corners)
 
     async def mouse_move(self, x: float, y: float, steps=10, flash=False):
         steps = 1 if (not steps or steps < 1) else steps
@@ -1544,6 +1554,7 @@ class Tab(Connection):
         buttons: typing.Optional[int] = 1,
         modifiers: typing.Optional[int] = 0,
         _until_event: typing.Optional[type] = None,
+        flash: typing.Optional[bool] = False,
     ):
         """native click on position x,y
         :param y:
@@ -1581,10 +1592,12 @@ class Tab(Connection):
                 click_count=1,
             )
         )
+        if flash:
+            await self.flash_point(x, y)
 
     async def flash_point(self, x, y, duration=0.5, size=10):
         style = (
-            "position:absolute;z-index:99999999;padding:0;margin:0;"
+            "position:fixed;z-index:99999999;padding:0;margin:0;"
             "left:{:.1f}px; top: {:.1f}px;"
             "opacity:1;"
             "width:{:d}px;height:{:d}px;border-radius:50%;background:red;"
