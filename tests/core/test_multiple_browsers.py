@@ -2,7 +2,9 @@ import zendriver as zd
 from tests.conftest import CreateBrowser
 
 
-async def test_multiple_browsers_diff_userdata(create_browser: type[CreateBrowser]):
+async def test_multiple_browsers_diff_userdata(
+    create_browser: type[CreateBrowser],
+) -> None:
     config = create_browser().config
 
     browser1 = await zd.start(config)

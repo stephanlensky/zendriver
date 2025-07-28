@@ -32,7 +32,7 @@ import sys
 from pathlib import Path
 
 # installed via inline script metadata, but mypy doesn't know that
-import requests  # type: ignore
+import requests
 
 REPO_ROOT = Path(__file__).parent.parent
 

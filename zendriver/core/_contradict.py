@@ -8,15 +8,10 @@ __logger__ = logging.getLogger(__name__)
 
 __all__ = ["cdict", "ContraDict"]
 
-
-def cdict(*args, **kwargs):
-    """
-    factory function
-    """
-    return ContraDict(*args, **kwargs)
+from typing import Any
 
 
-class ContraDict(dict):
+class ContraDict(dict[str, Any]):
     """
     directly inherited from dict
 
@@ -36,7 +31,7 @@ class ContraDict(dict):
     recursive action. dict assignments will be converted too.
     """
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: Any, **kwargs: Any):
         super().__init__()
         silent = kwargs.pop("silent", False)
         _ = dict(*args, **kwargs)
@@ -48,13 +43,13 @@ class ContraDict(dict):
             _check_key(k, self, False, silent)
             super().__setitem__(k, _wrap(self.__class__, v))
 
-    def __setitem__(self, key, value):
+    def __setitem__(self, key: str, value: Any) -> None:
         super().__setitem__(key, _wrap(self.__class__, value))
 
-    def __setattr__(self, key, value):
+    def __setattr__(self, key: str, value: Any) -> None:
         super().__setitem__(key, _wrap(self.__class__, value))
 
-    def __getattribute__(self, attribute):
+    def __getattribute__(self, attribute: str) -> Any:
         if attribute in self:
             return self[attribute]
         if not _check_key(attribute, self, True, silent=True):
@@ -63,7 +58,7 @@ class ContraDict(dict):
         return object.__getattribute__(self, attribute)
 
 
-def _wrap(cls, v):
+def _wrap(cls: Any, v: Any) -> Any:
     if isinstance(v, _Mapping):
         v = cls(v)
 
@@ -99,7 +94,16 @@ _warning_names_message = """\n\
     """
 
 
-def _check_key(key: str, mapping: _Mapping, boolean: bool = False, silent=False):
+def cdict(*args: Any, **kwargs: Any) -> ContraDict:
+    """
+    factory function
+    """
+    return ContraDict(*args, **kwargs)
+
+
+def _check_key(
+    key: str, mapping: _Mapping[str, Any], boolean: bool = False, silent: bool = False
+) -> str | bool:
     """checks `key` and warns if needed
 
     :param key:

@@ -67,8 +67,12 @@ exclude = [
 exclude = [
     "zendriver/cdp",
     "examples/demo.py",
+    "examples/fetch_domain.py",
     "examples/imgur_upload_image.py",
+    "examples/mouse_drag_boxes.py",
+    "examples/network_monitor.py",
 ]
+strict = true
 check_untyped_defs = true
 
 [[tool.mypy.overrides]]

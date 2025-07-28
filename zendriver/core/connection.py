@@ -44,7 +44,7 @@ logger = logging.getLogger("uc.connection")
 
 
 class ProtocolException(Exception):
-    def __init__(self, *args, **kwargs):  # real signature unknown
+    def __init__(self, *args: Any):
         self.message = None
         self.code = None
         self.args = args
@@ -54,7 +54,7 @@ class ProtocolException(Exception):
 
         elif hasattr(args[0], "to_json"):
 
-            def serialize(obj, _d=0):
+            def serialize(obj: Any, _d=0) -> str:
                 res = "\n"
                 for k, v in obj.items():
                     space = "\t" * _d
@@ -70,7 +70,7 @@ class ProtocolException(Exception):
         else:
             self.message = "| ".join(str(x) for x in args)
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"{self.message} [code: {self.code}]" if self.code else f"{self.message}"
 
 
@@ -78,7 +78,7 @@ class SettingClassVarNotAllowedException(PermissionError):
     pass
 
 
-class Transaction(asyncio.Future):
+class Transaction(asyncio.Future[Any]):
     def __init__(self, cdp_obj: Generator[dict[str, Any], dict[str, Any], Any]):
         """
         :param cdp_obj:
@@ -94,11 +94,11 @@ class Transaction(asyncio.Future):
         self.params = params
 
     @property
-    def message(self):
+    def message(self) -> str:
         return json.dumps({"method": self.method, "params": self.params, "id": self.id})
 
     @property
-    def has_exception(self):
+    def has_exception(self) -> bool:
         try:
             if self.exception():
                 return True
@@ -106,7 +106,7 @@ class Transaction(asyncio.Future):
             return True
         return False
 
-    def __call__(self, **response: dict):
+    def __call__(self, **response: dict) -> None:
         """
         parsed the response message and marks the future
         complete
@@ -126,7 +126,7 @@ class Transaction(asyncio.Future):
             return self.set_result(e.value)
         raise ProtocolException("could not parse the cdp response:\n%s" % response)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         success = False if (self.done() and self.has_exception) else True
         if self.done():
             status = "finished"
@@ -153,7 +153,7 @@ class EventTransaction(Transaction):
         self.set_result(event_object)
         self.event = self.value = self.result()
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         status = "finished"
         success = False if self.exception() else True
         event_object = self.result()
@@ -167,7 +167,7 @@ class EventTransaction(Transaction):
 
 
 class CantTouchThis(type):
-    def __setattr__(cls, attr, value):
+    def __setattr__(cls, attr, value) -> None:
         """
         :meta private:
         """
@@ -219,7 +219,7 @@ class Connection(metaclass=CantTouchThis):
         return self._target
 
     @target.setter
-    def target(self, target: cdp.target.TargetInfo):
+    def target(self, target: cdp.target.TargetInfo) -> None:
         if not isinstance(target, cdp.target.TargetInfo):
             raise TypeError(
                 "target must be set to a '%s' but got '%s"
@@ -328,14 +328,14 @@ class Connection(metaclass=CantTouchThis):
         return None
 
     @property
-    def closed(self):
+    def closed(self) -> bool:
         return self.websocket is None
 
     def add_handler(
         self,
         event_type_or_domain: Union[type, types.ModuleType],
         handler: Union[Callable, Awaitable],
-    ):
+    ) -> None:
         """
         add a handler for given event
 
@@ -379,7 +379,7 @@ class Connection(metaclass=CantTouchThis):
         self,
         event_type: Optional[type] = None,
         handler: Optional[Union[Callable, Awaitable]] = None,
-    ):
+    ) -> None:
         """
         remove handlers for given event
 
@@ -414,7 +414,7 @@ class Connection(metaclass=CantTouchThis):
         if handler in self.handlers[event_type]:
             self.handlers[event_type].remove(handler)
 
-    async def aopen(self, **kw):
+    async def aopen(self, **kw) -> None:
         """
         opens the websocket connection. should not be called manually by users
         :param kw:
@@ -443,7 +443,7 @@ class Connection(metaclass=CantTouchThis):
         # registered again, so the browser sends those events
         await self._register_handlers()
 
-    async def aclose(self):
+    async def aclose(self) -> None:
         """
         closes the websocket connection. should not be called manually by users.
         """
@@ -455,11 +455,11 @@ class Connection(metaclass=CantTouchThis):
             self.websocket = None
             logger.debug("\n❌ closed websocket connection to %s", self.websocket_url)
 
-    async def sleep(self, t: Union[int, float] = 0.25):
+    async def sleep(self, t: Union[int, float] = 0.25) -> None:
         await self.update_target()
         await asyncio.sleep(t)
 
-    def feed_cdp(self, cdp_obj):
+    def feed_cdp(self, cdp_obj) -> None:
         """
         used in specific cases, mostly during cdp.fetch.RequestPaused events,
         in which the browser literally blocks. using feed_cdp you can issue
@@ -475,7 +475,7 @@ class Connection(metaclass=CantTouchThis):
         """
         asyncio.ensure_future(self.send(cdp_obj))
 
-    async def wait(self, t: int | float | None = None):
+    async def wait(self, t: int | float | None = None) -> None:
         """
         waits until the event listener reports idle (no new events received in certain timespan).
         when `t` is provided, ensures waiting for `t` seconds, no matter what.
@@ -526,7 +526,7 @@ class Connection(metaclass=CantTouchThis):
         """
         return self.wait().__await__()
 
-    async def update_target(self):
+    async def update_target(self) -> None:
         target_info: cdp.target.TargetInfo = await self.send(
             cdp.target.get_target_info(self.target_id), _is_update=True
         )
@@ -577,7 +577,7 @@ class Connection(metaclass=CantTouchThis):
             raise e
 
     #
-    async def _register_handlers(self):
+    async def _register_handlers(self) -> None:
         """
         ensure that for current (event) handlers, the corresponding
         domain is enabled in the protocol.
@@ -629,7 +629,7 @@ class Connection(metaclass=CantTouchThis):
             # items still present at this point are unused and need removal
             self.enabled_domains.remove(ed)
 
-    async def _prepare_headless(self):
+    async def _prepare_headless(self) -> None:
         if getattr(self, "_prep_headless_done", None):
             return
         response = await self._send_oneshot(
@@ -650,7 +650,7 @@ class Connection(metaclass=CantTouchThis):
             )
         setattr(self, "_prep_headless_done", True)
 
-    async def _prepare_expert(self):
+    async def _prepare_expert(self) -> None:
         if getattr(self, "_prep_expert_done", None):
             return
         if self._owner:
@@ -708,30 +708,30 @@ class Listener:
         self.idle = asyncio.Event()
         self.run()
 
-    def run(self):
+    def run(self) -> None:
         self.task = asyncio.create_task(self.listener_loop())
 
     @property
-    def time_before_considered_idle(self):
+    def time_before_considered_idle(self) -> float:
         return self._time_before_considered_idle
 
     @time_before_considered_idle.setter
-    def time_before_considered_idle(self, seconds: Union[int, float]):
+    def time_before_considered_idle(self, seconds: Union[int, float]) -> None:
         self._time_before_considered_idle = seconds
 
-    def cancel(self):
+    def cancel(self) -> None:
         if self.task and not self.task.cancelled():
             self.task.cancel()
 
     @property
-    def running(self):
+    def running(self) -> bool:
         if not self.task:
             return False
         if self.task.done():
             return False
         return True
 
-    async def listener_loop(self):
+    async def listener_loop(self) -> None:
         while True:
             if self.connection.websocket is None:
                 raise ValueError("no websocket connection")
@@ -846,7 +846,7 @@ class Listener:
                     raise
                 continue
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         s_idle = "[idle]" if self.idle.is_set() else "[busy]"
         s_cache_length = f"[cache size: {len(self.history)}]"
         s_running = f"[running: {self.running}]"

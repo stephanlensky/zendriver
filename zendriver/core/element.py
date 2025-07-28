@@ -23,7 +23,9 @@ if typing.TYPE_CHECKING:
     from .tab import Tab
 
 
-def create(node: cdp.dom.Node, tab: Tab, tree: typing.Optional[cdp.dom.Node] = None):
+def create(
+    node: cdp.dom.Node, tab: Tab, tree: typing.Optional[cdp.dom.Node] = None
+) -> Element:
     """
     factory for Elements
     this is used with Tab.query_selector(_all), since we already have the tree,
@@ -66,132 +68,131 @@ class Element:
         self._make_attrs()
 
     @property
-    def tag(self):
-        if self.node_name:
-            return self.node_name.lower()
+    def tag(self) -> str:
+        return self.node_name.lower()
 
     @property
-    def tag_name(self):
+    def tag_name(self) -> str:
         return self.tag
 
     @property
-    def node_id(self):
+    def node_id(self) -> cdp.dom.NodeId:
         return self.node.node_id
 
     @property
-    def backend_node_id(self):
+    def backend_node_id(self) -> cdp.dom.BackendNodeId:
         return self.node.backend_node_id
 
     @property
-    def node_type(self):
+    def node_type(self) -> int:
         return self.node.node_type
 
     @property
-    def node_name(self):
+    def node_name(self) -> str:
         return self.node.node_name
 
     @property
-    def local_name(self):
+    def local_name(self) -> str:
         return self.node.local_name
 
     @property
-    def node_value(self):
+    def node_value(self) -> str:
         return self.node.node_value
 
     @property
-    def parent_id(self):
+    def parent_id(self) -> cdp.dom.NodeId | None:
         return self.node.parent_id
 
     @property
-    def child_node_count(self):
+    def child_node_count(self) -> int | None:
         return self.node.child_node_count
 
     @property
-    def attributes(self):
+    def attributes(self) -> list[str] | None:
         return self.node.attributes
 
     @property
-    def document_url(self):
+    def document_url(self) -> str | None:
         return self.node.document_url
 
     @property
-    def base_url(self):
+    def base_url(self) -> str | None:
         return self.node.base_url
 
     @property
-    def public_id(self):
+    def public_id(self) -> str | None:
         return self.node.public_id
 
     @property
-    def system_id(self):
+    def system_id(self) -> str | None:
         return self.node.system_id
 
     @property
-    def internal_subset(self):
+    def internal_subset(self) -> str | None:
         return self.node.internal_subset
 
     @property
-    def xml_version(self):
+    def xml_version(self) -> str | None:
         return self.node.xml_version
 
     @property
-    def value(self):
+    def value(self) -> str | None:
         return self.node.value
 
     @property
-    def pseudo_type(self):
+    def pseudo_type(self) -> cdp.dom.PseudoType | None:
         return self.node.pseudo_type
 
     @property
-    def pseudo_identifier(self):
+    def pseudo_identifier(self) -> str | None:
         return self.node.pseudo_identifier
 
     @property
-    def shadow_root_type(self):
+    def shadow_root_type(self) -> cdp.dom.ShadowRootType | None:
         return self.node.shadow_root_type
 
     @property
-    def frame_id(self):
+    def frame_id(self) -> cdp.page.FrameId | None:
         return self.node.frame_id
 
     @property
-    def content_document(self):
+    def content_document(self) -> cdp.dom.Node | None:
         return self.node.content_document
 
     @property
-    def shadow_roots(self):
+    def shadow_roots(self) -> list[cdp.dom.Node] | None:
         return self.node.shadow_roots
 
     @property
-    def template_content(self):
+    def template_content(self) -> cdp.dom.Node | None:
         return self.node.template_content
 
     @property
-    def pseudo_elements(self):
+    def pseudo_elements(self) -> list[cdp.dom.Node] | None:
         return self.node.pseudo_elements
 
     @property
-    def imported_document(self):
+    def imported_document(self) -> cdp.dom.Node | None:
         return self.node.imported_document
 
     @property
-    def distributed_nodes(self):
+    def distributed_nodes(self) -> list[cdp.dom.BackendNode] | None:
         return self.node.distributed_nodes
 
     @property
-    def is_svg(self):
+    def is_svg(self) -> bool | None:
         return self.node.is_svg
 
     @property
-    def compatibility_mode(self):
+    def compatibility_mode(self) -> cdp.dom.CompatibilityMode | None:
         return self.node.compatibility_mode
 
     @property
-    def assigned_slot(self):
+    def assigned_slot(self) -> cdp.dom.BackendNode | None:
         return self.node.assigned_slot
 
     @property
-    def tab(self):
+    def tab(self) -> Tab:
         return self._tab
 
     @deprecated(reason="Use get() instead")
@@ -203,6 +204,7 @@ class Element:
         x = getattr(self.attrs, item, None)
         if x:
             return x
+        return None
 
     #     x = getattr(self.node, item, None)
     #
@@ -223,12 +225,12 @@ class Element:
         try:
             x = getattr(self.attrs, name, None)
             if x:
-                return x
+                return x  # type: ignore
             return None
         except AttributeError:
             return None
 
-    def __setattr__(self, key, value):
+    def __setattr__(self, key, value) -> None:
         if key[0] != "_":
             if key[1:] not in vars(self).keys():
                 # we probably deal with an attribute of
@@ -251,7 +253,7 @@ class Element:
         # the html element, so forward it
         return self.attrs.get(item, None)
 
-    async def save_to_dom(self):
+    async def save_to_dom(self) -> None:
         """
         saves element to dom
         :return:
@@ -263,7 +265,7 @@ class Element:
         await self._tab.send(cdp.dom.set_outer_html(self.node_id, outer_html=str(self)))
         await self.update()
 
-    async def remove_from_dom(self):
+    async def remove_from_dom(self) -> None:
         """removes the element from dom"""
         await self.update()  # ensure we have latest node_id
         if not self.tree:
@@ -277,7 +279,7 @@ class Element:
             await self.tab.send(cdp.dom.remove_node(node.node_id))
         # self._tree = util.remove_from_tree(self.tree, self.node)
 
-    async def update(self, _node=None):
+    async def update(self, _node=None) -> Element:
         """
         updates element to retrieve more properties. for example this enables
         :py:obj:`~children` and :py:obj:`~parent` attributes.
@@ -323,7 +325,7 @@ class Element:
         return self
 
     @property
-    def node(self):
+    def node(self) -> cdp.dom.Node:
         return self._node
 
     @property
@@ -331,11 +333,11 @@ class Element:
         return self._tree
 
     @tree.setter
-    def tree(self, tree: cdp.dom.Node):
+    def tree(self, tree: cdp.dom.Node) -> None:
         self._tree = tree
 
     @property
-    def attrs(self):
+    def attrs(self) -> ContraDict:
         """
         attributes are stored here, however, you can set them directly on the element object as well.
         :return:
@@ -402,7 +404,7 @@ class Element:
             return None
         return self.remote_object.object_id
 
-    async def click(self):
+    async def click(self) -> None:
         """
         Click the element.
 
@@ -428,7 +430,7 @@ class Element:
             )
         )
 
-    async def get_js_attributes(self):
+    async def get_js_attributes(self) -> ContraDict:
         return ContraDict(
             json.loads(
                 await self.apply(
@@ -448,7 +450,7 @@ class Element:
     def __await__(self):
         return self.update().__await__()
 
-    def __call__(self, js_method):
+    def __call__(self, js_method: str) -> typing.Any:
         """
         calling the element object will call a js method on the object
         eg, element.play() in case of a video element, it will call .play()
@@ -459,7 +461,13 @@ class Element:
         """
         return self.apply(f"(e) => e['{js_method}']()")
 
-    async def apply(self, js_function, return_by_value=True, *, await_promise=False):
+    async def apply(
+        self,
+        js_function: str,
+        return_by_value: bool = True,
+        *,
+        await_promise: bool = False,
+    ) -> typing.Any:
         """
         apply javascript to this element. the given js_function string should accept the js element as parameter,
         and can be a arrow function, or function declaration.
@@ -535,7 +543,7 @@ class Element:
         modifiers: typing.Optional[int] = 0,
         hold: bool = False,
         _until_event: typing.Optional[type] = None,
-    ):
+    ) -> None:
         """native click (on element) . note: this likely does not work atm, use click() instead
 
         :param button: str (default = "left")
@@ -582,7 +590,7 @@ class Element:
         except:  # noqa
             pass
 
-    async def mouse_move(self):
+    async def mouse_move(self) -> None:
         """moves mouse (not click), to element position. when an element has an
         hover/mouseover effect, this would trigger it"""
         position = await self.get_position()
@@ -606,7 +614,7 @@ class Element:
         destination: typing.Union[Element, typing.Tuple[int, int]],
         relative: bool = False,
         steps: int = 1,
-    ):
+    ) -> None:
         """
         drag an element to another element or target coordinates. dragging of elements should be supported  by the site of course
 
@@ -693,7 +701,7 @@ class Element:
             )
         )
 
-    async def scroll_into_view(self):
+    async def scroll_into_view(self) -> None:
         """scrolls element into view"""
         try:
             await self.tab.send(
@@ -744,7 +752,7 @@ class Element:
 
     async def send_keys(
         self, text: typing.Union[str, SpecialKeys, typing.List[KeyEvents.Payload]]
-    ):
+    ) -> None:
         """
         send text to an input field, or any other html element.
 
@@ -771,7 +779,7 @@ class Element:
         for cluster in cluster_list:
             await self._tab.send(cdp.input_.dispatch_key_event(**cluster))
 
-    async def send_file(self, *file_paths: PathLike):
+    async def send_file(self, *file_paths: PathLike) -> None:
         """
         some form input require a file (upload), a full path needs to be provided.
         this method sends 1 or more file(s) to the input field.
@@ -796,7 +804,7 @@ class Element:
         """focus the current element. often useful in form (select) fields"""
         return await self.apply("(element) => element.focus()")
 
-    async def select_option(self):
+    async def select_option(self) -> None:
         """
         for form (select) fields. when you have queried the options you can call this method on the option object.
         02/08/2024: fixed the problem where events are not fired when programattically selecting an option.
@@ -815,10 +823,10 @@ class Element:
                 """
             )
 
-    async def set_value(self, value):
+    async def set_value(self, value) -> None:
         await self._tab.send(cdp.dom.set_node_value(node_id=self.node_id, value=value))
 
-    async def set_text(self, value):
+    async def set_text(self, value) -> None:
         if not self.node_type == 3:
             if self.child_node_count == 1:
                 child_node = self.children[0]
@@ -832,7 +840,7 @@ class Element:
         await self.update()
         await self._tab.send(cdp.dom.set_node_value(node_id=self.node_id, value=value))
 
-    async def get_html(self):
+    async def get_html(self) -> str:
         return await self._tab.send(
             cdp.dom.get_outer_html(backend_node_id=self.backend_node_id)
         )
@@ -852,7 +860,7 @@ class Element:
         return ""
 
     @property
-    def text_all(self):
+    def text_all(self) -> str:
         """
         gets the text contents of this element, and it's children in a concatenated string
         note: this includes text in the form of script content, as those are also just 'text nodes'
@@ -862,14 +870,14 @@ class Element:
         text_nodes = util.filter_recurse_all(self.node, lambda n: n.node_type == 3)
         return " ".join([n.node_value for n in text_nodes])
 
-    async def query_selector_all(self, selector: str):
+    async def query_selector_all(self, selector: str) -> list[Element]:
         """
         like js querySelectorAll()
         """
         await self.update()
         return await self.tab.query_selector_all(selector, _node=self)
 
-    async def query_selector(self, selector):
+    async def query_selector(self, selector) -> Element | None:
         """
         like js querySelector()
         """
@@ -922,7 +930,7 @@ class Element:
         filename: typing.Optional[PathLike] = "auto",
         format: str = "jpeg",
         scale: typing.Optional[typing.Union[int, float]] = 1,
-    ):
+    ) -> None:
         """
         Saves a screenshot of this element (only)
         This is not the same as :py:obj:`Tab.save_screenshot`, which saves a "regular" screenshot
@@ -965,7 +973,7 @@ class Element:
         path.write_bytes(data_bytes)
         return str(path)
 
-    async def flash(self, duration: typing.Union[float, int] = 0.5):
+    async def flash(self, duration: typing.Union[float, int] = 0.5) -> None:
         """
         displays for a short time a red dot on the element (only if the element itself is visible)
 
@@ -1049,7 +1057,7 @@ class Element:
             )
         )
 
-    async def highlight_overlay(self):
+    async def highlight_overlay(self) -> None:
         """
         highlights the element devtools-style. To remove the highlight,
         call the method again.
@@ -1080,7 +1088,7 @@ class Element:
         filename: typing.Optional[str] = None,
         folder: typing.Optional[str] = None,
         duration: typing.Optional[typing.Union[int, float]] = None,
-    ):
+    ) -> None:
         """
         experimental option.
 
@@ -1183,7 +1191,7 @@ class Element:
 
         return False
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         tag_name = self.node.node_name.lower()
         content = ""
 
@@ -1238,12 +1246,12 @@ class Position(cdp.dom.Quad):
             self.top + (self.height / 2),
         )
 
-    def to_viewport(self, scale=1):
+    def to_viewport(self, scale=1) -> cdp.page.Viewport:
         return cdp.page.Viewport(
             x=self.x, y=self.y, width=self.width, height=self.height, scale=scale
         )
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<Position(x={self.left}, y={self.top}, width={self.width}, height={self.height})>"
 
 

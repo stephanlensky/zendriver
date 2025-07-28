@@ -90,7 +90,7 @@ class Config:
 
         # defer creating a temp user data dir until the browser requests it so
         # config can be used/reused as a template for multiple browser instances
-        self._user_data_dir = None
+        self._user_data_dir: str | None = None
         self._custom_data_dir = False
         if user_data_dir:
             self.user_data_dir = str(user_data_dir)
@@ -144,7 +144,7 @@ class Config:
         ]
 
     @property
-    def browser_args(self):
+    def browser_args(self) -> List[str]:
         return sorted(self._default_browser_args + self._browser_args)
 
     @property
@@ -162,7 +162,7 @@ class Config:
         return self._user_data_dir
 
     @user_data_dir.setter
-    def user_data_dir(self, path: PathLike):
+    def user_data_dir(self, path: PathLike) -> None:
         if path:
             self._user_data_dir = str(path)
             self._custom_data_dir = True
@@ -174,7 +174,7 @@ class Config:
     def uses_custom_data_dir(self) -> bool:
         return self._custom_data_dir
 
-    def add_extension(self, extension_path: PathLike):
+    def add_extension(self, extension_path: PathLike) -> None:
         """
         adds an extension to load, you could point extension_path
         to a folder (containing the manifest), or extension file (crx)
@@ -203,7 +203,7 @@ class Config:
     # def __getattr__(self, item):
     #     if item not in self.__dict__:
 
-    def __call__(self):
+    def __call__(self) -> list[str]:
         # the host and port will be added when starting
         # the browser, as by the time it starts, the port
         # is probably already taken
@@ -228,7 +228,7 @@ class Config:
             args.append("--remote-debugging-port=%s" % self.port)
         return args
 
-    def add_argument(self, arg: str):
+    def add_argument(self, arg: str) -> None:
         if any(
             x in arg.lower()
             for x in [
@@ -246,7 +246,7 @@ class Config:
             )
         self._browser_args.append(arg)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         s = f"{self.__class__.__name__}"
         for k, v in ({**self.__dict__, **self.__class__.__dict__}).items():
             if k[0] == "_":
@@ -266,7 +266,7 @@ class Config:
     #     return d
 
 
-def is_root():
+def is_root() -> bool:
     """
     helper function to determine if user trying to launch chrome
     under linux as root, which needs some alternative handling
@@ -279,14 +279,14 @@ def is_root():
         return os.getuid() == 0
 
 
-def temp_profile_dir():
+def temp_profile_dir() -> str:
     """generate a temp dir (path)"""
     path = os.path.normpath(tempfile.mkdtemp(prefix="uc_"))
     return path
 
 
-def find_binary(candidates):
-    rv = []
+def find_binary(candidates: list[str]) -> str | None:
+    rv: list[str] = []
     for candidate in candidates:
         if os.path.exists(candidate) and os.access(candidate, os.X_OK):
             logger.debug("%s is a valid candidate... " % candidate)
@@ -297,7 +297,7 @@ def find_binary(candidates):
                 % candidate
             )
 
-    winner = None
+    winner: str | None = None
     if rv and len(rv) > 1:
         # assuming the shortest path wins
         winner = min(rv, key=lambda x: len(x))

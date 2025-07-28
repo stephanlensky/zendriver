@@ -57,7 +57,7 @@ current_version = ""
 BACKTICK_RE = re.compile(r"`([^`]+)`(\w+)?")
 
 
-def indent(s: str, n: int):
+def indent(s: str, n: int) -> str:
     """A shortcut for ``textwrap.indent`` that always uses spaces."""
     return tw_indent(s, n * " ")
 
@@ -72,7 +72,7 @@ def escape_backticks(docstr: str) -> str:
     fix is to insert an apostrophe if an "s" trails the backticks.
     """
 
-    def replace_one(match):
+    def replace_one(match: re.Match[str]) -> str:
         if match.group(2) == "s":
             return f"``{match.group(1)}``'s"
         elif match.group(2):
@@ -87,7 +87,7 @@ def escape_backticks(docstr: str) -> str:
     return BACKTICK_RE.sub(replace_one, docstr)
 
 
-def inline_doc(description) -> str:
+def inline_doc(description: str | None) -> str:
     """Generate an inline doc, e.g. ``#: This type is a ...``"""
     if not description:
         return ""
@@ -155,17 +155,17 @@ class CdpPrimitiveType(Enum):
     string = "str"
 
     @classmethod
-    def get_annotation(cls, cdp_type):
+    def get_annotation(cls, cdp_type: str | None) -> str:
         """Return a type annotation for the CDP type."""
-        if cdp_type == "any":
+        if not cdp_type or cdp_type == "any":
             return "typing.Any"
         else:
             return cls[cdp_type].value
 
     @classmethod
-    def get_constructor(cls, cdp_type, val):
+    def get_constructor(cls, cdp_type: str | None, val: str) -> str:
         """Return the code to construct a value for a given CDP type."""
-        if cdp_type == "any":
+        if not cdp_type or cdp_type == "any":
             return val
         else:
             cons = cls[cdp_type].value
@@ -180,9 +180,15 @@ class CdpItems:
     ref: str
 
     @classmethod
-    def from_json(cls, type) -> "CdpItems":
+    def from_json(cls, type: dict[str, str]) -> "CdpItems":
         """Generate code to instantiate an item from a JSON object."""
-        return cls(type.get("type"), type.get("$ref"))
+        type_ = type.get("type", "any")
+        ref = type.get("$ref")
+        if not type_ or not ref:
+            raise ValueError(
+                "CdpItems must have a 'type' and '$ref' field: {}".format(type)
+            )
+        return cls(type_, ref)
 
 
 @dataclass
@@ -227,14 +233,14 @@ class CdpProperty:
         return ann
 
     @classmethod
-    def from_json(cls, prop, domain: str) -> "CdpProperty":
+    def from_json(cls, prop: dict[str, typing.Any], domain: str) -> "CdpProperty":
         """Instantiate a CDP property from a JSON object."""
         return cls(
             prop["name"],
             prop.get("description"),
             prop.get("type"),
             prop.get("$ref"),
-            prop.get("enum"),
+            prop.get("enum", []),
             CdpItems.from_json(prop["items"]) if "items" in prop else None,
             prop.get("optional", False),
             prop.get("experimental", False),
@@ -277,7 +283,7 @@ class CdpProperty:
             code = assign
         return code
 
-    def generate_from_json(self, dict_) -> str:
+    def generate_from_json(self, dict_: str) -> str:
         """Generate the code that creates an instance from a JSON dict named
         ``dict_``."""
         if self.items:
@@ -312,14 +318,14 @@ class CdpType:
     properties: typing.List[CdpProperty]
 
     @classmethod
-    def from_json(cls, type_, domain: str) -> "CdpType":
+    def from_json(cls, type_: dict[str, typing.Any], domain: str) -> "CdpType":
         """Instantiate a CDP type from a JSON object."""
         return cls(
             type_["id"],
             type_.get("description"),
             type_["type"],
             CdpItems.from_json(type_["items"]) if "items" in type_ else None,
-            type_.get("enum"),
+            type_.get("enum", []),
             [CdpProperty.from_json(p, domain) for p in type_.get("properties", list())],
         )
 
@@ -470,7 +476,7 @@ class CdpType:
 
         return code
 
-    def get_refs(self):
+    def get_refs(self) -> typing.Set[str]:
         """Return all refs for this type."""
         refs = set()
         if self.enum:
@@ -543,7 +549,7 @@ class CdpParameter(CdpProperty):
             doc += f" {desc}"
         return doc
 
-    def generate_from_json(self, dict_) -> str:
+    def generate_from_json(self, dict_: str) -> str:
         """
         Generate the code to instantiate this parameter from a JSON dict.
         """
@@ -555,7 +561,7 @@ class CdpReturn(CdpProperty):
     """A return value from a CDP command."""
 
     @property
-    def py_annotation(self):
+    def py_annotation(self) -> str:
         """Return the Python type annotation for this return."""
         if self.items:
             if self.items.ref:
@@ -574,7 +580,7 @@ class CdpReturn(CdpProperty):
             ann = f"typing.Optional[{ann}]"
         return ann
 
-    def generate_doc(self):
+    def generate_doc(self) -> str:
         """Generate the docstring for this return."""
         if self.description:
             doc = self.description.replace("\n", " ")
@@ -584,7 +590,7 @@ class CdpReturn(CdpProperty):
             doc = ""
         return doc
 
-    def generate_return(self, dict_):
+    def generate_return(self, dict_: str) -> str:
         """Generate code for returning this value."""
         return super().generate_from_json(dict_)
 
@@ -594,7 +600,7 @@ class CdpCommand:
     """A CDP command."""
 
     name: str
-    description: str
+    description: typing.Optional[str]
     experimental: bool
     deprecated: bool
     parameters: typing.List[CdpParameter]
@@ -602,12 +608,12 @@ class CdpCommand:
     domain: str
 
     @property
-    def py_name(self):
+    def py_name(self) -> str:
         """Get a Python name for this command."""
         return snake_case(self.name)
 
     @classmethod
-    def from_json(cls, command, domain) -> "CdpCommand":
+    def from_json(cls, command: dict[str, typing.Any], domain: str) -> "CdpCommand":
         """Instantiate a CDP command from a JSON object."""
         parameters = command.get("parameters", list())
         returns = command.get("returns", list())
@@ -713,7 +719,7 @@ class CdpCommand:
             code += indent(ret, 4)
         return code
 
-    def get_refs(self):
+    def get_refs(self) -> typing.Set[str]:
         """Get all refs for this command."""
         refs = set()
         for type_ in itertools.chain(self.parameters, self.returns):
@@ -736,12 +742,12 @@ class CdpEvent:
     domain: str
 
     @property
-    def py_name(self):
+    def py_name(self) -> str:
         """Return the Python class name for this event."""
         return inflection.camelize(self.name, uppercase_first_letter=True)
 
     @classmethod
-    def from_json(cls, json: dict, domain: str):
+    def from_json(cls, json: dict[str, typing.Any], domain: str) -> "CdpEvent":
         """Create a new CDP event instance from a JSON dict."""
         return cls(
             json["name"],
@@ -797,7 +803,7 @@ class CdpEvent:
         code += indent(")", 8)
         return code
 
-    def get_refs(self):
+    def get_refs(self) -> typing.Set[str]:
         """Get all refs for this event."""
         refs = set()
         for param in self.parameters:
@@ -821,12 +827,12 @@ class CdpDomain:
     events: typing.List[CdpEvent]
 
     @property
-    def module(self):
+    def module(self) -> str:
         """The name of the Python module for this CDP domain."""
         return snake_case(self.domain)
 
     @classmethod
-    def from_json(cls, domain: dict):
+    def from_json(cls, domain: dict[str, typing.Any]) -> "CdpDomain":
         """Instantiate a CDP domain from a JSON object."""
         types = domain.get("types", list())
         commands = domain.get("commands", list())
@@ -863,7 +869,7 @@ class CdpDomain:
         code += "\n"
         return code
 
-    def generate_imports(self):
+    def generate_imports(self) -> str:
         """
         Determine which modules this module depends on and emit the code to
         import those modules.
@@ -901,7 +907,7 @@ class CdpDomain:
         return code
 
 
-def parse(json_path, output_path):
+def parse(json_path: Path, output_path: Path) -> typing.List[CdpDomain]:
     """
     Parse JSON protocol description and return domain objects.
 
@@ -921,12 +927,12 @@ def parse(json_path, output_path):
     return domains
 
 
-def generate_init(init_path, domains):
+def generate_init(init_path: Path, domains: typing.List[CdpDomain]) -> None:
     """
     Generate an ``__init__.py`` that exports the specified modules.
 
     :param Path init_path: a file path to create the init file in
-    :param list[tuple] modules: a list of modules each represented as tuples
+    :param list[tuple] domains: a list of modules each represented as tuples
         of (name, list_of_exported_symbols)
     """
     with init_path.open("w") as init_file:
@@ -936,7 +942,7 @@ def generate_init(init_path, domains):
         )
 
 
-def fix_protocol_spec(domains):
+def fix_protocol_spec(domains: typing.List[CdpDomain]) -> None:
     """Fixes following errors in the official CDP spec:
     1. DOM includes an erroneous $ref that refers to itself.
     2. Page includes an event with an extraneous backtick in the description.
@@ -952,7 +958,9 @@ def fix_protocol_spec(domains):
             for event in domain.events:
                 if event.name == "screencastVisibilityChanged":
                     # Patch 2
-                    event.description = event.description.replace("`", "")
+                    event.description = (
+                        event.description if event.description else ""
+                    ).replace("`", "")
                     break
         elif domain.domain == "Network":
             for _type in domain.types:
@@ -979,7 +987,7 @@ def format(output_path: Path) -> None:
     )
 
 
-def main():
+def main() -> None:
     """Generate CDP types and docs for ourselves"""
     json_paths = [
         REPO_ROOT / "browser_protocol.json",
@@ -1046,7 +1054,7 @@ def main():
         list(map(lambda x: x.unlink(), json_paths))
 
 
-def dl_file(filename, path=None):
+def dl_file(filename: str, path: Path | None = None) -> None:
     urllib.request.urlretrieve(
         f"https://raw.githubusercontent.com/ChromeDevTools/devtools-protocol/master/json/{filename}",
         filename=path or filename,

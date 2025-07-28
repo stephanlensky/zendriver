@@ -15,7 +15,7 @@ import urllib.parse
 import urllib.request
 import warnings
 from collections import defaultdict
-from typing import List, Tuple, Union
+from typing import List, Tuple, Union, Any
 
 import asyncio_atexit
 
@@ -79,7 +79,7 @@ class Browser:
         lang: str | None = None,
         host: str | None = None,
         port: int | None = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> Browser:
         """
         entry point for creating an instance
@@ -131,7 +131,7 @@ class Browser:
         # use to help manage the browser instance data (needed for multiple browsers)
         self.config = copy.deepcopy(config)
 
-        self.targets: List = []
+        self.targets: List[Connection] = []
         """current targets (all types)"""
         self.info: ContraDict | None = None
         self._target = None
@@ -142,11 +142,11 @@ class Browser:
         logger.debug("Session object initialized: %s" % vars(self))
 
     @property
-    def websocket_url(self):
+    def websocket_url(self) -> str:
         if not self.info:
             raise RuntimeError("Browser not yet started. use await browser.start()")
 
-        return self.info.webSocketDebuggerUrl
+        return self.info.webSocketDebuggerUrl  # type: ignore
 
     @property
     def main_tab(self) -> tab.Tab:
@@ -168,7 +168,7 @@ class Browser:
         return self._cookies
 
     @property
-    def stopped(self):
+    def stopped(self) -> bool:
         if self._process and self._process.returncode is None:
             return False
         return True
@@ -193,7 +193,7 @@ class Browser:
             cdp.target.TargetCreated,
             cdp.target.TargetCrashed,
         ],
-    ):
+    ) -> None:
         """this is an internal handler which updates the targets when chrome emits the corresponding event"""
 
         async with self._update_target_info_mutex:
@@ -250,7 +250,7 @@ class Browser:
                 self.targets.remove(current_tab)
 
     async def get(
-        self, url="about:blank", new_tab: bool = False, new_window: bool = False
+        self, url: str = "about:blank", new_tab: bool = False, new_window: bool = False
     ) -> tab.Tab:
         """top level get. utilizes the first tab to retrieve given url.
 
@@ -444,7 +444,7 @@ class Browser:
             logger.debug("Could not start", exc_info=True)
             return False
 
-    async def grant_all_permissions(self):
+    async def grant_all_permissions(self) -> None:
         """
         grant permissions for:
             accessibilityEvents
@@ -481,7 +481,9 @@ class Browser:
         permissions.remove(cdp.browser.PermissionType.CAPTURED_SURFACE_CONTROL)
         await self.connection.send(cdp.browser.grant_permissions(permissions))
 
-    async def tile_windows(self, windows=None, max_columns: int = 0):
+    async def tile_windows(
+        self, windows: List[tab.Tab] | None = None, max_columns: int = 0
+    ) -> List[List[int]]:
         import math
 
         import mss
@@ -494,7 +496,7 @@ class Browser:
             screen_height = screen["height"]
         if not screen or not screen_width or not screen_height:
             warnings.warn("no monitors detected")
-            return
+            return []
         await self.update_targets()
         distinct_windows = defaultdict(list)
 
@@ -545,7 +547,7 @@ class Browser:
         info = await self.connection.send(cdp.target.get_targets(), _is_update=True)
         return info
 
-    async def update_targets(self):
+    async def update_targets(self) -> None:
         targets: List[cdp.target.TargetInfo]
         targets = await self._get_targets()
         for t in targets:
@@ -569,21 +571,23 @@ class Browser:
 
         await asyncio.sleep(0)
 
-    async def __aenter__(self):
+    async def __aenter__(self) -> Browser:
         return self
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
+    async def __aexit__(
+        self, exc_type: type[BaseException] | None, exc_val: Any, exc_tb: Any
+    ) -> None:
         if exc_type and exc_val:
             raise exc_type(exc_val)
 
-    def __iter__(self):
+    def __iter__(self) -> Browser:
         self._i = self.tabs.index(self.main_tab)
         return self
 
-    def __reversed__(self):
-        return reversed(list(self.tabs))
+    def __reversed__(self) -> List[tab.Tab]:
+        return list(reversed(list(self.tabs)))
 
-    def __next__(self):
+    def __next__(self) -> tab.Tab:
         try:
             return self.tabs[self._i]
         except IndexError:
@@ -599,7 +603,7 @@ class Browser:
                 else:
                     del self._i
 
-    async def stop(self):
+    async def stop(self) -> None:
         if not self.connection and not self._process:
             return
 
@@ -656,7 +660,7 @@ class Browser:
                 await asyncio.sleep(0.15)
                 continue
 
-    def __del__(self):
+    def __del__(self) -> None:
         pass
 
 
@@ -693,7 +697,7 @@ class CookieJar:
             import requests.cookies
 
             return [
-                requests.cookies.create_cookie(
+                requests.cookies.create_cookie(  # type: ignore
                     name=c.name,
                     value=c.value,
                     domain=c.domain,
@@ -705,7 +709,7 @@ class CookieJar:
             ]
         return cookies
 
-    async def set_all(self, cookies: List[cdp.network.CookieParam]):
+    async def set_all(self, cookies: List[cdp.network.CookieParam]) -> None:
         """
         set cookies
 
@@ -727,7 +731,7 @@ class CookieJar:
 
         await connection.send(cdp.storage.set_cookies(cookies))
 
-    async def save(self, file: PathLike = ".session.dat", pattern: str = ".*"):
+    async def save(self, file: PathLike = ".session.dat", pattern: str = ".*") -> None:
         """
         save all cookies (or a subset, controlled by `pattern`) to a file to be restored later
 
@@ -781,7 +785,7 @@ class CookieJar:
                 break
         pickle.dump(cookies, save_path.open("w+b"))
 
-    async def load(self, file: PathLike = ".session.dat", pattern: str = ".*"):
+    async def load(self, file: PathLike = ".session.dat", pattern: str = ".*") -> None:
         """
         load all cookies (or a subset, controlled by `pattern`) from a file created by :py:meth:`~save_cookies`.
 
@@ -817,7 +821,7 @@ class CookieJar:
                 break
         await self.set_all(included_cookies)
 
-    async def clear(self):
+    async def clear(self) -> None:
         """
         clear current cookies
 
@@ -845,13 +849,15 @@ class HTTPApi:
         self.host, self.port = addr
         self.api = "http://%s:%d" % (self.host, self.port)
 
-    async def get(self, endpoint: str):
+    async def get(self, endpoint: str) -> Any:
         return await self._request(endpoint)
 
-    async def post(self, endpoint, data):
-        return await self._request(endpoint, data)
+    async def post(self, endpoint: str, data: dict[str, str]) -> Any:
+        return await self._request(endpoint, method="post", data=data)
 
-    async def _request(self, endpoint, method: str = "get", data: dict | None = None):
+    async def _request(
+        self, endpoint: str, method: str = "get", data: dict[str, str] | None = None
+    ) -> Any:
         url = urllib.parse.urljoin(
             self.api, f"json/{endpoint}" if endpoint else "/json"
         )

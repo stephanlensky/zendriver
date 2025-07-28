@@ -3,7 +3,7 @@ import asyncio
 import zendriver as zd
 
 
-async def main():
+async def main() -> None:
     browser = await zd.start()
     tab = browser.main_tab
     await tab.set_user_agent("My user agent", accept_language="de", platform="Win32")

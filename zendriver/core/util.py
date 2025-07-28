@@ -5,6 +5,7 @@ import logging
 import subprocess
 import types
 import typing
+from asyncio import AbstractEventLoop
 from pathlib import Path
 from typing import Any, Callable, List, Optional, Set, Union
 
@@ -129,7 +130,7 @@ async def create_from_undetected_chromedriver(
     return browser
 
 
-def get_registered_instances():
+def get_registered_instances() -> Set[Browser]:
     return __registered__instances__
 
 
@@ -275,7 +276,7 @@ async def html_from_tree(tree: Union[cdp.dom.Node, Element], target: zendriver.T
 
 
 def compare_target_info(
-    info1: cdp.target.TargetInfo, info2: cdp.target.TargetInfo
+    info1: cdp.target.TargetInfo | None, info2: cdp.target.TargetInfo
 ) -> List[typing.Tuple[str, typing.Any, typing.Any]]:
     """
     when logging mode is set to debug, browser object will log when target info
@@ -290,7 +291,7 @@ def compare_target_info(
     :return:
     :rtype:
     """
-    d1 = info1.__dict__
+    d1 = info1.__dict__ if info1 else {}
     d2 = info2.__dict__
     return [(k, v, d2[k]) for (k, v) in d1.items() if d2[k] != v]
 
@@ -298,7 +299,7 @@ def compare_target_info(
 @deprecated(
     version="0.5.1", reason="Use asyncio functions directly instead, e.g. asyncio.run"
 )
-def loop():
+def loop() -> AbstractEventLoop:
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     return loop

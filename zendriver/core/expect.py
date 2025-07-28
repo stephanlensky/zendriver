@@ -1,6 +1,6 @@
 import asyncio
 import re
-from typing import Union
+from typing import Union, Any
 
 from .. import cdp
 from .connection import Connection
@@ -32,7 +32,7 @@ class BaseRequestExpectation:
         )
         self.request_id: Union[cdp.network.RequestId, None] = None
 
-    async def _request_handler(self, event: cdp.network.RequestWillBeSent):
+    async def _request_handler(self, event: cdp.network.RequestWillBeSent) -> None:
         """
         Internal handler for request events.
         :param event: The request event.
@@ -43,7 +43,7 @@ class BaseRequestExpectation:
             self.request_id = event.request_id
             self.request_future.set_result(event)
 
-    async def _response_handler(self, event: cdp.network.ResponseReceived):
+    async def _response_handler(self, event: cdp.network.ResponseReceived) -> None:
         """
         Internal handler for response events.
         :param event: The response event.
@@ -53,7 +53,9 @@ class BaseRequestExpectation:
             self._remove_response_handler()
             self.response_future.set_result(event)
 
-    async def _loading_finished_handler(self, event: cdp.network.LoadingFinished):
+    async def _loading_finished_handler(
+        self, event: cdp.network.LoadingFinished
+    ) -> None:
         """
         Internal handler for loading finished events.
         :param event: The loading finished event.
@@ -63,19 +65,19 @@ class BaseRequestExpectation:
             self._remove_loading_finished_handler()
             self.loading_finished_future.set_result(event)
 
-    def _remove_request_handler(self):
+    def _remove_request_handler(self) -> None:
         """
         Remove the request event handler.
         """
         self.tab.remove_handlers(cdp.network.RequestWillBeSent, self._request_handler)
 
-    def _remove_response_handler(self):
+    def _remove_response_handler(self) -> None:
         """
         Remove the response event handler.
         """
         self.tab.remove_handlers(cdp.network.ResponseReceived, self._response_handler)
 
-    def _remove_loading_finished_handler(self):
+    def _remove_loading_finished_handler(self) -> None:
         """
         Remove the loading finished event handler.
         """
@@ -94,7 +96,7 @@ class BaseRequestExpectation:
         )
         return self
 
-    async def __aexit__(self, *args):
+    async def __aexit__(self, *args: Any) -> None:
         """
         Exit the context manager, removing request and response handlers.
         """
@@ -103,7 +105,7 @@ class BaseRequestExpectation:
         self._remove_loading_finished_handler()
 
     @property
-    async def request(self):
+    async def request(self) -> cdp.network.Request:
         """
         Get the matched request.
         :return: The matched request.
@@ -112,7 +114,7 @@ class BaseRequestExpectation:
         return (await self.request_future).request
 
     @property
-    async def response(self):
+    async def response(self) -> cdp.network.Response:
         """
         Get the matched response.
         :return: The matched response.
@@ -121,7 +123,7 @@ class BaseRequestExpectation:
         return (await self.response_future).response
 
     @property
-    async def response_body(self):
+    async def response_body(self) -> tuple[str, bool]:
         """
         Get the body of the matched response.
         :return: The response body.
@@ -184,14 +186,14 @@ class DownloadExpectation:
             self.tab._download_behavior[0] if self.tab._download_behavior else "default"
         )
 
-    async def _handler(self, event: cdp.browser.DownloadWillBegin):
+    async def _handler(self, event: cdp.browser.DownloadWillBegin) -> None:
         self._remove_handler()
         self.future.set_result(event)
 
-    def _remove_handler(self):
+    def _remove_handler(self) -> None:
         self.tab.remove_handlers(cdp.browser.DownloadWillBegin, self._handler)
 
-    async def __aenter__(self):
+    async def __aenter__(self) -> "DownloadExpectation":
         """
         Enter the context manager, adding download handler, set download behavior to deny.
         """
@@ -201,7 +203,7 @@ class DownloadExpectation:
         self.tab.add_handler(cdp.browser.DownloadWillBegin, self._handler)
         return self
 
-    async def __aexit__(self, *args):
+    async def __aexit__(self, *args) -> None:
         """
         Exit the context manager, removing handler, set download behavior to default.
         """

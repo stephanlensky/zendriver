@@ -8,7 +8,7 @@ except (ModuleNotFoundError, ImportError):
     from zendriver import cdp, loop, start
 
 
-async def main():
+async def main() -> None:
     browser = await start()
 
     tab = browser.main_tab
@@ -49,11 +49,11 @@ async def main():
     await tab.sleep(10)
 
 
-async def receive_handler(event: cdp.network.ResponseReceived):
+async def receive_handler(event: cdp.network.ResponseReceived) -> None:
     print(event.response)
 
 
-async def send_handler(event: cdp.network.RequestWillBeSent):
+async def send_handler(event: cdp.network.RequestWillBeSent) -> None:
     r = event.request
     s = f"{r.method} {r.url}"
     for k, v in r.headers.items():
